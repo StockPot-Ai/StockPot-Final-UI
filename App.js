@@ -11,6 +11,7 @@ import {
   StatusBar,
   Platform,
   BackHandler,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import Colors from './src/constants/colors';
@@ -18,8 +19,9 @@ import BottomNav from './src/components/BottomNav';
 import AccountScreen from './src/screens/AccountScreen';
 import IngredientScreen from './src/screens/IngredientScreen';
 import MealPlanScreen from './src/screens/MealPlanScreen';
+import LoginScreen from './src/screens/LoginScreen';
 import recipes from './src/data/recipes';
-import { AccountProvider } from './src/context/AccountContext';
+import { AccountProvider, useAccount } from './src/context/AccountContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -241,6 +243,15 @@ const WeeklyChallenges = () => (
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function App() {
+  return (
+    <AccountProvider>
+      <AppContent />
+    </AccountProvider>
+  );
+}
+
+function AppContent() {
+  const { isLoggedIn } = useAccount();
   const [activeTab, setActiveTab] = React.useState('Breakfast');
   const [currentScreen, setCurrentScreen] = React.useState('home');
   const [selectedRecipe, setSelectedRecipe] = React.useState(null);
@@ -255,6 +266,13 @@ export default function App() {
       setSelectedRecipe(recipes[title]);
       setCurrentScreen('ingredient');
     }
+  }, []);
+
+  const handleSignUp = React.useCallback(() => {
+    Alert.alert(
+      'Create Account',
+      'Sign up is not available yet. Please check back soon.'
+    );
   }, []);
 
   const handleNavChange = React.useCallback(
@@ -287,8 +305,12 @@ export default function App() {
     return 'Home';
   };
 
+  if (!isLoggedIn) {
+    return <LoginScreen onSignUp={handleSignUp} />;
+  }
+
   return (
-    <AccountProvider>
+    <>
       {currentScreen === 'account' ? (
         <AccountScreen onBack={goHome} onNavigateHome={goHome} />
       ) : currentScreen === 'ingredient' && selectedRecipe ? (
@@ -315,7 +337,7 @@ export default function App() {
           <BottomNav activeNav={renderActiveNav()} onNavChange={handleNavChange} />
         </SafeAreaView>
       )}
-    </AccountProvider>
+    </>
   );
 }
 

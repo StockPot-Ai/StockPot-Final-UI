@@ -59,7 +59,7 @@ export const AccountProvider = ({ children }) => {
   const [language, setLanguage] = useState('English');
 
   // ── Auth State
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // ── Actions
   const updateProfile = (fields) => {
