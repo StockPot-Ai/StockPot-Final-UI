@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,13 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import Colors from './src/constants/colors';
+import BottomNav from './src/components/BottomNav';
+import AccountScreen from './src/screens/AccountScreen';
+import { AccountProvider } from './src/context/AccountContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -217,67 +221,59 @@ const WeeklyChallenges = () => (
   </View>
 );
 
-const BottomNav = ({ activeNav, onNavChange }) => {
-  const navItems = [
-    { id: 'Home', icon: 'home', label: 'Home', lib: 'Ionicons' },
-    { id: 'MealPlan', icon: 'calendar-outline', label: 'Meal Plan', lib: 'Ionicons' },
-    { id: 'Shopping', icon: 'cart-outline', label: 'Shopping', lib: 'Ionicons' },
-    { id: 'Profile', icon: 'person-outline', label: 'Profile', lib: 'Ionicons' },
-  ];
-
-  return (
-    <View style={styles.bottomNav}>
-      {navItems.map((item) => {
-        const isActive = item.id === activeNav;
-        return (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.navItem}
-            onPress={() => onNavChange(item.id)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.navIconWrap, isActive && styles.navIconWrapActive]}>
-              <Ionicons
-                name={item.icon}
-                size={22}
-                color={isActive ? Colors.primary : Colors.tabInactive}
-              />
-            </View>
-            <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-};
-
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function App() {
   const [activeTab, setActiveTab] = React.useState('Breakfast');
-  const [activeNav, setActiveNav] = React.useState('Home');
+  const [currentScreen, setCurrentScreen] = React.useState('home');
+
+  const goHome = React.useCallback(() => setCurrentScreen('home'), []);
+
+  const handleNavChange = React.useCallback(
+    (id) => {
+      if (id === 'Profile') {
+        setCurrentScreen('account');
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (currentScreen === 'account') {
+        goHome();
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [currentScreen, goHome]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <Header />
-        <MilestoneBanner />
-        <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
-        <FarmFreshBanner />
-        <PopularDishes />
-        <WeeklyChallenges />
-        {/* Bottom spacing so content isn't hidden behind nav bar */}
-        <View style={{ height: 20 }} />
-      </ScrollView>
-      <BottomNav activeNav={activeNav} onNavChange={setActiveNav} />
-    </SafeAreaView>
+    <AccountProvider>
+      {currentScreen === 'account' ? (
+        <AccountScreen onBack={goHome} onNavigateHome={goHome} />
+      ) : (
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            <Header />
+            <MilestoneBanner />
+            <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
+            <FarmFreshBanner />
+            <PopularDishes />
+            <WeeklyChallenges />
+            {/* Bottom spacing so content isn't hidden behind nav bar */}
+            <View style={{ height: 20 }} />
+          </ScrollView>
+          <BottomNav activeNav="Home" onNavChange={handleNavChange} />
+        </SafeAreaView>
+      )}
+    </AccountProvider>
   );
 }
 
@@ -671,46 +667,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: Colors.rewardGold,
-  },
-
-  // ── Bottom Navigation
-  bottomNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    backgroundColor: Colors.tabBackground,
-    paddingVertical: 8,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    shadowColor: 'rgba(0,0,0,0.06)',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 3,
-  },
-  navIconWrap: {
-    width: 44,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navIconWrapActive: {
-    backgroundColor: Colors.milestoneCard,
-  },
-  navLabel: {
-    fontSize: 11,
-    color: Colors.tabInactive,
-    fontWeight: '500',
-  },
-  navLabelActive: {
-    color: Colors.tabActive,
-    fontWeight: '600',
   },
 });
