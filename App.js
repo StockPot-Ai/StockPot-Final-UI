@@ -16,6 +16,8 @@ import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/v
 import Colors from './src/constants/colors';
 import BottomNav from './src/components/BottomNav';
 import AccountScreen from './src/screens/AccountScreen';
+import IngredientScreen from './src/screens/IngredientScreen';
+import recipes from './src/data/recipes';
 import { AccountProvider } from './src/context/AccountContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -126,7 +128,7 @@ const MatchBadge = () => (
   </View>
 );
 
-const PopularDishes = () => (
+const PopularDishes = ({ onSelectDish }) => (
   <View style={styles.section}>
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>Popular Dishes</Text>
@@ -136,7 +138,11 @@ const PopularDishes = () => (
     </View>
 
     {/* Featured large dish card */}
-    <View style={styles.featuredCard}>
+    <TouchableOpacity
+      style={styles.featuredCard}
+      activeOpacity={0.9}
+      onPress={() => onSelectDish && onSelectDish('Roasted Pumpkin Soup')}
+    >
       <Image
         source={require('./assets/pumpkin_soup.jpg')}
         style={styles.featuredImage}
@@ -150,11 +156,15 @@ const PopularDishes = () => (
             <Text style={styles.metaText}>25m</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.plusBtn}
+          activeOpacity={0.8}
+          onPress={() => onSelectDish && onSelectDish('Roasted Pumpkin Soup')}
+        >
           <Ionicons name="add" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
 
     {/* Two small dish cards */}
     <View style={styles.smallCardsRow}>
@@ -162,27 +172,33 @@ const PopularDishes = () => (
         image={require('./assets/avocado_sourdough.jpg')}
         title="Avocado Sourdough"
         price="Rs  450"
+        onPress={() => onSelectDish && onSelectDish('Avocado Sourdough')}
       />
       <SmallDishCard
         image={require('./assets/quinoa_bowl.jpg')}
         title="Quinoa Super Bowl"
         price="Rs  780"
+        onPress={() => onSelectDish && onSelectDish('Quinoa Super Bowl')}
       />
     </View>
   </View>
 );
 
-const SmallDishCard = ({ image, title, price }) => (
-  <View style={styles.smallCard}>
+const SmallDishCard = ({ image, title, price, onPress }) => (
+  <TouchableOpacity style={styles.smallCard} activeOpacity={0.85} onPress={onPress}>
     <Image source={image} style={styles.smallImage} />
     <Text style={styles.smallTitle} numberOfLines={2}>{title}</Text>
     <View style={styles.smallCardFooter}>
       <Text style={styles.smallPrice}>{price}</Text>
-      <TouchableOpacity style={styles.smallPlusBtn} activeOpacity={0.8}>
+      <TouchableOpacity
+        style={styles.smallPlusBtn}
+        activeOpacity={0.8}
+        onPress={onPress}
+      >
         <Ionicons name="add" size={18} color={Colors.primary} />
       </TouchableOpacity>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 const WeeklyChallenges = () => (
@@ -226,8 +242,19 @@ const WeeklyChallenges = () => (
 export default function App() {
   const [activeTab, setActiveTab] = React.useState('Breakfast');
   const [currentScreen, setCurrentScreen] = React.useState('home');
+  const [selectedRecipe, setSelectedRecipe] = React.useState(null);
 
-  const goHome = React.useCallback(() => setCurrentScreen('home'), []);
+  const goHome = React.useCallback(() => {
+    setCurrentScreen('home');
+    setSelectedRecipe(null);
+  }, []);
+
+  const openRecipe = React.useCallback((title) => {
+    if (recipes[title]) {
+      setSelectedRecipe(recipes[title]);
+      setCurrentScreen('ingredient');
+    }
+  }, []);
 
   const handleNavChange = React.useCallback(
     (id) => {
@@ -240,7 +267,7 @@ export default function App() {
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (currentScreen === 'account') {
+      if (currentScreen === 'account' || currentScreen === 'ingredient') {
         goHome();
         return true;
       }
@@ -253,6 +280,8 @@ export default function App() {
     <AccountProvider>
       {currentScreen === 'account' ? (
         <AccountScreen onBack={goHome} onNavigateHome={goHome} />
+      ) : currentScreen === 'ingredient' && selectedRecipe ? (
+        <IngredientScreen recipe={selectedRecipe} onBack={goHome} />
       ) : (
         <SafeAreaView style={styles.safeArea}>
           <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
@@ -265,7 +294,7 @@ export default function App() {
             <MilestoneBanner />
             <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
             <FarmFreshBanner />
-            <PopularDishes />
+            <PopularDishes onSelectDish={openRecipe} />
             <WeeklyChallenges />
             {/* Bottom spacing so content isn't hidden behind nav bar */}
             <View style={{ height: 20 }} />

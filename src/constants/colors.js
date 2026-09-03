@@ -81,6 +81,11 @@ const Colors = {
   statRustIcon: '#FFFFFF',
   statAmberBg: '#8D6816',
   statAmberIcon: '#FFFFFF',
+
+  // Ingredient / Recipe Details Page Palette
+  warmCard: '#FFF8F5',
+  warmBorder: '#FEEFE7',
+  starGold: '#F59E0B',
 };
 
 export default Colors;
