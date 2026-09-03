@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import Colors from './src/constants/colors';
+import IngredientScreen from './src/screens/IngredientScreen';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -122,35 +123,43 @@ const MatchBadge = () => (
   </View>
 );
 
-const PopularDishes = () => (
+const PopularDishes = ({ onSelectDish }) => (
   <View style={styles.section}>
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>Popular Dishes</Text>
-      <TouchableOpacity activeOpacity={0.7}>
+      <TouchableOpacity activeOpacity={0.7} onPress={() => onSelectDish && onSelectDish('Creamy Pumpkin Pasta')}>
         <Text style={styles.viewAll}>View All</Text>
       </TouchableOpacity>
     </View>
 
     {/* Featured large dish card */}
-    <View style={styles.featuredCard}>
+    <TouchableOpacity
+      style={styles.featuredCard}
+      activeOpacity={0.9}
+      onPress={() => onSelectDish && onSelectDish('Creamy Pumpkin Pasta')}
+    >
       <Image
-        source={require('./assets/pumpkin_soup.jpg')}
+        source={require('./assets/creamy_pumpkin_pasta.jpg')}
         style={styles.featuredImage}
       />
       <MatchBadge />
       <View style={styles.featuredInfo}>
         <View style={styles.featuredInfoLeft}>
-          <Text style={styles.featuredTitle}>Roasted Pumpkin Soup</Text>
+          <Text style={styles.featuredTitle}>Creamy Pumpkin Pasta</Text>
           <View style={styles.metaRow}>
             <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
-            <Text style={styles.metaText}>25m</Text>
+            <Text style={styles.metaText}>20m</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.plusBtn}
+          activeOpacity={0.8}
+          onPress={() => onSelectDish && onSelectDish('Creamy Pumpkin Pasta')}
+        >
           <Ionicons name="add" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
 
     {/* Two small dish cards */}
     <View style={styles.smallCardsRow}>
@@ -158,27 +167,37 @@ const PopularDishes = () => (
         image={require('./assets/avocado_sourdough.jpg')}
         title="Avocado Sourdough"
         price="Rs  450"
+        onPress={() => onSelectDish && onSelectDish('Avocado Sourdough')}
       />
       <SmallDishCard
         image={require('./assets/quinoa_bowl.jpg')}
         title="Quinoa Super Bowl"
         price="Rs  780"
+        onPress={() => onSelectDish && onSelectDish('Quinoa Super Bowl')}
       />
     </View>
   </View>
 );
 
-const SmallDishCard = ({ image, title, price }) => (
-  <View style={styles.smallCard}>
+const SmallDishCard = ({ image, title, price, onPress }) => (
+  <TouchableOpacity
+    style={styles.smallCard}
+    activeOpacity={0.85}
+    onPress={onPress}
+  >
     <Image source={image} style={styles.smallImage} />
     <Text style={styles.smallTitle} numberOfLines={2}>{title}</Text>
     <View style={styles.smallCardFooter}>
       <Text style={styles.smallPrice}>{price}</Text>
-      <TouchableOpacity style={styles.smallPlusBtn} activeOpacity={0.8}>
+      <TouchableOpacity
+        style={styles.smallPlusBtn}
+        activeOpacity={0.8}
+        onPress={onPress}
+      >
         <Ionicons name="add" size={18} color={Colors.primary} />
       </TouchableOpacity>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 const WeeklyChallenges = () => (
@@ -258,6 +277,21 @@ const BottomNav = ({ activeNav, onNavChange }) => {
 export default function App() {
   const [activeTab, setActiveTab] = React.useState('Breakfast');
   const [activeNav, setActiveNav] = React.useState('Home');
+  const [currentScreen, setCurrentScreen] = React.useState('Ingredient');
+
+  if (currentScreen === 'Ingredient') {
+    return (
+      <View style={styles.safeArea}>
+        <IngredientScreen
+          onBack={() => setCurrentScreen('Home')}
+          onAddToMealPlan={() => {
+            setCurrentScreen('Home');
+            setActiveNav('MealPlan');
+          }}
+        />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -271,12 +305,18 @@ export default function App() {
         <MilestoneBanner />
         <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
         <FarmFreshBanner />
-        <PopularDishes />
+        <PopularDishes onSelectDish={() => setCurrentScreen('Ingredient')} />
         <WeeklyChallenges />
         {/* Bottom spacing so content isn't hidden behind nav bar */}
         <View style={{ height: 20 }} />
       </ScrollView>
-      <BottomNav activeNav={activeNav} onNavChange={setActiveNav} />
+      <BottomNav
+        activeNav={activeNav}
+        onNavChange={(nav) => {
+          setActiveNav(nav);
+          if (nav === 'Home') setCurrentScreen('Home');
+        }}
+      />
     </SafeAreaView>
   );
 }

@@ -57,6 +57,13 @@ const Colors = {
 
   // Progress dots / reward
   rewardBg: '#FFF8E1',
+
+  // Ingredient Page Palette
+  terracotta: '#7C2D12',
+  terracottaDark: '#66220B',
+  warmCard: '#FFF8F5',
+  warmBorder: '#FEE8DC',
+  starGold: '#F59E0B',
 };
 
 export default Colors;
