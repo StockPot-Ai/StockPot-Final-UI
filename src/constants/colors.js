@@ -57,6 +57,41 @@ const Colors = {
 
   // Progress dots / reward
   rewardBg: '#FFF8E1',
+
+  // Account / Profile Page Palette
+  accountBg: '#FAF7F2',
+  terracotta: '#8D3B2D',
+  terracottaDark: '#782F23',
+  forestGreen: '#1E5E3A',
+  forestGreenLight: '#2D7A4D',
+  accountTextPrimary: '#1C1917',
+  accountTextSecondary: '#78716C',
+  accountSectionHeader: '#4A3F35',
+  accountBorder: '#EDE5DC',
+  accountCardBg: '#FFFFFF',
+  progressTrack: '#EADBCE',
+  progressFill: '#1E5E3A',
+
+  // Stat Card Colors
+  statMintBg: '#DCFCE7',
+  statMintIcon: '#16A34A',
+  statPinkBg: '#FEE2E2',
+  statPinkIcon: '#EF4444',
+  statRustBg: '#8D3B2D',
+  statRustIcon: '#FFFFFF',
+  statAmberBg: '#8D6816',
+  statAmberIcon: '#FFFFFF',
+
+  // Ingredient / Recipe Details Page Palette
+  warmCard: '#FFF8F5',
+  warmBorder: '#FEEFE7',
+  starGold: '#F59E0B',
+
+  // Meal Plan Page Palette
+  terracottaDeep: '#6E240D',
+  budgetTrack: '#EFE6DE',
+  matchGreen: '#059669',
+  matchGreenBg: '#D1FAE5',
 };
 
 export default Colors;

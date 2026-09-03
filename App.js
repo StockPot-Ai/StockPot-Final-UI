@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,16 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import Colors from './src/constants/colors';
+import BottomNav from './src/components/BottomNav';
+import AccountScreen from './src/screens/AccountScreen';
+import IngredientScreen from './src/screens/IngredientScreen';
+import MealPlanScreen from './src/screens/MealPlanScreen';
+import recipes from './src/data/recipes';
+import { AccountProvider } from './src/context/AccountContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -122,7 +129,7 @@ const MatchBadge = () => (
   </View>
 );
 
-const PopularDishes = () => (
+const PopularDishes = ({ onSelectDish }) => (
   <View style={styles.section}>
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>Popular Dishes</Text>
@@ -132,7 +139,11 @@ const PopularDishes = () => (
     </View>
 
     {/* Featured large dish card */}
-    <View style={styles.featuredCard}>
+    <TouchableOpacity
+      style={styles.featuredCard}
+      activeOpacity={0.9}
+      onPress={() => onSelectDish && onSelectDish('Roasted Pumpkin Soup')}
+    >
       <Image
         source={require('./assets/pumpkin_soup.jpg')}
         style={styles.featuredImage}
@@ -146,11 +157,15 @@ const PopularDishes = () => (
             <Text style={styles.metaText}>25m</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.plusBtn}
+          activeOpacity={0.8}
+          onPress={() => onSelectDish && onSelectDish('Roasted Pumpkin Soup')}
+        >
           <Ionicons name="add" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
 
     {/* Two small dish cards */}
     <View style={styles.smallCardsRow}>
@@ -158,27 +173,33 @@ const PopularDishes = () => (
         image={require('./assets/avocado_sourdough.jpg')}
         title="Avocado Sourdough"
         price="Rs  450"
+        onPress={() => onSelectDish && onSelectDish('Avocado Sourdough')}
       />
       <SmallDishCard
         image={require('./assets/quinoa_bowl.jpg')}
         title="Quinoa Super Bowl"
         price="Rs  780"
+        onPress={() => onSelectDish && onSelectDish('Quinoa Super Bowl')}
       />
     </View>
   </View>
 );
 
-const SmallDishCard = ({ image, title, price }) => (
-  <View style={styles.smallCard}>
+const SmallDishCard = ({ image, title, price, onPress }) => (
+  <TouchableOpacity style={styles.smallCard} activeOpacity={0.85} onPress={onPress}>
     <Image source={image} style={styles.smallImage} />
     <Text style={styles.smallTitle} numberOfLines={2}>{title}</Text>
     <View style={styles.smallCardFooter}>
       <Text style={styles.smallPrice}>{price}</Text>
-      <TouchableOpacity style={styles.smallPlusBtn} activeOpacity={0.8}>
+      <TouchableOpacity
+        style={styles.smallPlusBtn}
+        activeOpacity={0.8}
+        onPress={onPress}
+      >
         <Ionicons name="add" size={18} color={Colors.primary} />
       </TouchableOpacity>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 const WeeklyChallenges = () => (
@@ -217,67 +238,84 @@ const WeeklyChallenges = () => (
   </View>
 );
 
-const BottomNav = ({ activeNav, onNavChange }) => {
-  const navItems = [
-    { id: 'Home', icon: 'home', label: 'Home', lib: 'Ionicons' },
-    { id: 'MealPlan', icon: 'calendar-outline', label: 'Meal Plan', lib: 'Ionicons' },
-    { id: 'Shopping', icon: 'cart-outline', label: 'Shopping', lib: 'Ionicons' },
-    { id: 'Profile', icon: 'person-outline', label: 'Profile', lib: 'Ionicons' },
-  ];
-
-  return (
-    <View style={styles.bottomNav}>
-      {navItems.map((item) => {
-        const isActive = item.id === activeNav;
-        return (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.navItem}
-            onPress={() => onNavChange(item.id)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.navIconWrap, isActive && styles.navIconWrapActive]}>
-              <Ionicons
-                name={item.icon}
-                size={22}
-                color={isActive ? Colors.primary : Colors.tabInactive}
-              />
-            </View>
-            <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-};
-
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function App() {
   const [activeTab, setActiveTab] = React.useState('Breakfast');
-  const [activeNav, setActiveNav] = React.useState('Home');
+  const [currentScreen, setCurrentScreen] = React.useState('home');
+  const [selectedRecipe, setSelectedRecipe] = React.useState(null);
+
+  const goHome = React.useCallback(() => {
+    setCurrentScreen('home');
+    setSelectedRecipe(null);
+  }, []);
+
+  const openRecipe = React.useCallback((title) => {
+    if (recipes[title]) {
+      setSelectedRecipe(recipes[title]);
+      setCurrentScreen('ingredient');
+    }
+  }, []);
+
+  const handleNavChange = React.useCallback(
+    (id) => {
+      if (id === 'Profile') {
+        setCurrentScreen('account');
+      } else if (id === 'MealPlan') {
+        setCurrentScreen('mealplan');
+      } else if (id === 'Home') {
+        goHome();
+      }
+    },
+    [goHome]
+  );
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (currentScreen === 'account' || currentScreen === 'ingredient' || currentScreen === 'mealplan') {
+        goHome();
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [currentScreen, goHome]);
+
+  const renderActiveNav = () => {
+    if (currentScreen === 'account') return 'Profile';
+    if (currentScreen === 'mealplan') return 'MealPlan';
+    return 'Home';
+  };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <Header />
-        <MilestoneBanner />
-        <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
-        <FarmFreshBanner />
-        <PopularDishes />
-        <WeeklyChallenges />
-        {/* Bottom spacing so content isn't hidden behind nav bar */}
-        <View style={{ height: 20 }} />
-      </ScrollView>
-      <BottomNav activeNav={activeNav} onNavChange={setActiveNav} />
-    </SafeAreaView>
+    <AccountProvider>
+      {currentScreen === 'account' ? (
+        <AccountScreen onBack={goHome} onNavigateHome={goHome} />
+      ) : currentScreen === 'ingredient' && selectedRecipe ? (
+        <IngredientScreen recipe={selectedRecipe} onBack={goHome} />
+      ) : currentScreen === 'mealplan' ? (
+        <MealPlanScreen onNavigateHome={goHome} />
+      ) : (
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            <Header />
+            <MilestoneBanner />
+            <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
+            <FarmFreshBanner />
+            <PopularDishes onSelectDish={openRecipe} />
+            <WeeklyChallenges />
+            {/* Bottom spacing so content isn't hidden behind nav bar */}
+            <View style={{ height: 20 }} />
+          </ScrollView>
+          <BottomNav activeNav={renderActiveNav()} onNavChange={handleNavChange} />
+        </SafeAreaView>
+      )}
+    </AccountProvider>
   );
 }
 
@@ -671,46 +709,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: Colors.rewardGold,
-  },
-
-  // ── Bottom Navigation
-  bottomNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    backgroundColor: Colors.tabBackground,
-    paddingVertical: 8,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    shadowColor: 'rgba(0,0,0,0.06)',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 3,
-  },
-  navIconWrap: {
-    width: 44,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navIconWrapActive: {
-    backgroundColor: Colors.milestoneCard,
-  },
-  navLabel: {
-    fontSize: 11,
-    color: Colors.tabInactive,
-    fontWeight: '500',
-  },
-  navLabelActive: {
-    color: Colors.tabActive,
-    fontWeight: '600',
   },
 });
