@@ -58,12 +58,17 @@ const Colors = {
   // Progress dots / reward
   rewardBg: '#FFF8E1',
 
-  // Ingredient Page Palette
+  // Ingredient & Meal Plan Palette
   terracotta: '#7C2D12',
   terracottaDark: '#66220B',
+  terracottaDeep: '#6E240D',
   warmCard: '#FFF8F5',
   warmBorder: '#FEE8DC',
   starGold: '#F59E0B',
+  budgetTrack: '#EFE6DE',
+  matchGreen: '#059669',
+  matchGreenBg: '#D1FAE5',
+  activeTabGreenBg: '#C2EBD0',
 };
 
 export default Colors;

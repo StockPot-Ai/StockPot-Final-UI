@@ -113,8 +113,11 @@ const INITIAL_INGREDIENTS = [
   },
 ];
 
-export default function IngredientScreen({ onBack, onAddToMealPlan }) {
-  const [servings, setServings] = useState(2);
+export default function IngredientScreen({ recipe, onBack, onAddToMealPlan }) {
+  const recipeTitle = recipe?.title || 'Creamy Pumpkin Pasta';
+  const recipeImage = recipe?.image || require('../../assets/creamy_pumpkin_pasta.jpg');
+
+  const [servings, setServings] = useState(recipe?.servings || 2);
   const [isFavorite, setIsFavorite] = useState(true);
   const [selectedIds, setSelectedIds] = useState(
     INITIAL_INGREDIENTS.map((item) => item.id)
@@ -179,11 +182,11 @@ export default function IngredientScreen({ onBack, onAddToMealPlan }) {
       >
         {/* Top Hero Image Header with Navigation Buttons and Recipe Meta */}
         <IngredientHeader
-          title="Creamy Pumpkin Pasta"
+          title={recipeTitle}
           rating="4.5"
           time="20 min"
           calories="450 kcal"
-          image={require('../../assets/creamy_pumpkin_pasta.jpg')}
+          image={recipeImage}
           onBack={onBack}
           onFavorite={() => setIsFavorite(!isFavorite)}
           isFavorite={isFavorite}

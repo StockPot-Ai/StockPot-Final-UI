@@ -14,6 +14,7 @@ import {
 import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import Colors from './src/constants/colors';
 import IngredientScreen from './src/screens/IngredientScreen';
+import MealPlanScreen from './src/screens/MealPlanScreen';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -238,10 +239,10 @@ const WeeklyChallenges = () => (
 
 const BottomNav = ({ activeNav, onNavChange }) => {
   const navItems = [
-    { id: 'Home', icon: 'home', label: 'Home', lib: 'Ionicons' },
-    { id: 'MealPlan', icon: 'calendar-outline', label: 'Meal Plan', lib: 'Ionicons' },
-    { id: 'Shopping', icon: 'cart-outline', label: 'Shopping', lib: 'Ionicons' },
-    { id: 'Profile', icon: 'person-outline', label: 'Profile', lib: 'Ionicons' },
+    { id: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'Home' },
+    { id: 'MealPlan', icon: 'calendar-outline', activeIcon: 'calendar-outline', label: 'Meal Plan' },
+    { id: 'Shopping', icon: 'cart-outline', activeIcon: 'cart', label: 'Shopping' },
+    { id: 'Profile', icon: 'person-outline', activeIcon: 'person', label: 'Profile' },
   ];
 
   return (
@@ -255,16 +256,16 @@ const BottomNav = ({ activeNav, onNavChange }) => {
             onPress={() => onNavChange(item.id)}
             activeOpacity={0.7}
           >
-            <View style={[styles.navIconWrap, isActive && styles.navIconWrapActive]}>
+            <View style={[styles.navPill, isActive && styles.navPillActive]}>
               <Ionicons
-                name={item.icon}
+                name={isActive ? item.activeIcon : item.icon}
                 size={22}
-                color={isActive ? Colors.primary : Colors.tabInactive}
+                color={isActive ? Colors.primaryDark : '#4B5563'}
               />
+              <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
+                {item.label}
+              </Text>
             </View>
-            <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
-              {item.label}
-            </Text>
           </TouchableOpacity>
         );
       })}
@@ -276,17 +277,21 @@ const BottomNav = ({ activeNav, onNavChange }) => {
 
 export default function App() {
   const [activeTab, setActiveTab] = React.useState('Breakfast');
-  const [activeNav, setActiveNav] = React.useState('Home');
-  const [currentScreen, setCurrentScreen] = React.useState('Ingredient');
+  const [activeNav, setActiveNav] = React.useState('MealPlan');
+  const [currentScreen, setCurrentScreen] = React.useState('MealPlan');
+  const [selectedMeal, setSelectedMeal] = React.useState(null);
 
   if (currentScreen === 'Ingredient') {
     return (
       <View style={styles.safeArea}>
         <IngredientScreen
-          onBack={() => setCurrentScreen('Home')}
+          recipe={selectedMeal}
+          onBack={() => {
+            setCurrentScreen(activeNav === 'MealPlan' ? 'MealPlan' : 'Home');
+          }}
           onAddToMealPlan={() => {
-            setCurrentScreen('Home');
             setActiveNav('MealPlan');
+            setCurrentScreen('MealPlan');
           }}
         />
       </View>
@@ -295,26 +300,46 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <Header />
-        <MilestoneBanner />
-        <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
-        <FarmFreshBanner />
-        <PopularDishes onSelectDish={() => setCurrentScreen('Ingredient')} />
-        <WeeklyChallenges />
-        {/* Bottom spacing so content isn't hidden behind nav bar */}
-        <View style={{ height: 20 }} />
-      </ScrollView>
+      {activeNav === 'MealPlan' ? (
+        <MealPlanScreen
+          onSelectMeal={(meal) => {
+            setSelectedMeal(meal);
+            setCurrentScreen('Ingredient');
+          }}
+          onNavigateHome={() => {
+            setActiveNav('Home');
+            setCurrentScreen('Home');
+          }}
+        />
+      ) : (
+        <>
+          <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            <Header />
+            <MilestoneBanner />
+            <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
+            <FarmFreshBanner />
+            <PopularDishes
+              onSelectDish={(dishTitle) => {
+                setSelectedMeal({ title: dishTitle });
+                setCurrentScreen('Ingredient');
+              }}
+            />
+            <WeeklyChallenges />
+            {/* Bottom spacing so content isn't hidden behind nav bar */}
+            <View style={{ height: 20 }} />
+          </ScrollView>
+        </>
+      )}
       <BottomNav
         activeNav={activeNav}
         onNavChange={(nav) => {
           setActiveNav(nav);
-          if (nav === 'Home') setCurrentScreen('Home');
+          setCurrentScreen(nav);
         }}
       />
     </SafeAreaView>
@@ -718,39 +743,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: Colors.tabBackground,
-    paddingVertical: 8,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+    backgroundColor: '#FFFDFB',
+    paddingVertical: 6,
+    paddingBottom: Platform.OS === 'ios' ? 22 : 8,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    shadowColor: 'rgba(0,0,0,0.06)',
+    borderTopColor: '#F3F4F6',
+    shadowColor: 'rgba(0,0,0,0.04)',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 10,
+    shadowRadius: 6,
+    elevation: 8,
   },
   navItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 3,
-  },
-  navIconWrap: {
-    width: 44,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
     justifyContent: 'center',
   },
-  navIconWrapActive: {
-    backgroundColor: Colors.milestoneCard,
+  navPill: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 22,
+    gap: 2,
+  },
+  navPillActive: {
+    backgroundColor: Colors.activeTabGreenBg || '#C2EBD0',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
   },
   navLabel: {
     fontSize: 11,
-    color: Colors.tabInactive,
+    color: '#4B5563',
     fontWeight: '500',
   },
   navLabelActive: {
-    color: Colors.tabActive,
-    fontWeight: '600',
+    color: Colors.primaryDark,
+    fontWeight: '700',
   },
 });
