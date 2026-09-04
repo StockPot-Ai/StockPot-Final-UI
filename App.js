@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import Colors from './src/constants/colors';
+import SavingsDashboard from './src/screens/SavingsDashboard';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -60,8 +61,8 @@ const Header = () => (
   </View>
 );
 
-const MilestoneBanner = () => (
-  <View style={styles.milestoneBanner}>
+const MilestoneBanner = ({ onPress }) => (
+  <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.milestoneBanner}>
     <View style={styles.milestoneLeft}>
       <Text style={styles.milestoneTitle}>Weekly Milestone</Text>
       <Text style={styles.milestoneSavings}>You've saved Rs 2,500 this week!</Text>
@@ -70,7 +71,7 @@ const MilestoneBanner = () => (
     <View style={styles.trendCircle}>
       <Ionicons name="trending-down" size={22} color={Colors.primary} />
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 const MealFilterTabs = ({ activeTab, onTabChange }) => (
@@ -220,6 +221,7 @@ const WeeklyChallenges = () => (
 const BottomNav = ({ activeNav, onNavChange }) => {
   const navItems = [
     { id: 'Home', icon: 'home', label: 'Home', lib: 'Ionicons' },
+    { id: 'Savings', icon: 'wallet-outline', label: 'Savings', lib: 'Ionicons' },
     { id: 'MealPlan', icon: 'calendar-outline', label: 'Meal Plan', lib: 'Ionicons' },
     { id: 'Shopping', icon: 'cart-outline', label: 'Shopping', lib: 'Ionicons' },
     { id: 'Profile', icon: 'person-outline', label: 'Profile', lib: 'Ionicons' },
@@ -257,26 +259,34 @@ const BottomNav = ({ activeNav, onNavChange }) => {
 
 export default function App() {
   const [activeTab, setActiveTab] = React.useState('Breakfast');
-  const [activeNav, setActiveNav] = React.useState('Home');
+  const [currentScreen, setCurrentScreen] = React.useState('Home');
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <Header />
-        <MilestoneBanner />
-        <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
-        <FarmFreshBanner />
-        <PopularDishes />
-        <WeeklyChallenges />
-        {/* Bottom spacing so content isn't hidden behind nav bar */}
-        <View style={{ height: 20 }} />
-      </ScrollView>
-      <BottomNav activeNav={activeNav} onNavChange={setActiveNav} />
+      {currentScreen === 'Home' && (
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <Header />
+          <MilestoneBanner onPress={() => setCurrentScreen('Savings')} />
+          <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          <FarmFreshBanner />
+          <PopularDishes />
+          <WeeklyChallenges />
+          {/* Bottom spacing so content isn't hidden behind nav bar */}
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      )}
+      {currentScreen === 'Savings' && (
+        <SavingsDashboard onBack={() => setCurrentScreen('Home')} />
+      )}
+      <BottomNav
+        activeNav={currentScreen}
+        onNavChange={(nav) => setCurrentScreen(nav === 'Savings' ? 'Savings' : 'Home')}
+      />
     </SafeAreaView>
   );
 }
