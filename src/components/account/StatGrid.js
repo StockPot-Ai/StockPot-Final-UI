@@ -8,13 +8,15 @@ const StatCard = ({ iconComponent, title, value, onPress }) => (
   <TouchableOpacity
     style={styles.card}
     onPress={onPress}
-    activeOpacity={0.7}
+    activeOpacity={0.75}
     accessibilityRole="button"
     accessibilityLabel={`${title}: ${value}`}
   >
     <View style={styles.iconWrapper}>{iconComponent}</View>
     <Text style={styles.title}>{title}</Text>
-    <Text style={styles.value}>{value}</Text>
+    <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit>
+      {value}
+    </Text>
   </TouchableOpacity>
 );
 
@@ -102,35 +104,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.accountCardBg,
     borderRadius: 16,
-    padding: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: Colors.accountBorder,
-    shadowColor: 'rgba(0,0,0,0.03)',
+    shadowColor: 'rgba(0,0,0,0.04)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
-    shadowRadius: 5,
+    shadowRadius: 6,
     elevation: 2,
   },
+  iconWrapper: {
+    marginBottom: 0,
+  },
   iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   title: {
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: '700',
     color: Colors.accountSectionHeader,
     letterSpacing: 0.8,
-    marginBottom: 4,
+    marginBottom: 5,
   },
   value: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: Colors.accountTextPrimary,
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
 });
 
