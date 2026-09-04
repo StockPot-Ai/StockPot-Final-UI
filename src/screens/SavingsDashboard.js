@@ -8,6 +8,7 @@ import {
   Dimensions,
   Platform,
   StatusBar,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import Colors from '../constants/colors';
@@ -167,7 +168,7 @@ const RecentSavingsItem = ({ item, isLast }) => (
 
 export default function SavingsDashboard({ onBack }) {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
       <SavingsHeader onBack={onBack} />
       <ScrollView
         style={styles.scrollView}
@@ -279,14 +280,14 @@ export default function SavingsDashboard({ onBack }) {
 
         <View style={{ height: 20 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
   },
