@@ -239,8 +239,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'ios' ? 48 : 40,
+    paddingTop: Platform.OS === 'ios' ? 40 : 36,
     paddingBottom: 32,
   },
   brandSection: {
