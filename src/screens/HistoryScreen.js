@@ -6,7 +6,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  Platform,
   Alert,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
@@ -299,7 +301,7 @@ export default function HistoryScreen({ onBack }) {
   const stats = computeStats(filtered);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.retailBg} />
       <HistoryHeader onBack={onBack} />
       <ScrollView
@@ -323,14 +325,14 @@ export default function HistoryScreen({ onBack }) {
         })}
         <View style={styles.scrollEndSpacer} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: Colors.retailBg,
   },
@@ -354,7 +356,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(220, 193, 185, 0.3)',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 12,
+    paddingBottom: 12,
   },
   headerBtn: {
     width: 40,
