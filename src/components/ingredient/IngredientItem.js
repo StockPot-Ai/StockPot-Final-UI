@@ -33,9 +33,12 @@ export default function IngredientItem({
 
       {/* Details */}
       <View style={styles.info}>
-        <View style={styles.nameRow}>
-          <Text style={styles.name} numberOfLines={1}>
-            {name}
+        <Text style={styles.name} numberOfLines={1}>
+          {name}
+        </Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.quantity}>
+            {quantity} {unit}
           </Text>
           {inPantry && (
             <View style={styles.pantryBadge}>
@@ -44,9 +47,6 @@ export default function IngredientItem({
             </View>
           )}
         </View>
-        <Text style={styles.quantity}>
-          {quantity} {unit}
-        </Text>
       </View>
 
       {/* Cost & Selection */}
@@ -65,46 +65,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#F3F4F6',
+    shadowColor: 'rgba(0,0,0,0.04)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 1,
   },
   containerSelected: {
     borderColor: '#FED7AA',
     backgroundColor: '#FFFDFB',
   },
   iconContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   info: {
     flex: 1,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 3,
-  },
   name: {
-    fontSize: 14.5,
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.textPrimary,
+    letterSpacing: -0.2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 5,
   },
   pantryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
     backgroundColor: '#E8F5E9',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 9,
   },
   pantryText: {
     fontSize: 10.5,
@@ -117,17 +123,17 @@ const styles = StyleSheet.create({
   },
   rightSide: {
     alignItems: 'flex-end',
-    gap: 6,
-    marginLeft: 8,
+    gap: 8,
+    marginLeft: 10,
   },
   cost: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
   checkbox: {
-    width: 20,
-    height: 20,
+    width: 21,
+    height: 21,
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: '#D1D5DB',

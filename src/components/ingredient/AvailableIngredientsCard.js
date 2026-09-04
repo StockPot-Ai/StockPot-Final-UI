@@ -84,7 +84,7 @@ export default function AvailableIngredientsCard({
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginTop: 22,
+    marginTop: 24,
     paddingHorizontal: 20,
   },
   sectionTitle: {
@@ -92,12 +92,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textPrimary,
     letterSpacing: -0.3,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   card: {
     backgroundColor: '#FFF8F5',
     borderRadius: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: '#FEEFE7',
@@ -106,6 +106,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    paddingHorizontal: 2,
   },
   pillOutline: {
     width: 42,
@@ -126,8 +127,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -146,8 +147,8 @@ const styles = StyleSheet.create({
   },
   itemChip: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#F3F4F6',
