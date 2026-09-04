@@ -3,6 +3,7 @@ import {
   View,
   StatusBar,
   BackHandler,
+  StyleSheet,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HomeScreen from './src/screens/HomeScreen';
@@ -13,6 +14,7 @@ import IngredientScreen from './src/screens/IngredientScreen';
 import MealPlanScreen from './src/screens/MealPlanScreen';
 import SavingsDashboard from './src/screens/SavingsDashboard';
 import RetailComparingScreen from './src/screens/RetailComparingScreen';
+import BottomNav from './src/components/BottomNav';
 import recipes from './src/data/recipes';
 import { AccountProvider, useAccount } from './src/context/AccountContext';
 
@@ -84,6 +86,24 @@ function AppContent() {
     return 'Home';
   };
 
+  const renderMainScreen = () => {
+    if (currentScreen === 'account') {
+      return <AccountScreen onBack={goHome} onNavigateHome={goHome} />;
+    }
+    if (currentScreen === 'mealplan') {
+      return <MealPlanScreen onNavigateHome={goHome} />;
+    }
+    if (currentScreen === 'savings') {
+      return <SavingsDashboard onBack={goHome} />;
+    }
+    return (
+      <HomeScreen
+        onSelectRecipe={openRecipe}
+        onMilestonePress={() => setCurrentScreen('savings')}
+      />
+    );
+  };
+
   if (!isLoggedIn) {
     if (authView === 'signup') {
       return (
@@ -98,10 +118,6 @@ function AppContent() {
         onForgotPassword={() => {}}
       />
     );
-  }
-
-  if (currentScreen === 'account') {
-    return <AccountScreen onBack={goHome} onNavigateHome={goHome} />;
   }
 
   if (currentScreen === 'ingredient' && selectedRecipe) {
@@ -123,21 +139,11 @@ function AppContent() {
     );
   }
 
-  if (currentScreen === 'mealplan') {
-    return <MealPlanScreen onNavigateHome={goHome} />;
-  }
-
-  if (currentScreen === 'savings') {
-    return <SavingsDashboard onBack={goHome} />;
-  }
-
   return (
-    <HomeScreen
-      onSelectRecipe={openRecipe}
-      activeNav={renderActiveNav()}
-      onNavChange={handleNavChange}
-      onMilestonePress={() => setCurrentScreen('savings')}
-    />
+    <View style={styles.shell}>
+      {renderMainScreen()}
+      <BottomNav activeNav={renderActiveNav()} onNavChange={handleNavChange} />
+    </View>
   );
 }
 
@@ -145,7 +151,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AccountProvider>
-        <View style={{ flex: 1 }}>
+        <View style={styles.root}>
           <StatusBar barStyle="dark-content" />
           <AppContent />
         </View>
@@ -153,3 +159,12 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  shell: {
+    flex: 1,
+  },
+});

@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import Colors from '../constants/colors';
-import BottomNav from '../components/BottomNav';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -218,7 +217,7 @@ const WeeklyChallenges = () => (
   </View>
 );
 
-const HomeScreen = ({ onSelectRecipe, activeNav, onNavChange, onMilestonePress }) => {
+const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
   const [activeTab, setActiveTab] = useState('Breakfast');
 
   return (
@@ -237,7 +236,6 @@ const HomeScreen = ({ onSelectRecipe, activeNav, onNavChange, onMilestonePress }
         <WeeklyChallenges />
         <View style={{ height: 20 }} />
       </ScrollView>
-      <BottomNav activeNav={activeNav} onNavChange={onNavChange} />
     </SafeAreaView>
   );
 };
@@ -622,46 +620,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: Colors.rewardGold,
-  },
-
-  bottomNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    backgroundColor: Colors.tabBackground,
-    paddingVertical: 8,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    shadowColor: 'rgba(0,0,0,0.06)',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 3,
-  },
-  navIconWrap: {
-    width: 44,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navIconWrapActive: {
-    backgroundColor: Colors.milestoneCard,
-  },
-  navLabel: {
-    fontSize: 11,
-    color: Colors.tabInactive,
-    fontWeight: '500',
-  },
-  navLabelActive: {
-    color: Colors.tabActive,
-    fontWeight: '600',
   },
 });
 
