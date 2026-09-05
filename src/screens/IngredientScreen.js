@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import {
   View,
   ScrollView,
+  TouchableOpacity,
+  Text,
   StyleSheet,
   StatusBar,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import IngredientHeader from '../components/ingredient/IngredientHeader';
 import AvailableIngredientsCard from '../components/ingredient/AvailableIngredientsCard';
@@ -14,113 +17,17 @@ import ServingsControl from '../components/ingredient/ServingsControl';
 import IngredientList from '../components/ingredient/IngredientList';
 import AddToMealPlanBar from '../components/ingredient/AddToMealPlanBar';
 
-const INITIAL_INGREDIENTS = [
-  {
-    id: '1',
-    name: 'Rigatoni Pasta',
-    baseQuantity: 200,
-    unit: 'g',
-    baseCost: 160,
-    inPantry: true,
-    iconName: 'pasta',
-    iconLib: 'MaterialCommunityIcons',
-    iconBg: '#FFF7ED',
-    iconColor: '#EA580C',
-  },
-  {
-    id: '2',
-    name: 'Roasted Pumpkin Puree',
-    baseQuantity: 200,
-    unit: 'g',
-    baseCost: 140,
-    inPantry: true,
-    iconName: 'pumpkin',
-    iconLib: 'MaterialCommunityIcons',
-    iconBg: '#FEF3C7',
-    iconColor: '#D97706',
-  },
-  {
-    id: '3',
-    name: 'Heavy Cream',
-    baseQuantity: 80,
-    unit: 'ml',
-    baseCost: 110,
-    inPantry: false,
-    iconName: 'cup-outline',
-    iconLib: 'MaterialCommunityIcons',
-    iconBg: '#EFF6FF',
-    iconColor: '#2563EB',
-  },
-  {
-    id: '4',
-    name: 'Fresh Sage Leaves',
-    baseQuantity: 8,
-    unit: 'leaves',
-    baseCost: 60,
-    inPantry: false,
-    iconName: 'leaf',
-    iconLib: 'Ionicons',
-    iconBg: '#ECFDF5',
-    iconColor: '#059669',
-  },
-  {
-    id: '5',
-    name: 'Grated Parmesan',
-    baseQuantity: 40,
-    unit: 'g',
-    baseCost: 130,
-    inPantry: true,
-    iconName: 'cheese',
-    iconLib: 'MaterialCommunityIcons',
-    iconBg: '#FEF9C3',
-    iconColor: '#CA8A04',
-  },
-  {
-    id: '6',
-    name: 'Garlic Cloves',
-    baseQuantity: 2,
-    unit: 'cloves',
-    baseCost: 20,
-    inPantry: true,
-    iconName: 'flower-outline',
-    iconLib: 'Ionicons',
-    iconBg: '#F3E8FF',
-    iconColor: '#9333EA',
-  },
-  {
-    id: '7',
-    name: 'Extra Virgin Olive Oil',
-    baseQuantity: 1.5,
-    unit: 'tbsp',
-    baseCost: 40,
-    inPantry: true,
-    iconName: 'water-outline',
-    iconLib: 'Ionicons',
-    iconBg: '#ECFCCB',
-    iconColor: '#65A30D',
-  },
-  {
-    id: '8',
-    name: 'Toasted Walnuts',
-    baseQuantity: 30,
-    unit: 'g',
-    baseCost: 120,
-    inPantry: false,
-    iconName: 'seed-outline',
-    iconLib: 'MaterialCommunityIcons',
-    iconBg: '#FFEDD5',
-    iconColor: '#C2410C',
-  },
-];
+export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCompare }) {
+  // Fallback so the screen still renders if opened without a recipe.
+  const defaultIngredients = [];
+  const data = recipe || {};
 
-export default function IngredientScreen({ recipe, onBack, onAddToMealPlan }) {
-  const recipeTitle = recipe?.title || 'Creamy Pumpkin Pasta';
-  const recipeImage = recipe?.image || require('../../assets/creamy_pumpkin_pasta.jpg');
+  const ingredients = data.ingredients || defaultIngredients;
 
-  const [servings, setServings] = useState(recipe?.servings || 2);
+  const [servings, setServings] = useState(2);
   const [isFavorite, setIsFavorite] = useState(true);
   const [selectedIds, setSelectedIds] = useState(
-    INITIAL_INGREDIENTS.map((item) => item.id)
+    ingredients.map((item) => item.id)
   );
   const [ingredientFilter, setIngredientFilter] = useState('all');
 
@@ -131,44 +38,57 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan }) {
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === INITIAL_INGREDIENTS.length) {
+    if (selectedIds.length === ingredients.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(INITIAL_INGREDIENTS.map((i) => i.id));
+      setSelectedIds(ingredients.map((i) => i.id));
     }
   };
 
   // Calculate total cost based on servings and selected ingredients
   const totalCost = Math.round(
-    INITIAL_INGREDIENTS.filter((item) => selectedIds.includes(item.id)).reduce(
-      (acc, item) => acc + (item.baseCost * servings) / 2,
-      0
-    )
+    ingredients
+      .filter((item) => selectedIds.includes(item.id))
+      .reduce((acc, item) => acc + (item.baseCost * servings) / 2, 0)
   );
 
   // Filtered ingredients
-  const displayedIngredients = INITIAL_INGREDIENTS.filter((item) => {
+  const displayedIngredients = ingredients.filter((item) => {
     if (ingredientFilter === 'available') return item.inPantry;
     return true;
   });
 
-  const availableCount = INITIAL_INGREDIENTS.filter((i) => i.inPantry).length;
+  const availableCount = ingredients.filter((i) => i.inPantry).length;
 
   const handleAddToMealPlan = () => {
     if (onAddToMealPlan) {
       onAddToMealPlan({
-        title: 'Creamy Pumpkin Pasta',
+        title: data.title || 'Recipe',
         servings,
         cost: totalCost,
-        ingredients: INITIAL_INGREDIENTS.filter((i) => selectedIds.includes(i.id)),
+        ingredients: ingredients.filter((i) => selectedIds.includes(i.id)),
       });
     } else {
       Alert.alert(
         'Added to Meal Plan',
-        `Creamy Pumpkin Pasta (${servings} servings, Rs ${totalCost}) was added to your meal plan.`,
+        `${data.title || 'Recipe'} (${servings} servings, Rs ${totalCost}) was added to your meal plan.`,
         [{ text: 'OK' }]
       );
     }
+  };
+
+  const handleCompare = () => {
+    if (!onCompare) return;
+    const items = ingredients
+      .filter((item) => selectedIds.includes(item.id))
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: Math.round(((item.baseQuantity * servings) / 2) * 10) / 10,
+        unit: item.unit,
+        cost: Math.round((item.baseCost * servings) / 2),
+      }));
+    onCompare(items);
   };
 
   return (
@@ -182,11 +102,11 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan }) {
       >
         {/* Top Hero Image Header with Navigation Buttons and Recipe Meta */}
         <IngredientHeader
-          title={recipeTitle}
-          rating="4.5"
-          time="20 min"
-          calories="450 kcal"
-          image={recipeImage}
+          title={data.title}
+          rating={data.rating}
+          time={data.time}
+          calories={data.calories}
+          image={data.image}
           onBack={onBack}
           onFavorite={() => setIsFavorite(!isFavorite)}
           isFavorite={isFavorite}
@@ -195,15 +115,13 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan }) {
         {/* Available Ingredients Section */}
         <AvailableIngredientsCard
           availableCount={availableCount}
-          totalCount={INITIAL_INGREDIENTS.length}
-          availableItems={['Rigatoni Pasta', 'Pumpkin Puree', 'Garlic', 'Olive Oil']}
+          totalCount={ingredients.length}
+          availableItems={data.availableItems || []}
           onFilterChange={setIngredientFilter}
         />
 
         {/* Description Section */}
-        <DescriptionCard
-          description="A comforting, autumnal classic made with roasted pumpkin puree, a touch of cream, and fresh sage. This quick 20-minute recipe delivers a rich, velvety sauce that perfectly coats your favorite pasta. Ideal for a cozy weeknight dinner."
-        />
+        <DescriptionCard description={data.description} />
 
         {/* Servings Stepper Control */}
         <ServingsControl
@@ -221,6 +139,17 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan }) {
           onToggleItem={handleToggleItem}
           onSelectAll={handleSelectAll}
         />
+
+        {/* Compare prices across stores action */}
+        <TouchableOpacity
+          style={styles.compareBar}
+          onPress={handleCompare}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="pricetags-outline" size={18} color={Colors.terracottaDark} />
+          <Text style={styles.compareText}>Compare prices across stores</Text>
+          <Ionicons name="arrow-forward" size={18} color={Colors.terracottaDark} />
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Floating Bottom CTA Button */}
@@ -239,5 +168,25 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 24,
+  },
+  compareBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 100,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.terracottaDark,
+    backgroundColor: '#FFF4EE',
+  },
+  compareText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.terracottaDark,
+    letterSpacing: -0.2,
   },
 });
