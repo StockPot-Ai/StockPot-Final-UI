@@ -169,6 +169,7 @@ const RecentSavingsItem = ({ item, isLast }) => (
 export default function SavingsDashboard({ onBack }) {
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <SavingsHeader onBack={onBack} />
       <ScrollView
         style={styles.scrollView}
@@ -304,8 +305,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: CARD_PADDING,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 12,
-    paddingBottom: 8,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 12 : 16,
+    paddingBottom: 12,
     backgroundColor: Colors.background,
   },
   headerBtn: {
@@ -332,7 +333,7 @@ const styles = StyleSheet.create({
   heroCard: {
     backgroundColor: Colors.primary,
     marginHorizontal: CARD_PADDING,
-    marginTop: 8,
+    marginTop: 16,
     marginBottom: 16,
     borderRadius: 16,
     padding: 20,
