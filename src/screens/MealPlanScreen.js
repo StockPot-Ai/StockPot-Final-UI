@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   StatusBar,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
@@ -309,7 +310,7 @@ export default function MealPlanScreen({
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Top Header */}
@@ -386,12 +387,12 @@ export default function MealPlanScreen({
       >
         <Ionicons name="add" size={32} color="#FFFFFF" />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },

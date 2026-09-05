@@ -95,6 +95,20 @@ const Colors = {
   budgetTrack: '#EFE6DE',
   matchGreen: '#059669',
   matchGreenBg: '#D1FAE5',
+
+  // Shopping List / Retail Comparing Page Palette
+  retailBg: '#FFF8F5',
+  retailCard: '#FFFFFF',
+  retailSurface: '#F9EBE5',
+  retailSurfaceLow: '#FFF1EA',
+  retailCharcoal: '#2B2420',
+  retailTerracotta: '#994122',
+  retailBasil: '#3A6847',
+  retailBasilSoft: '#B9ECC2',
+  retailTurmeric: '#E8A93F',
+  retailMuted: '#56423C',
+  retailOutlineWarm: '#DCC1B9',
+  retailCheapestBg: '#DCFCE7',
 };
 
 export default Colors;

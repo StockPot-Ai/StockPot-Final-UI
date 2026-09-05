@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import {
   View,
   ScrollView,
+  TouchableOpacity,
+  Text,
   StyleSheet,
   StatusBar,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import IngredientHeader from '../components/ingredient/IngredientHeader';
 import AvailableIngredientsCard from '../components/ingredient/AvailableIngredientsCard';
@@ -14,7 +17,7 @@ import ServingsControl from '../components/ingredient/ServingsControl';
 import IngredientList from '../components/ingredient/IngredientList';
 import AddToMealPlanBar from '../components/ingredient/AddToMealPlanBar';
 
-export default function IngredientScreen({ recipe, onBack, onAddToMealPlan }) {
+export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCompare }) {
   // Fallback so the screen still renders if opened without a recipe.
   const defaultIngredients = [];
   const data = recipe || {};
@@ -74,6 +77,20 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan }) {
     }
   };
 
+  const handleCompare = () => {
+    if (!onCompare) return;
+    const items = ingredients
+      .filter((item) => selectedIds.includes(item.id))
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: Math.round(((item.baseQuantity * servings) / 2) * 10) / 10,
+        unit: item.unit,
+        cost: Math.round((item.baseCost * servings) / 2),
+      }));
+    onCompare(items);
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -122,6 +139,17 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan }) {
           onToggleItem={handleToggleItem}
           onSelectAll={handleSelectAll}
         />
+
+        {/* Compare prices across stores action */}
+        <TouchableOpacity
+          style={styles.compareBar}
+          onPress={handleCompare}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="pricetags-outline" size={18} color={Colors.terracottaDark} />
+          <Text style={styles.compareText}>Compare prices across stores</Text>
+          <Ionicons name="arrow-forward" size={18} color={Colors.terracottaDark} />
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Floating Bottom CTA Button */}
@@ -140,5 +168,25 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 24,
+  },
+  compareBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 100,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.terracottaDark,
+    backgroundColor: '#FFF4EE',
+  },
+  compareText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.terracottaDark,
+    letterSpacing: -0.2,
   },
 });

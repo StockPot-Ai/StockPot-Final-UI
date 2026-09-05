@@ -29,15 +29,8 @@ import HelpSupportModal from '../components/account/HelpSupportModal';
 import StatDetailModal from '../components/account/StatDetailModal';
 import LogoutDialog from '../components/account/LogoutDialog';
 import EcoInfoModal from '../components/account/EcoInfoModal';
-import BottomNav from '../components/BottomNav';
 
 const AccountScreen = ({ onBack, onNavigateHome }) => {
-  const handleNavChange = (id) => {
-    if (id === 'Home' && onNavigateHome) {
-      onNavigateHome();
-    }
-  };
-
   // ── Modal Visibility States
   const [editProfileVisible, setEditProfileVisible] = useState(false);
   const [householdVisible, setHouseholdVisible] = useState(false);
@@ -153,9 +146,6 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
         {/* Bottom spacing */}
         <View style={{ height: 28 }} />
       </ScrollView>
-
-      {/* ── Bottom Navigation ── */}
-      <BottomNav activeNav="Profile" onNavChange={handleNavChange} />
 
       {/* ── Interactive Modals ── */}
       <EditProfileModal

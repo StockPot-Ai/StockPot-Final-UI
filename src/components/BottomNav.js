@@ -5,9 +5,9 @@ import Colors from '../constants/colors';
 
 const NAV_ITEMS = [
   { id: 'Home', icon: 'home', label: 'Home' },
-  { id: 'Savings', icon: 'wallet-outline', label: 'Savings' },
   { id: 'MealPlan', icon: 'calendar-outline', label: 'Meal Plan' },
-  { id: 'Shopping', icon: 'cart-outline', label: 'Shopping' },
+  { id: 'Savings', icon: 'wallet-outline', label: 'Savings' },
+  { id: 'History', icon: 'receipt', label: 'History' },
   { id: 'Profile', icon: 'person-outline', label: 'Profile' },
 ];
 

@@ -3,6 +3,7 @@ import {
   View,
   StatusBar,
   BackHandler,
+  StyleSheet,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HomeScreen from './src/screens/HomeScreen';
@@ -12,6 +13,9 @@ import AccountScreen from './src/screens/AccountScreen';
 import IngredientScreen from './src/screens/IngredientScreen';
 import MealPlanScreen from './src/screens/MealPlanScreen';
 import SavingsDashboard from './src/screens/SavingsDashboard';
+import RetailComparingScreen from './src/screens/RetailComparingScreen';
+import HistoryScreen from './src/screens/HistoryScreen';
+import BottomNav from './src/components/BottomNav';
 import recipes from './src/data/recipes';
 import { AccountProvider, useAccount } from './src/context/AccountContext';
 
@@ -20,6 +24,7 @@ function AppContent() {
   const [authView, setAuthView] = React.useState('login');
   const [currentScreen, setCurrentScreen] = React.useState('home');
   const [selectedRecipe, setSelectedRecipe] = React.useState(null);
+  const [retailItems, setRetailItems] = React.useState([]);
 
   const goHome = React.useCallback(() => {
     setCurrentScreen('home');
@@ -33,14 +38,19 @@ function AppContent() {
     }
   }, []);
 
+  const openRetail = React.useCallback((items) => {
+    setRetailItems(items || []);
+    setCurrentScreen('retail');
+  }, []);
+
   const handleNavChange = React.useCallback(
     (id) => {
       if (id === 'Profile') {
         setCurrentScreen('account');
       } else if (id === 'MealPlan') {
         setCurrentScreen('mealplan');
-      } else if (id === 'Shopping') {
-        setCurrentScreen('mealplan');
+      } else if (id === 'History') {
+        setCurrentScreen('history');
       } else if (id === 'Savings') {
         setCurrentScreen('savings');
       } else if (id === 'Home') {
@@ -52,11 +62,16 @@ function AppContent() {
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (currentScreen === 'retail') {
+        setCurrentScreen('ingredient');
+        return true;
+      }
       if (
         currentScreen === 'account' ||
         currentScreen === 'ingredient' ||
         currentScreen === 'mealplan' ||
-        currentScreen === 'savings'
+        currentScreen === 'savings' ||
+        currentScreen === 'history'
       ) {
         goHome();
         return true;
@@ -70,7 +85,29 @@ function AppContent() {
     if (currentScreen === 'account') return 'Profile';
     if (currentScreen === 'mealplan') return 'MealPlan';
     if (currentScreen === 'savings') return 'Savings';
+    if (currentScreen === 'history') return 'History';
     return 'Home';
+  };
+
+  const renderMainScreen = () => {
+    if (currentScreen === 'account') {
+      return <AccountScreen onBack={goHome} onNavigateHome={goHome} />;
+    }
+    if (currentScreen === 'mealplan') {
+      return <MealPlanScreen onNavigateHome={goHome} />;
+    }
+    if (currentScreen === 'savings') {
+      return <SavingsDashboard onBack={goHome} />;
+    }
+    if (currentScreen === 'history') {
+      return <HistoryScreen onBack={goHome} />;
+    }
+    return (
+      <HomeScreen
+        onSelectRecipe={openRecipe}
+        onMilestonePress={() => setCurrentScreen('savings')}
+      />
+    );
   };
 
   if (!isLoggedIn) {
@@ -89,29 +126,30 @@ function AppContent() {
     );
   }
 
-  if (currentScreen === 'account') {
-    return <AccountScreen onBack={goHome} onNavigateHome={goHome} />;
-  }
-
   if (currentScreen === 'ingredient' && selectedRecipe) {
-    return <IngredientScreen recipe={selectedRecipe} onBack={goHome} />;
+    return (
+      <IngredientScreen
+        recipe={selectedRecipe}
+        onBack={goHome}
+        onCompare={openRetail}
+      />
+    );
   }
 
-  if (currentScreen === 'mealplan') {
-    return <MealPlanScreen onNavigateHome={goHome} />;
-  }
-
-  if (currentScreen === 'savings') {
-    return <SavingsDashboard onBack={goHome} />;
+  if (currentScreen === 'retail') {
+    return (
+      <RetailComparingScreen
+        items={retailItems}
+        onBack={() => setCurrentScreen('ingredient')}
+      />
+    );
   }
 
   return (
-    <HomeScreen
-      onSelectRecipe={openRecipe}
-      activeNav={renderActiveNav()}
-      onNavChange={handleNavChange}
-      onMilestonePress={() => setCurrentScreen('savings')}
-    />
+    <View style={styles.shell}>
+      {renderMainScreen()}
+      <BottomNav activeNav={renderActiveNav()} onNavChange={handleNavChange} />
+    </View>
   );
 }
 
@@ -119,7 +157,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AccountProvider>
-        <View style={{ flex: 1 }}>
+        <View style={styles.root}>
           <StatusBar barStyle="dark-content" />
           <AppContent />
         </View>
@@ -127,3 +165,12 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  shell: {
+    flex: 1,
+  },
+});
