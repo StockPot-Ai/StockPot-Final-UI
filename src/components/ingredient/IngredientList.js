@@ -19,7 +19,11 @@ export default function IngredientList({
           <Text style={styles.title}>Ingredients</Text>
           <Text style={styles.subtitle}>{ingredients.length} items needed</Text>
         </View>
-        <TouchableOpacity onPress={onSelectAll} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={onSelectAll}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.selectAllText}>
             {allSelected ? 'Deselect All' : 'Select All'}
           </Text>
@@ -57,7 +61,7 @@ export default function IngredientList({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 20,
+    marginTop: 24,
     paddingHorizontal: 20,
     marginBottom: 100, // Bottom padding to ensure scroll clears floating CTA button
   },
@@ -65,7 +69,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   title: {
     fontSize: 18,
@@ -76,7 +80,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 12.5,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: 3,
   },
   selectAllText: {
     fontSize: 13,
