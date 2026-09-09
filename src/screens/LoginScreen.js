@@ -55,16 +55,19 @@ const LoginScreen = ({ onSignUp, onForgotPassword }) => {
     return valid;
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!validate()) {
       return;
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      await login({ email: email.trim(), password });
+    } catch (err) {
+      Alert.alert('Login Failed', err.message || 'Invalid email or password');
+    } finally {
       setIsSubmitting(false);
-      login();
-    }, 600);
+    }
   };
 
   const handleForgotPassword = () => {

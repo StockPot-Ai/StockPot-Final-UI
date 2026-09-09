@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
@@ -16,20 +17,71 @@ import DescriptionCard from '../components/ingredient/DescriptionCard';
 import ServingsControl from '../components/ingredient/ServingsControl';
 import IngredientList from '../components/ingredient/IngredientList';
 import AddToMealPlanBar from '../components/ingredient/AddToMealPlanBar';
+import { recipeService, mealPlanService } from '../services';
 
 export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCompare }) {
-  // Fallback so the screen still renders if opened without a recipe.
-  const defaultIngredients = [];
   const data = recipe || {};
-
-  const ingredients = data.ingredients || defaultIngredients;
-
-  const [servings, setServings] = useState(2);
+  const [servings, setServings] = useState(data.base_servings || 2);
   const [isFavorite, setIsFavorite] = useState(true);
-  const [selectedIds, setSelectedIds] = useState(
-    ingredients.map((item) => item.id)
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
+  const [recipeDetail, setRecipeDetail] = useState(data);
+
+  // Normalize ingredients format
+  const normalizeIngredients = (rawList = []) => {
+    return rawList.map((item, idx) => ({
+      id: item.ingredient_id || item.id || `ing-${idx}`,
+      name: item.name,
+      baseQuantity: item.base_quantity || item.quantity || 100,
+      quantity: item.quantity || item.base_quantity || 100,
+      unit: item.unit || 'g',
+      baseCost: item.baseCost ?? (item.estimated_cost ? Math.round(item.estimated_cost / (item.base_servings || 2)) : 80),
+      inPantry: Boolean(item.in_pantry ?? item.inPantry),
+      iconName: item.iconName || 'food-apple-outline',
+      iconLib: item.iconLib || 'MaterialCommunityIcons',
+      iconBg: item.iconBg || '#FFF7ED',
+      iconColor: item.iconColor || '#EA580C',
+    }));
+  };
+
+  const [ingredients, setIngredients] = useState(
+    normalizeIngredients(data.ingredients || [])
   );
+  const [selectedIds, setSelectedIds] = useState(ingredients.map((item) => item.id));
   const [ingredientFilter, setIngredientFilter] = useState('all');
+
+  // Load recipe details if only basic info was passed
+  useEffect(() => {
+    if (data.id && (!data.ingredients || data.ingredients.length === 0)) {
+      setLoadingRecipe(true);
+      recipeService
+        .getRecipeById(data.id)
+        .then((fullRecipe) => {
+          if (fullRecipe) {
+            setRecipeDetail(fullRecipe);
+            const norm = normalizeIngredients(fullRecipe.ingredients || []);
+            setIngredients(norm);
+            setSelectedIds(norm.map((i) => i.id));
+          }
+        })
+        .catch((err) => console.log('Recipe details note:', err.message))
+        .finally(() => setLoadingRecipe(false));
+    }
+  }, [data.id]);
+
+  // Load scaled ingredients when servings change
+  useEffect(() => {
+    if (data.id && data.id.includes('-')) {
+      recipeService
+        .getRecipeIngredients(data.id, servings)
+        .then((result) => {
+          if (result && Array.isArray(result.ingredients)) {
+            const norm = normalizeIngredients(result.ingredients);
+            setIngredients(norm);
+          }
+        })
+        .catch((err) => console.log('Scaled ingredients note:', err.message));
+    }
+  }, [data.id, servings]);
 
   const handleToggleItem = (id) => {
     setSelectedIds((prev) =>
@@ -60,10 +112,33 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
 
   const availableCount = ingredients.filter((i) => i.inPantry).length;
 
-  const handleAddToMealPlan = () => {
+  const handleAddToMealPlan = async () => {
+    try {
+      // Try to add to backend meal plan
+      const currentPlan = await mealPlanService.getCurrentMealPlan();
+      if (currentPlan?.id) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        await mealPlanService.addItem(currentPlan.id, {
+          recipe_id: data.id || '22222222-0000-0000-0000-000000000001',
+          meal_date: todayStr,
+          meal_type: data.category || 'dinner',
+          servings,
+        });
+
+        Alert.alert(
+          'Added to Meal Plan',
+          `${recipeDetail.title || recipeDetail.name || 'Recipe'} (${servings} servings, Rs ${totalCost}) was added to your weekly meal plan!`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+    } catch (err) {
+      console.log('Meal plan API note:', err.message);
+    }
+
     if (onAddToMealPlan) {
       onAddToMealPlan({
-        title: data.title || 'Recipe',
+        title: recipeDetail.title || recipeDetail.name || 'Recipe',
         servings,
         cost: totalCost,
         ingredients: ingredients.filter((i) => selectedIds.includes(i.id)),
@@ -71,7 +146,7 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
     } else {
       Alert.alert(
         'Added to Meal Plan',
-        `${data.title || 'Recipe'} (${servings} servings, Rs ${totalCost}) was added to your meal plan.`,
+        `${recipeDetail.title || recipeDetail.name || 'Recipe'} (${servings} servings, Rs ${totalCost}) was added to your meal plan.`,
         [{ text: 'OK' }]
       );
     }
@@ -91,69 +166,82 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
     onCompare(items);
   };
 
+  const title = recipeDetail.title || recipeDetail.name || 'Recipe Details';
+  const rating = recipeDetail.rating || '4.8';
+  const time = recipeDetail.time || `${recipeDetail.prep_time || 25} min`;
+  const calories = recipeDetail.calories ? `${recipeDetail.calories} kcal` : '350 kcal';
+  const description = recipeDetail.description || 'Delicious home cooked meal with balanced nutrients and fresh ingredients.';
+  const image = recipeDetail.image_url ? { uri: recipeDetail.image_url } : (recipeDetail.image || require('../../assets/creamy_pumpkin_pasta.jpg'));
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Top Hero Image Header with Navigation Buttons and Recipe Meta */}
-        <IngredientHeader
-          title={data.title}
-          rating={data.rating}
-          time={data.time}
-          calories={data.calories}
-          image={data.image}
-          onBack={onBack}
-          onFavorite={() => setIsFavorite(!isFavorite)}
-          isFavorite={isFavorite}
-        />
-
-        {/* Available Ingredients Section */}
-        <AvailableIngredientsCard
-          availableCount={availableCount}
-          totalCount={ingredients.length}
-          availableItems={data.availableItems || []}
-          onFilterChange={setIngredientFilter}
-        />
-
-        {/* Description Section */}
-        <DescriptionCard description={data.description} />
-
-        {/* Servings Stepper Control */}
-        <ServingsControl
-          servings={servings}
-          onServingsChange={setServings}
-          min={1}
-          max={10}
-        />
-
-        {/* Ingredient List with Scaled Quantities and Costs */}
-        <IngredientList
-          ingredients={displayedIngredients}
-          servings={servings}
-          selectedIds={selectedIds}
-          onToggleItem={handleToggleItem}
-          onSelectAll={handleSelectAll}
-        />
-
-        {/* Compare prices across stores action */}
-        <TouchableOpacity
-          style={styles.compareBar}
-          onPress={handleCompare}
-          activeOpacity={0.85}
+      {loadingRecipe ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
         >
-          <Ionicons name="pricetags-outline" size={18} color={Colors.terracottaDark} />
-          <Text style={styles.compareText}>Compare prices across stores</Text>
-          <Ionicons name="arrow-forward" size={18} color={Colors.terracottaDark} />
-        </TouchableOpacity>
-      </ScrollView>
+          <IngredientHeader
+            title={title}
+            rating={rating}
+            time={time}
+            calories={calories}
+            image={image}
+            onBack={onBack}
+            onFavorite={() => setIsFavorite(!isFavorite)}
+            isFavorite={isFavorite}
+          />
 
-      {/* Floating Bottom CTA Button */}
-      <AddToMealPlanBar cost={totalCost} onPress={handleAddToMealPlan} />
+          <AvailableIngredientsCard
+            availableCount={availableCount}
+            totalCount={ingredients.length}
+            availableItems={recipeDetail.availableItems || ['Yellow Onion', 'Garlic']}
+            onFilterChange={setIngredientFilter}
+          />
+
+          <DescriptionCard description={description} />
+
+          <ServingsControl
+            servings={servings}
+            onServingsChange={setServings}
+            min={1}
+            max={10}
+          />
+
+          <IngredientList
+            ingredients={displayedIngredients}
+            servings={servings}
+            selectedIds={selectedIds}
+            onToggleItem={handleToggleItem}
+            onSelectAll={handleSelectAll}
+          />
+
+          <View style={styles.compareContainer}>
+            <TouchableOpacity
+              style={styles.compareBtn}
+              onPress={handleCompare}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="cart-outline" size={20} color={Colors.primary} />
+              <Text style={styles.compareBtnText}>Compare Retail Prices</Text>
+              <Ionicons name="arrow-forward" size={16} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.bottomPadding} />
+        </ScrollView>
+      )}
+
+      <AddToMealPlanBar
+        totalCost={totalCost}
+        onAddToMealPlan={handleAddToMealPlan}
+      />
     </View>
   );
 }
@@ -161,32 +249,42 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F7F6F2',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 20,
   },
-  compareBar: {
+  compareContainer: {
+    paddingHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  compareBtn: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginHorizontal: 20,
-    marginTop: 12,
-    marginBottom: 100,
-    paddingVertical: 14,
-    borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: Colors.terracottaDark,
-    backgroundColor: '#FFF4EE',
+    borderColor: Colors.primary,
+    shadowColor: 'rgba(0,0,0,0.04)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  compareText: {
+  compareBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.terracottaDark,
-    letterSpacing: -0.2,
+    color: Colors.primary,
+  },
+  bottomPadding: {
+    height: 100,
   },
 });

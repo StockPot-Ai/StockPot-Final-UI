@@ -7,6 +7,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import Colors from '../constants/colors';
 import InputField from '../components/InputField';
@@ -51,9 +52,13 @@ const SignUpScreen = ({ onSignIn }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     if (validate()) {
-      signup({ fullName: fullName.trim(), email: email.trim() });
+      try {
+        await signup({ fullName: fullName.trim(), email: email.trim(), password });
+      } catch (err) {
+        Alert.alert('Registration Error', err.message || 'Could not complete registration.');
+      }
     }
   };
 

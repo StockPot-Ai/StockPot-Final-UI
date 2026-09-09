@@ -1,13 +1,16 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authService, profileService } from '../services';
+import { setAuthToken } from '../services/api';
 
 const AccountContext = createContext(null);
 
 export const AccountProvider = ({ children }) => {
   // ── Profile State
   const [profile, setProfile] = useState({
+    id: '00000000-0000-0000-0000-000000000001',
     name: 'Ammar Dharma',
     email: 'ammar@example.com',
-    phone: '+92 300 1234567',
+    phone: '+94 77 123 4567',
     bio: 'Passionate home chef focused on zero-waste cooking.',
     ecoTitle: 'Eco Saver',
     streakDays: 7,
@@ -19,7 +22,7 @@ export const AccountProvider = ({ children }) => {
 
   // ── Household & Preferences State
   const [household, setHousehold] = useState({
-    householdSize: 3,
+    householdSize: 4,
     cookingSkill: 'Intermediate',
     prepTimeLimit: '30 mins',
     mealsPerDay: 3,
@@ -27,7 +30,7 @@ export const AccountProvider = ({ children }) => {
 
   // ── Dietary Preferences State
   const [dietary, setDietary] = useState({
-    selected: ['Halal', 'Low-Carb', 'High-Protein'],
+    selected: ['Halal', 'High-Protein'],
     allergies: ['Shellfish'],
   });
 
@@ -59,31 +62,100 @@ export const AccountProvider = ({ children }) => {
   const [language, setLanguage] = useState('English');
 
   // ── Auth State
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(true); // default true for immediate development testing
+  const [authError, setAuthError] = useState(null);
+
+  // Sync profile from backend
+  const fetchProfile = async () => {
+    try {
+      const data = await profileService.getProfile();
+      if (data) {
+        setProfile((prev) => ({
+          ...prev,
+          id: data.id || prev.id,
+          name: data.full_name || prev.name,
+          email: data.email || prev.email,
+        }));
+        if (data.household_size) {
+          setHousehold((prev) => ({ ...prev, householdSize: data.household_size }));
+        }
+        if (data.weekly_budget) {
+          setBudget((prev) => ({ ...prev, weeklyBudget: data.weekly_budget }));
+        }
+        if (data.dietary_preference && data.dietary_preference !== 'none') {
+          setDietary((prev) => ({
+            ...prev,
+            selected: Array.from(new Set([...prev.selected, data.dietary_preference])),
+          }));
+        }
+      }
+    } catch (err) {
+      console.log('Backend profile sync note:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchProfile();
+    }
+  }, [isLoggedIn]);
 
   // ── Actions
-  const updateProfile = (fields) => {
+  const updateProfile = async (fields) => {
     setProfile((prev) => ({ ...prev, ...fields }));
+    try {
+      await profileService.updateProfile({
+        full_name: fields.name,
+      });
+    } catch (e) {
+      console.log('Error updating profile on backend:', e.message);
+    }
   };
 
-  const updateHousehold = (fields) => {
+  const updateHousehold = async (fields) => {
     setHousehold((prev) => ({ ...prev, ...fields }));
+    if (fields.householdSize !== undefined) {
+      try {
+        await profileService.updateProfile({
+          household_size: fields.householdSize,
+        });
+      } catch (e) {
+        console.log('Error updating household on backend:', e.message);
+      }
+    }
   };
 
-  const toggleDietaryPreference = (tag) => {
-    setDietary((prev) => {
-      const exists = prev.selected.includes(tag);
-      return {
-        ...prev,
-        selected: exists
-          ? prev.selected.filter((item) => item !== tag)
-          : [...prev.selected, tag],
-      };
-    });
+  const toggleDietaryPreference = async (tag) => {
+    const exists = dietary.selected.includes(tag);
+    const updatedSelected = exists
+      ? dietary.selected.filter((item) => item !== tag)
+      : [...dietary.selected, tag];
+
+    setDietary((prev) => ({
+      ...prev,
+      selected: updatedSelected,
+    }));
+
+    try {
+      await profileService.updateProfile({
+        dietary_preference: updatedSelected.length > 0 ? updatedSelected.join(', ') : 'none',
+      });
+    } catch (e) {
+      console.log('Error updating dietary on backend:', e.message);
+    }
   };
 
-  const updateBudget = (fields) => {
+  const updateBudget = async (fields) => {
     setBudget((prev) => ({ ...prev, ...fields }));
+    if (fields.weeklyBudget !== undefined) {
+      try {
+        await profileService.updateProfile({
+          weekly_budget: fields.weeklyBudget,
+        });
+      } catch (e) {
+        console.log('Error updating budget on backend:', e.message);
+      }
+    }
   };
 
   const toggleNotification = (key) => {
@@ -100,22 +172,68 @@ export const AccountProvider = ({ children }) => {
     }));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } catch (e) {
+      // ignore
+    }
+    setAuthToken(null);
     setIsLoggedIn(false);
   };
 
-  const login = () => {
-    setIsLoggedIn(true);
+  const login = async (credentials) => {
+    setAuthError(null);
+    if (!credentials || !credentials.email) {
+      setAuthToken('mock-token');
+      setIsLoggedIn(true);
+      fetchProfile();
+      return true;
+    }
+
+    try {
+      const data = await authService.login(credentials);
+      if (data?.token) {
+        setAuthToken(data.token);
+      }
+      setIsLoggedIn(true);
+      fetchProfile();
+      return true;
+    } catch (err) {
+      setAuthError(err.message);
+      throw err;
+    }
   };
 
-  const signup = (data) => {
-    if (data && data.fullName) {
-      updateProfile({ name: data.fullName });
+  const signup = async (data) => {
+    setAuthError(null);
+    if (!data || !data.email) {
+      setIsLoggedIn(true);
+      return true;
     }
-    if (data && data.email) {
-      updateProfile({ email: data.email });
+
+    try {
+      const res = await authService.register({
+        full_name: data.fullName || 'New User',
+        email: data.email,
+        password: data.password || 'password123',
+      });
+      if (res?.token) {
+        setAuthToken(res.token);
+      }
+      if (data.fullName) {
+        updateProfile({ name: data.fullName });
+      }
+      if (data.email) {
+        updateProfile({ email: data.email });
+      }
+      setIsLoggedIn(true);
+      fetchProfile();
+      return true;
+    } catch (err) {
+      setAuthError(err.message);
+      throw err;
     }
-    setIsLoggedIn(true);
   };
 
   return (
@@ -129,6 +247,7 @@ export const AccountProvider = ({ children }) => {
         privacy,
         language,
         isLoggedIn,
+        authError,
         updateProfile,
         updateHousehold,
         toggleDietaryPreference,
@@ -139,6 +258,7 @@ export const AccountProvider = ({ children }) => {
         logout,
         login,
         signup,
+        fetchProfile,
       }}
     >
       {children}
