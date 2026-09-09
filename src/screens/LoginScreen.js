@@ -143,7 +143,7 @@ const LoginScreen = ({ onSignUp, onForgotPassword }) => {
         {/* Brand */}
         <View style={styles.brandSection}>
           <Image
-            source={require('../../assets/adaptive-icon.png')}
+            source={require('../../assets/icon.png')}
             style={styles.logo}
             resizeMode="contain"
           />
