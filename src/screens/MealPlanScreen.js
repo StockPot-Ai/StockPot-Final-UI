@@ -7,9 +7,9 @@ import {
   StyleSheet,
   Alert,
   StatusBar,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import MealPlanHeader from '../components/mealplan/MealPlanHeader';

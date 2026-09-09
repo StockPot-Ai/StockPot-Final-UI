@@ -8,9 +8,9 @@ import {
   Dimensions,
   Platform,
   StatusBar,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import { savingsService, activityService } from '../services';
