@@ -62,7 +62,7 @@ export const AccountProvider = ({ children }) => {
   const [language, setLanguage] = useState('English');
 
   // ── Auth State
-  const [isLoggedIn, setIsLoggedIn] = useState(true); // default true for immediate development testing
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authError, setAuthError] = useState(null);
 
   // Sync profile from backend
