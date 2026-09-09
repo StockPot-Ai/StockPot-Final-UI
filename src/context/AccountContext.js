@@ -10,7 +10,7 @@ export const AccountProvider = ({ children }) => {
     id: '00000000-0000-0000-0000-000000000001',
     name: 'Ammar Dharma',
     email: 'ammar@example.com',
-    phone: '+94 77 123 4567',
+    phone: '+92 300 1234567',
     bio: 'Passionate home chef focused on zero-waste cooking.',
     ecoTitle: 'Eco Saver',
     streakDays: 7,
@@ -22,7 +22,7 @@ export const AccountProvider = ({ children }) => {
 
   // ── Household & Preferences State
   const [household, setHousehold] = useState({
-    householdSize: 4,
+    householdSize: 3,
     cookingSkill: 'Intermediate',
     prepTimeLimit: '30 mins',
     mealsPerDay: 3,
@@ -30,7 +30,7 @@ export const AccountProvider = ({ children }) => {
 
   // ── Dietary Preferences State
   const [dietary, setDietary] = useState({
-    selected: ['Halal', 'High-Protein'],
+    selected: ['Halal', 'Low-Carb', 'High-Protein'],
     allergies: ['Shellfish'],
   });
 

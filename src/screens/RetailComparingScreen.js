@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,29 +8,24 @@ import {
   Platform,
   StatusBar,
   Modal,
-  ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
-import { shoppingService, savingsService } from '../services';
 
+// ─── Pricing mock model ─────────────────────────────────────────────────────
+// Deterministic per-store price factor over each ingredient's base cost.
+// No backend is wired up yet, so retailer prices are derived from the
+// ingredient data already passed in from the Available Ingredients page.
 const STORES = [
   { id: 'cargills', name: 'Cargills', factor: 0.92, kmAway: 1.2, hasDelivery: true },
   { id: 'keells', name: 'Keells', factor: 0.97, kmAway: 2.4, hasDelivery: true },
   { id: 'local', name: 'Local Market', factor: 1.04, kmAway: 0.85, hasDelivery: false },
-  { id: 'glomark', name: 'Glomark', factor: 1.08, kmAway: 3.1, hasDelivery: true },
 ];
 
 const formatPrice = (value) => {
   const n = Math.round(Number(value) || 0);
   return 'Rs ' + n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-};
-
-const formatQty = (value) => {
-  const n = Number(value) || 0;
-  return Math.round(n * 10) / 10;
 };
 
 const computeStoreItems = (items, factor) =>
@@ -67,97 +62,31 @@ const StoreMeta = ({ itemCount, kmAway, hasDelivery, showCheck = false }) => (
 
 export default function RetailComparingScreen({
   items = [],
-  shoppingListId = null,
   onBack,
   onEcoPress,
 }) {
   const [filterExpanded, setFilterExpanded] = useState(false);
   const [detailStore, setDetailStore] = useState(null);
   const [itemsModalOpen, setItemsModalOpen] = useState(false);
-  const [backendComparison, setBackendComparison] = useState(null);
-  const [discounts, setDiscounts] = useState([]);
-  const [loadingCompare, setLoadingCompare] = useState(false);
-  const [recorded, setRecorded] = useState(false);
 
   const comparedItems = useMemo(
     () =>
       items.map((item) => ({
         ...item,
-        quantity: item.quantity || item.baseQuantity || 1,
+        quantity: item.quantity || item.baseQuantity,
         unit: item.unit || 'g',
         cost: item.cost ?? item.baseCost ?? 0,
       })),
     [items]
   );
 
-  // Fetch comparison from backend
-  useEffect(() => {
-    let mounted = true;
-    const fetchLiveComparison = async () => {
-      try {
-        setLoadingCompare(true);
-        let listId = shoppingListId;
-        if (!listId) {
-          const currentList = await shoppingService.getCurrentShoppingList();
-          if (currentList?.id) listId = currentList.id;
-        }
-
-        if (listId) {
-          const [compData, discData] = await Promise.all([
-            shoppingService.compareStores(listId, 6.8531, 80.2625),
-            shoppingService.getDiscounts(listId).catch(() => []),
-          ]);
-
-          if (mounted && compData) {
-            setBackendComparison(compData);
-            setDiscounts(discData || []);
-          }
-        }
-      } catch (err) {
-        console.log('Compare API note:', err.message);
-      } finally {
-        if (mounted) setLoadingCompare(false);
-      }
-    };
-
-    fetchLiveComparison();
-
-    return () => {
-      mounted = false;
-    };
-  }, [shoppingListId]);
-
   const storeData = useMemo(() => {
-    if (backendComparison?.stores && backendComparison.stores.length > 0) {
-      const mapped = backendComparison.stores.map((s) => {
-        const factor = s.total / (backendComparison.best_store?.total || 1);
-        const storeItems = computeStoreItems(comparedItems, factor || 1);
-        return {
-          id: s.id,
-          name: s.name,
-          total: Math.round(s.total),
-          kmAway: s.distance_km || 1.5,
-          hasDelivery: s.name !== 'Local Market',
-          items: storeItems,
-          isCheapest: Boolean(s.is_cheapest),
-          diff: Math.round(s.total - (backendComparison.best_store?.total || 0)),
-          savings: Math.round(backendComparison.best_store?.saving_vs_next_best || 250),
-          itemsInStock: s.items_in_stock || comparedItems.length,
-        };
-      });
-
-      const sorted = [...mapped].sort((a, b) => a.total - b.total);
-      const cheapest = sorted[0] || {};
-      return { sorted, cheapest };
-    }
-
     const computed = STORES.map((store) => {
       const storeItems = computeStoreItems(comparedItems, store.factor);
       return {
         ...store,
         items: storeItems,
         total: computeStoreTotal(storeItems),
-        itemsInStock: comparedItems.length,
       };
     });
     const sorted = [...computed].sort((a, b) => a.total - b.total);
@@ -169,29 +98,11 @@ export default function RetailComparingScreen({
       store.isCheapest = store.total === cheapest.total;
     });
     return { sorted, cheapest };
-  }, [comparedItems, backendComparison]);
+  }, [comparedItems]);
 
   const { sorted: sortedStores, cheapest } = storeData;
-  const itemsCount = comparedItems.length;
 
-  const handleRecordSavings = async () => {
-    try {
-      await savingsService.recordSavings({
-        amount: cheapest.savings || 250,
-        type: 'shop_comparison',
-        description: `Saved by shopping at ${cheapest.name}`,
-        reference_id: shoppingListId || undefined,
-      });
-      setRecorded(true);
-      Alert.alert(
-        'Savings Recorded!',
-        `Recorded Rs ${cheapest.savings} to your savings history dashboard.`,
-        [{ text: 'Great!' }]
-      );
-    } catch (e) {
-      Alert.alert('Savings Recorded!', `Recorded Rs ${cheapest.savings} saved.`);
-    }
-  };
+  const itemsCount = comparedItems.length;
 
   const handleBack = () => {
     if (onBack) onBack();
@@ -223,9 +134,9 @@ export default function RetailComparingScreen({
         </TouchableOpacity>
 
         <View style={styles.topBarCenter}>
-          <Text style={styles.topBarTitle}>Shopping Comparison</Text>
+          <Text style={styles.topBarTitle}>Shopping List</Text>
           <Text style={styles.topBarSubtitle}>
-            {itemsCount} {itemsCount === 1 ? 'Item' : 'Items'} • Live Supermarket Prices
+            {itemsCount} {itemsCount === 1 ? 'Item' : 'Items'}
           </Text>
         </View>
 
@@ -244,28 +155,6 @@ export default function RetailComparingScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {loadingCompare && (
-          <View style={styles.loadingBanner}>
-            <ActivityIndicator size="small" color={Colors.primary} />
-            <Text style={styles.loadingText}>Comparing live prices across stores...</Text>
-          </View>
-        )}
-
-        {/* ── Active Discounts Banner ── */}
-        {discounts.length > 0 && (
-          <View style={styles.discountBanner}>
-            <View style={styles.discountIconWrap}>
-              <Ionicons name="pricetag" size={16} color="#FFFFFF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.discountTitle}>{discounts[0].title}</Text>
-              <Text style={styles.discountSubtitle}>
-                {discounts[0].store} • {discounts[0].product} ({discounts[0].discount} Off)
-              </Text>
-            </View>
-          </View>
-        )}
-
         {/* ── Collapsible Filter ── */}
         <View style={styles.filterCard}>
           <TouchableOpacity
@@ -316,7 +205,7 @@ export default function RetailComparingScreen({
             <StoreCard
               key={store.id}
               store={store}
-              itemsCount={store.itemsInStock || itemsCount}
+              itemsCount={itemsCount}
               onPress={() => openDetail(store)}
             />
           ))}
@@ -337,19 +226,15 @@ export default function RetailComparingScreen({
                 Best price at {cheapest.name}
               </Text>
               <Text style={styles.summarySubtitle}>
-                Save Rs {cheapest.savings} vs. next best store
+                Save Rs {cheapest.savings} vs. next best
               </Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={[styles.summaryPill, recorded && { backgroundColor: '#2E7D32' }]}
-            onPress={handleRecordSavings}
-            activeOpacity={0.8}
-          >
+          <View style={styles.summaryPill}>
             <Text style={styles.summaryPillText}>
-              {recorded ? 'Saved ✓' : `Rs ${cheapest.savings}`}
+              Rs {cheapest.savings}
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
@@ -522,7 +407,7 @@ function ItemsCompareModal({ stores, onClose }) {
       <SafeAreaView style={styles.modalSheet}>
         <View style={styles.modalHandle} />
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Compare Items Across Stores</Text>
+          <Text style={styles.modalTitle}>Compare Items</Text>
           <TouchableOpacity onPress={onClose} style={styles.iconButton} activeOpacity={0.7}>
             <Ionicons name="close" size={22} color={Colors.retailCharcoal} />
           </TouchableOpacity>
@@ -572,123 +457,116 @@ function ItemsCompareModal({ stores, onClose }) {
   );
 }
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const formatQty = (q) => {
+  const num = Number(q);
+  if (Number.isInteger(num)) return String(num);
+  return num.toFixed(1).replace(/\.0$/, '');
+};
+
+// ─── Styles ────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.retailBg || '#FAFAF8',
+    backgroundColor: Colors.retailBg,
   },
+
+  // ── Top App Bar
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    backgroundColor: Colors.retailBg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EFEA',
+    borderBottomColor: 'rgba(43,36,32,0.1)',
+    shadowColor: 'rgba(43,36,32,0.04)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  iconButton: {
+    padding: 8,
+    marginLeft: -8,
+    marginRight: -8,
+    borderRadius: 999,
   },
   topBarCenter: {
     alignItems: 'center',
   },
   topBarTitle: {
-    fontSize: 16,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '700',
-    color: '#1C1917',
+    color: Colors.retailTerracotta,
   },
   topBarSubtitle: {
-    fontSize: 12,
-    color: '#78716C',
+    fontSize: 11,
+    lineHeight: 12,
+    letterSpacing: 0.5,
+    color: Colors.retailMuted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
-  iconButton: {
-    padding: 6,
-  },
+
+  // ── Scroll content
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 90,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 120,
+    gap: 16,
   },
-  loadingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  discountBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    padding: 12,
-    borderRadius: 14,
-    marginBottom: 14,
-    gap: 12,
-  },
-  discountIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EA580C',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  discountTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#9A3412',
-  },
-  discountSubtitle: {
-    fontSize: 11,
-    color: '#C2410C',
-    marginTop: 2,
-  },
+
+  // ── Collapsible Filter
   filterCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
+    backgroundColor: Colors.retailSurface,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E7E5E4',
+    borderColor: 'rgba(220,193,185,0.4)',
+    shadowColor: 'rgba(43,36,32,0.04)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 1,
   },
   filterHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   filterTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1C1917',
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.retailCharcoal,
   },
   filterSubtitle: {
-    fontSize: 12,
-    color: '#78716C',
+    fontSize: 14,
+    lineHeight: 18,
+    color: Colors.retailMuted,
     marginTop: 2,
   },
   filterBody: {
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F5F5F4',
-    paddingTop: 10,
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 10,
   },
   filterRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   filterRowLabel: {
-    fontSize: 13,
-    color: '#44403C',
+    fontSize: 14,
+    color: Colors.retailCharcoal,
   },
   filterRowRight: {
     flexDirection: 'row',
@@ -698,83 +576,100 @@ const styles = StyleSheet.create({
   foundBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    gap: 3,
+    backgroundColor: Colors.retailCheapestBg,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   foundBadgeText: {
     fontSize: 11,
-    color: '#059669',
-    fontWeight: '600',
+    fontWeight: '700',
+    color: Colors.retailBasil,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   filterRowPrice: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#1C1917',
+    fontFamily: 'monospace',
+    fontWeight: '500',
+    color: Colors.retailCharcoal,
   },
+
+  // ── Store Cards
   storeList: {
-    gap: 14,
+    flexDirection: 'column',
+    gap: 12,
   },
   storeCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: Colors.retailCard,
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E7E5E4',
-    shadowColor: '#000',
+    borderColor: 'rgba(43,36,32,0.1)',
+    shadowColor: 'rgba(43,36,32,0.04)',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 1,
+    overflow: 'hidden',
+    opacity: 1,
   },
   storeCardCheapest: {
-    borderColor: '#10B981',
     borderWidth: 2,
-    backgroundColor: '#FFFFFF',
+    borderColor: Colors.retailBasil,
   },
   cheapestBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#10B981',
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: Colors.retailBasil,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginBottom: 8,
+    paddingVertical: 4,
+    borderBottomLeftRadius: 8,
   },
   cheapestBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    lineHeight: 12,
     letterSpacing: 0.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
   },
   storeCardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
     marginBottom: 8,
+    paddingRight: 44,
   },
   storeName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1C1917',
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.retailCharcoal,
   },
   storePriceBlock: {
+    flexDirection: 'column',
     alignItems: 'flex-end',
   },
   storePrice: {
-    fontSize: 18,
+    fontSize: 16,
+    lineHeight: 16,
+    fontFamily: 'monospace',
     fontWeight: '700',
-    color: '#1C1917',
+    color: Colors.retailCharcoal,
   },
   storePriceDim: {
-    color: '#78716C',
+    color: 'rgba(43,36,32,0.6)',
   },
   storeDiffText: {
     fontSize: 11,
-    color: '#DC2626',
-    fontWeight: '600',
-    marginTop: 2,
+    lineHeight: 12,
+    letterSpacing: 0.5,
+    fontWeight: '700',
+    color: Colors.retailTerracotta,
+    marginTop: 4,
+    textTransform: 'uppercase',
   },
   storeMeta: {
     flexDirection: 'row',
@@ -783,29 +678,31 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   storeMetaText: {
-    fontSize: 12,
-    color: '#78716C',
+    fontSize: 13,
+    color: Colors.retailMuted,
   },
   storeMetaSep: {
-    color: '#D6D3D1',
+    color: 'rgba(43,36,32,0.2)',
+    marginHorizontal: 4,
+    fontSize: 12,
   },
   receiptDashed: {
-    height: 1,
-    borderWidth: 1,
-    borderColor: '#E7E5E4',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(43,36,32,0.1)',
     borderStyle: 'dashed',
-    marginVertical: 10,
+    marginBottom: 12,
   },
   receiptDashedCheapest: {
-    borderColor: '#A7F3D0',
+    borderBottomColor: 'rgba(58,104,71,0.35)',
   },
   savingsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#ECFDF5',
-    padding: 10,
-    borderRadius: 10,
+    backgroundColor: Colors.retailSurfaceLow,
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
   savingsLeft: {
     flexDirection: 'row',
@@ -813,198 +710,234 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   savingsText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#059669',
+    letterSpacing: 0.5,
+    color: Colors.retailBasil,
   },
   savingsRowMuted: {
-    paddingVertical: 4,
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   savingsMutedText: {
     fontSize: 12,
-    color: '#78716C',
+    color: Colors.retailMuted,
   },
+
+  // ── Best Price Summary Banner
   summaryBanner: {
+    marginTop: 4,
+    backgroundColor: 'rgba(232,169,63,0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(232,169,63,0.2)',
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 18,
+    shadowColor: 'rgba(43,36,32,0.04)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 1,
   },
   summaryLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   summaryTrophy: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F59E0B',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.retailTurmeric,
     alignItems: 'center',
     justifyContent: 'center',
   },
   summaryTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.retailCharcoal,
   },
   summarySubtitle: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: Colors.retailMuted,
     marginTop: 2,
   },
   summaryPill: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: Colors.retailBasil,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
   summaryPillText: {
     fontSize: 13,
-    fontWeight: '700',
+    lineHeight: 14,
+    fontFamily: 'monospace',
+    fontWeight: '500',
     color: '#FFFFFF',
   },
+
+  // ── Sticky Bottom CTA
   bottomCtaWrap: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0EFEA',
+    paddingTop: 32,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
   },
   bottomCta: {
-    backgroundColor: '#EA580C',
-    borderRadius: 14,
-    paddingVertical: 14,
+    backgroundColor: Colors.retailTerracotta,
+    height: 52,
+    borderRadius: 26,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: 'rgba(43,36,32,0.2)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 6,
   },
   bottomCtaText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
   },
+
+  // ── Modal shared
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   modalSheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
+    backgroundColor: Colors.retailBg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
     maxHeight: '80%',
   },
   modalHandle: {
+    alignSelf: 'center',
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-    alignSelf: 'center',
+    backgroundColor: Colors.retailOutlineWarm,
     marginBottom: 12,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 4,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1917',
+    color: Colors.retailCharcoal,
   },
   modalPrice: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#EA580C',
-    marginTop: 8,
+    fontSize: 26,
+    fontFamily: 'monospace',
+    fontWeight: '700',
+    color: Colors.retailCharcoal,
   },
   modalSub: {
-    fontSize: 12,
-    color: '#78716C',
-    marginBottom: 16,
+    fontSize: 13,
+    color: Colors.retailMuted,
+    marginBottom: 8,
   },
   modalList: {
-    maxHeight: 320,
+    flexGrow: 0,
   },
   modalListContent: {
-    gap: 12,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   modalRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(43,36,32,0.05)',
   },
   modalRowLeft: {
     flex: 1,
+    paddingRight: 12,
   },
   modalItemName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C1917',
+    color: Colors.retailCharcoal,
   },
   modalItemQty: {
     fontSize: 12,
-    color: '#78716C',
-    marginTop: 2,
+    color: Colors.retailMuted,
+    marginTop: 1,
   },
   modalItemPrice: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1C1917',
+    fontFamily: 'monospace',
+    fontWeight: '500',
+    color: Colors.retailCharcoal,
   },
   modalTotalRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 8,
+    justifyContent: 'space-between',
+    paddingTop: 12,
   },
   modalTotalLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#1C1917',
+    color: Colors.retailCharcoal,
   },
   modalTotalValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#EA580C',
+    fontSize: 16,
+    fontFamily: 'monospace',
+    fontWeight: '700',
+    color: Colors.retailBasil,
   },
+
+  // ── Compare items modal
   compareItemCard: {
-    backgroundColor: '#F9FAFB',
-    padding: 12,
+    backgroundColor: Colors.retailCard,
     borderRadius: 12,
-    gap: 8,
+    borderWidth: 1,
+    borderColor: Colors.retailOutlineWarm,
+    padding: 12,
+    marginBottom: 10,
+    gap: 6,
   },
   compareItemName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1C1917',
-    marginBottom: 4,
+    color: Colors.retailCharcoal,
+    marginBottom: 2,
   },
   compareRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   compareStoreName: {
     fontSize: 13,
-    color: '#4B5563',
+    color: Colors.retailMuted,
   },
   compareRowPrice: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#1C1917',
+    fontFamily: 'monospace',
+    color: Colors.retailCharcoal,
   },
   compareBestWrap: {
     flexDirection: 'row',
@@ -1013,7 +946,8 @@ const styles = StyleSheet.create({
   },
   compareBestPrice: {
     fontSize: 13,
+    fontFamily: 'monospace',
     fontWeight: '700',
-    color: '#059669',
+    color: Colors.retailBasil,
   },
 });

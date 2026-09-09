@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -8,30 +8,32 @@ import {
   Dimensions,
   Platform,
   StatusBar,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import Colors from '../constants/colors';
-import { savingsService, activityService } from '../services';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_PADDING = 16;
 
-const INITIAL_SAVINGS_STATS = {
-  totalSaved: 1995,
+// ─── Mock Data (replace with real data source later) ──────────────────────────
+
+const SAVINGS_STATS = {
+  totalSaved: 12450,
   goal: 20000,
-  thisMonth: 1995,
-  weeklyAvg: 498.75,
+  thisMonth: 2500,
+  weeklyAvg: 625,
   foodWasteAvoided: 3.2,
   mealsPlanned: 15,
 };
 
-const INITIAL_MONTHLY_TREND = [
-  { month: 'Jun', amount: 1100 },
-  { month: 'Jul', amount: 1400 },
-  { month: 'Aug', amount: 1500 },
-  { month: 'Sep', amount: 1995 },
+const MONTHLY_TREND = [
+  { month: 'Jan', amount: 1800 },
+  { month: 'Feb', amount: 2100 },
+  { month: 'Mar', amount: 1900 },
+  { month: 'Apr', amount: 2300 },
+  { month: 'May', amount: 2500 },
+  { month: 'Jun', amount: 1850 },
 ];
 
 const SAVINGS_LEVEL = {
@@ -41,7 +43,7 @@ const SAVINGS_LEVEL = {
   icon: '\u{1F949}',
 };
 
-const INITIAL_RECENT_SAVINGS = [
+const RECENT_SAVINGS = [
   { id: '1', label: 'Meal Planning', amount: 450, icon: 'restaurant-outline', iconColor: '#2E7D32', iconBg: '#E8F5E9', date: 'Today' },
   { id: '2', label: 'Smart Shopping', amount: 320, icon: 'cart-outline', iconColor: '#1565C0', iconBg: '#E3F2FD', date: 'Yesterday' },
   { id: '3', label: 'Food Saved', amount: 280, icon: 'leaf-outline', iconColor: '#E53935', iconBg: '#FFEBEE', date: '2 days ago' },
@@ -53,17 +55,18 @@ const CHALLENGES = [
   { id: '2', icon: 'piggy-bank', iconColor: '#E53935', iconBg: '#FFEBEE', label: 'Under Budget Week', status: 'Done', isDone: true },
 ];
 
-const formatCurrency = (n) => {
-  const val = Math.round(Number(n) || 0);
-  return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-};
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const formatCurrency = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 const SavingsHeader = ({ onBack }) => (
   <View style={styles.header}>
     <TouchableOpacity onPress={onBack} style={styles.headerBtn} activeOpacity={0.7}>
       <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
     </TouchableOpacity>
-    <Text style={styles.headerTitle}>Savings Dashboard</Text>
+    <Text style={styles.headerTitle}>Savings</Text>
     <TouchableOpacity style={styles.headerBtn} activeOpacity={0.7}>
       <Ionicons name="settings-outline" size={22} color={Colors.textPrimary} />
     </TouchableOpacity>
@@ -71,7 +74,7 @@ const SavingsHeader = ({ onBack }) => (
 );
 
 const TotalSavingsCard = ({ total, goal }) => {
-  const pct = Math.min(100, Math.round((total / (goal || 1)) * 100));
+  const pct = Math.round((total / goal) * 100);
   return (
     <View style={styles.heroCard}>
       <Text style={styles.heroLabel}>Total Saved</Text>
@@ -97,14 +100,13 @@ const StatCard = ({ value, label, icon, color, bgColor }) => (
   </View>
 );
 
-const BarChart = ({ data = [] }) => {
-  const amounts = data.map((d) => d.amount || 0);
-  const maxAmount = Math.max(...amounts, 1);
+const BarChart = ({ data }) => {
+  const maxAmount = Math.max(...data.map((d) => d.amount));
   return (
     <View style={styles.chartCard}>
       <View style={styles.chartContainer}>
         {data.map((item, index) => {
-          const barHeight = Math.max(12, Math.round(((item.amount || 0) / maxAmount) * 100));
+          const barHeight = Math.round((item.amount / maxAmount) * 100);
           const isMax = item.amount === maxAmount;
           return (
             <View key={index} style={styles.chartColumn}>
@@ -114,14 +116,12 @@ const BarChart = ({ data = [] }) => {
                     styles.barFill,
                     {
                       height: barHeight,
-                      backgroundColor: isMax ? Colors.primary : '#E2E8F0',
+                      backgroundColor: isMax ? Colors.primary : Colors.primaryLight,
                     },
                   ]}
                 />
               </View>
-              <Text style={[styles.monthLabel, isMax && styles.monthLabelActive]}>
-                {item.month}
-              </Text>
+              <Text style={styles.barLabel}>{item.month}</Text>
             </View>
           );
         })}
@@ -133,126 +133,79 @@ const BarChart = ({ data = [] }) => {
 const SavingsLevelCard = ({ level }) => (
   <View style={styles.levelCard}>
     <View style={styles.levelHeader}>
-      <View style={styles.levelLeft}>
-        <Text style={styles.levelIcon}>{level.icon}</Text>
-        <View>
-          <Text style={styles.levelTitle}>{level.current}</Text>
-          <Text style={styles.levelSubtitle}>Next: {level.next}</Text>
-        </View>
+      <Text style={styles.levelEmoji}>{level.icon}</Text>
+      <View style={styles.levelTextCol}>
+        <Text style={styles.levelCurrent}>{level.current}</Text>
+        <Text style={styles.levelNext}>to {level.next}</Text>
       </View>
-      <Text style={styles.levelPct}>{Math.round(level.progress * 100)}%</Text>
+      <View style={styles.levelBadge}>
+        <Text style={styles.levelBadgeText}>{Math.round(level.progress * 100)}%</Text>
+      </View>
     </View>
-    <View style={styles.levelTrack}>
-      <View style={[styles.levelFill, { width: `${level.progress * 100}%` }]} />
+    <View style={styles.levelProgressTrack}>
+      <View style={[styles.levelProgressFill, { width: `${level.progress * 100}%` }]} />
     </View>
   </View>
 );
 
 const RecentSavingsItem = ({ item, isLast }) => (
-  <View style={[styles.recentItem, !isLast && styles.recentItemBorder]}>
-    <View style={[styles.recentIconBg, { backgroundColor: item.iconBg || '#E8F5E9' }]}>
-      <Ionicons name={item.icon || 'wallet-outline'} size={18} color={item.iconColor || '#2E7D32'} />
+  <View>
+    <View style={styles.recentRow}>
+      <View style={[styles.recentIconBg, { backgroundColor: item.iconBg }]}>
+        <Ionicons name={item.icon} size={18} color={item.iconColor} />
+      </View>
+      <View style={styles.recentInfo}>
+        <Text style={styles.recentLabel}>{item.label}</Text>
+        <Text style={styles.recentDate}>{item.date}</Text>
+      </View>
+      <Text style={styles.recentAmount}>+Rs {item.amount}</Text>
     </View>
-    <View style={styles.recentInfo}>
-      <Text style={styles.recentLabel}>{item.label || item.title}</Text>
-      <Text style={styles.recentDate}>{item.date || item.created_at?.split('T')[0] || 'Recent'}</Text>
-    </View>
-    <Text style={styles.recentAmount}>+Rs {formatCurrency(item.amount || item.saved)}</Text>
+    {!isLast && <View style={styles.divider} />}
   </View>
 );
 
+// ─── Main Component ──────────────────────────────────────────────────────────
+
 export default function SavingsDashboard({ onBack }) {
-  const [stats, setStats] = useState(INITIAL_SAVINGS_STATS);
-  const [trend, setTrend] = useState(INITIAL_MONTHLY_TREND);
-  const [recentSavings, setRecentSavings] = useState(INITIAL_RECENT_SAVINGS);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    setLoading(true);
-
-    Promise.all([
-      savingsService.getSummary().catch(() => null),
-      savingsService.getTrend().catch(() => null),
-      activityService.getActivity('savings').catch(() => []),
-    ])
-      .then(([summaryData, trendData, activityData]) => {
-        if (!mounted) return;
-
-        if (summaryData) {
-          setStats({
-            totalSaved: summaryData.total_saved ?? 1995,
-            goal: summaryData.goal ?? 20000,
-            thisMonth: summaryData.this_month ?? 1995,
-            weeklyAvg: summaryData.weekly_average ?? 498.75,
-            foodWasteAvoided: 3.2,
-            mealsPlanned: summaryData.meals_planned ?? 15,
-          });
-        }
-
-        if (trendData?.months && Array.isArray(trendData.months)) {
-          setTrend(trendData.months);
-        }
-
-        if (Array.isArray(activityData) && activityData.length > 0) {
-          const mapped = activityData.slice(0, 4).map((a) => ({
-            id: a.id,
-            label: a.title || 'Smart Savings',
-            amount: a.amount || a.saved || 250,
-            icon: 'wallet-outline',
-            iconColor: '#2E7D32',
-            iconBg: '#E8F5E9',
-            date: a.created_at ? a.created_at.split('T')[0] : 'Recent',
-          }));
-          setRecentSavings(mapped);
-        }
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <SavingsHeader onBack={onBack} />
-
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <TotalSavingsCard total={stats.totalSaved} goal={stats.goal} />
+        <TotalSavingsCard
+          total={SAVINGS_STATS.totalSaved}
+          goal={SAVINGS_STATS.goal}
+        />
 
-        {/* 2x2 Stats Grid */}
-        <View style={styles.grid}>
+        {/* Stats Grid */}
+        <View style={styles.statsGrid}>
           <StatCard
-            value={`Rs ${formatCurrency(stats.thisMonth)}`}
+            value={`Rs ${formatCurrency(SAVINGS_STATS.thisMonth)}`}
             label="This Month"
             icon="calendar-outline"
             color="#2E7D32"
             bgColor="#E8F5E9"
           />
           <StatCard
-            value={`Rs ${formatCurrency(stats.weeklyAvg)}`}
+            value={`Rs ${SAVINGS_STATS.weeklyAvg}`}
             label="Weekly Avg"
-            icon="trending-up-outline"
+            icon="wallet-outline"
             color="#1565C0"
             bgColor="#E3F2FD"
           />
           <StatCard
-            value={`${stats.foodWasteAvoided} kg`}
+            value={`${SAVINGS_STATS.foodWasteAvoided} kg`}
             label="Waste Saved"
             icon="leaf-outline"
             color="#E53935"
             bgColor="#FFEBEE"
           />
           <StatCard
-            value={stats.mealsPlanned}
+            value={SAVINGS_STATS.mealsPlanned}
             label="Meals Planned"
             icon="restaurant-outline"
             color="#7C4A00"
@@ -263,7 +216,7 @@ export default function SavingsDashboard({ onBack }) {
         {/* Savings Trend */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Savings Trend</Text>
-          <BarChart data={trend} />
+          <BarChart data={MONTHLY_TREND} />
         </View>
 
         {/* Savings Level */}
@@ -281,11 +234,11 @@ export default function SavingsDashboard({ onBack }) {
             </TouchableOpacity>
           </View>
           <View style={styles.recentCard}>
-            {recentSavings.map((item, index) => (
+            {RECENT_SAVINGS.map((item, index) => (
               <RecentSavingsItem
                 key={item.id}
                 item={item}
-                isLast={index === recentSavings.length - 1}
+                isLast={index === RECENT_SAVINGS.length - 1}
               />
             ))}
           </View>
@@ -315,249 +268,293 @@ export default function SavingsDashboard({ onBack }) {
                     {c.status}
                   </Text>
                 </View>
-                {idx < CHALLENGES.length - 1 && <View style={styles.challengeDivider} />}
+                {idx < CHALLENGES.length - 1 && <View style={styles.divider} />}
               </View>
             ))}
+            <View style={styles.divider} />
+            <View style={styles.rewardRow}>
+              <Text style={styles.rewardLabel}>REWARD POOL</Text>
+              <Text style={styles.rewardPoints}>250 Pts</Text>
+            </View>
           </View>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 20 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAFAF8',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: CARD_PADDING,
-    paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0EFEA',
-  },
-  headerBtn: {
-    padding: 6,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: CARD_PADDING,
-    paddingBottom: 40,
+    paddingBottom: 0,
   },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: CARD_PADDING,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 12 : 16,
+    paddingBottom: 12,
+    backgroundColor: Colors.background,
+  },
+  headerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    letterSpacing: -0.3,
+  },
+
+  // Hero Card
   heroCard: {
     backgroundColor: Colors.primary,
-    borderRadius: 20,
-    padding: 22,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    marginHorizontal: CARD_PADDING,
+    marginTop: 16,
+    marginBottom: 16,
+    borderRadius: 16,
+    padding: 20,
   },
   heroLabel: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 4,
   },
   heroAmount: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '800',
-    color: '#FFFFFF',
-    marginTop: 6,
+    color: Colors.textWhite,
+    letterSpacing: -1,
     marginBottom: 16,
   },
   progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   progressTrack: {
     flex: 1,
     height: 8,
+    backgroundColor: 'rgba(255,255,255,0.25)',
     borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.3)',
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
+    backgroundColor: Colors.textWhite,
     borderRadius: 4,
-    backgroundColor: '#FFFFFF',
   },
   progressPct: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: Colors.textWhite,
+    minWidth: 35,
   },
   goalLabel: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.6)',
     marginTop: 8,
   },
-  grid: {
+
+  // Stats Grid
+  statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginTop: 16,
+    paddingHorizontal: CARD_PADDING,
+    marginBottom: 4,
   },
   statCard: {
     width: (SCREEN_WIDTH - CARD_PADDING * 2 - 12) / 2,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#ECEAE4',
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    padding: 14,
+    shadowColor: 'rgba(0,0,0,0.06)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   statIconBg: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
   statValue: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
     color: Colors.textPrimary,
+    marginBottom: 2,
   },
   statLabel: {
     fontSize: 12,
+    fontWeight: '500',
     color: Colors.textSecondary,
-    marginTop: 2,
   },
+
+  // Section
   section: {
-    marginTop: 22,
+    marginTop: 20,
+    paddingHorizontal: CARD_PADDING,
   },
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 12,
+    letterSpacing: -0.3,
   },
   viewAll: {
     fontSize: 13,
-    fontWeight: '600',
     color: Colors.primary,
+    fontWeight: '600',
   },
+
+  // Bar Chart
   chartCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#ECEAE4',
+    padding: 16,
+    marginTop: 12,
+    shadowColor: 'rgba(0,0,0,0.06)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   chartContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
     alignItems: 'flex-end',
-    height: 120,
+    justifyContent: 'space-between',
+    paddingTop: 8,
   },
   chartColumn: {
     alignItems: 'center',
     flex: 1,
   },
   barTrack: {
-    width: 24,
-    height: 90,
+    height: 120,
+    width: 28,
     justifyContent: 'flex-end',
-    alignItems: 'center',
   },
   barFill: {
     width: '100%',
     borderRadius: 6,
   },
-  monthLabel: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 8,
+  barLabel: {
+    fontSize: 11,
     fontWeight: '500',
+    color: Colors.textSecondary,
+    marginTop: 6,
   },
-  monthLabelActive: {
-    color: Colors.primary,
-    fontWeight: '700',
-  },
+
+  // Savings Level
   levelCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#ECEAE4',
+    marginTop: 12,
+    shadowColor: 'rgba(0,0,0,0.06)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   levelHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  levelLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginBottom: 14,
     gap: 12,
   },
-  levelIcon: {
-    fontSize: 24,
+  levelEmoji: {
+    fontSize: 32,
   },
-  levelTitle: {
-    fontSize: 15,
+  levelTextCol: {
+    flex: 1,
+  },
+  levelCurrent: {
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
-  levelSubtitle: {
-    fontSize: 12,
+  levelNext: {
+    fontSize: 13,
     color: Colors.textSecondary,
+    marginTop: 1,
   },
-  levelPct: {
-    fontSize: 14,
+  levelBadge: {
+    backgroundColor: Colors.milestoneCard,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 50,
+  },
+  levelBadgeText: {
+    fontSize: 13,
     fontWeight: '700',
     color: Colors.primary,
   },
-  levelTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#F1F5F9',
+  levelProgressTrack: {
+    height: 8,
+    backgroundColor: Colors.pillInactive,
+    borderRadius: 4,
     overflow: 'hidden',
   },
-  levelFill: {
+  levelProgressFill: {
     height: '100%',
-    backgroundColor: '#F59E0B',
-    borderRadius: 3,
+    backgroundColor: Colors.primary,
+    borderRadius: 4,
   },
+
+  // Recent Savings
   recentCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     borderRadius: 16,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#ECEAE4',
+    padding: 4,
+    marginTop: 12,
+    shadowColor: 'rgba(0,0,0,0.06)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  recentItem: {
+  recentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-  },
-  recentItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F4',
+    paddingHorizontal: 12,
+    gap: 12,
   },
   recentIconBg: {
     width: 36,
@@ -565,14 +562,13 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   recentInfo: {
     flex: 1,
   },
   recentLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.textPrimary,
   },
   recentDate: {
@@ -581,48 +577,73 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   recentAmount: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: Colors.primary,
   },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginHorizontal: 12,
+  },
+
+  // Weekly Challenges
   challengesCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     borderRadius: 16,
-    padding: 6,
-    borderWidth: 1,
-    borderColor: '#ECEAE4',
+    padding: 4,
+    marginTop: 12,
+    shadowColor: 'rgba(0,0,0,0.06)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   challengeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     gap: 12,
   },
   challengeIconBg: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   challengeLabel: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
     color: Colors.textPrimary,
   },
   challengeStatus: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: Colors.textSecondary,
   },
   challengeStatusDone: {
     color: Colors.challengeDone,
   },
-  challengeDivider: {
-    height: 1,
-    backgroundColor: '#F5F5F4',
-    marginHorizontal: 10,
+  rewardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+  },
+  rewardLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  rewardPoints: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.rewardGold,
   },
 });

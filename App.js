@@ -25,29 +25,21 @@ function AppContent() {
   const [currentScreen, setCurrentScreen] = React.useState('home');
   const [selectedRecipe, setSelectedRecipe] = React.useState(null);
   const [retailItems, setRetailItems] = React.useState([]);
-  const [retailShoppingListId, setRetailShoppingListId] = React.useState(null);
 
   const goHome = React.useCallback(() => {
     setCurrentScreen('home');
     setSelectedRecipe(null);
   }, []);
 
-  const openRecipe = React.useCallback((recipeOrTitle) => {
-    if (typeof recipeOrTitle === 'object' && recipeOrTitle !== null) {
-      setSelectedRecipe(recipeOrTitle);
-      setCurrentScreen('ingredient');
-    } else if (recipes[recipeOrTitle]) {
-      setSelectedRecipe(recipes[recipeOrTitle]);
-      setCurrentScreen('ingredient');
-    } else {
-      setSelectedRecipe({ title: recipeOrTitle, name: recipeOrTitle });
+  const openRecipe = React.useCallback((title) => {
+    if (recipes[title]) {
+      setSelectedRecipe(recipes[title]);
       setCurrentScreen('ingredient');
     }
   }, []);
 
-  const openRetail = React.useCallback((items, shoppingListId = null) => {
+  const openRetail = React.useCallback((items) => {
     setRetailItems(items || []);
-    setRetailShoppingListId(shoppingListId);
     setCurrentScreen('retail');
   }, []);
 
@@ -71,11 +63,7 @@ function AppContent() {
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (currentScreen === 'retail') {
-        if (selectedRecipe) {
-          setCurrentScreen('ingredient');
-        } else {
-          setCurrentScreen('mealplan');
-        }
+        setCurrentScreen('ingredient');
         return true;
       }
       if (
@@ -91,7 +79,7 @@ function AppContent() {
       return false;
     });
     return () => subscription.remove();
-  }, [currentScreen, goHome, selectedRecipe]);
+  }, [currentScreen, goHome]);
 
   const renderActiveNav = () => {
     if (currentScreen === 'account') return 'Profile';
@@ -106,13 +94,7 @@ function AppContent() {
       return <AccountScreen onBack={goHome} onNavigateHome={goHome} />;
     }
     if (currentScreen === 'mealplan') {
-      return (
-        <MealPlanScreen
-          onNavigateHome={goHome}
-          onSelectMeal={openRecipe}
-          onOpenRetail={openRetail}
-        />
-      );
+      return <MealPlanScreen onNavigateHome={goHome} />;
     }
     if (currentScreen === 'savings') {
       return <SavingsDashboard onBack={goHome} />;
@@ -158,14 +140,7 @@ function AppContent() {
     return (
       <RetailComparingScreen
         items={retailItems}
-        shoppingListId={retailShoppingListId}
-        onBack={() => {
-          if (selectedRecipe) {
-            setCurrentScreen('ingredient');
-          } else {
-            setCurrentScreen('mealplan');
-          }
-        }}
+        onBack={() => setCurrentScreen('ingredient')}
       />
     );
   }

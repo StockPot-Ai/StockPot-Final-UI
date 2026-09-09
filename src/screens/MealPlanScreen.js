@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Alert,
   StatusBar,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,8 +16,6 @@ import WeeklyBudgetCard from '../components/mealplan/WeeklyBudgetCard';
 import DaySelector from '../components/mealplan/DaySelector';
 import MealCard from '../components/mealplan/MealCard';
 import UnplannedMealCard from '../components/mealplan/UnplannedMealCard';
-import { mealPlanService, shoppingService, recipeService } from '../services';
-import { useAccount } from '../context/AccountContext';
 
 const INITIAL_DAYS_DATA = {
   mon: {
@@ -103,33 +100,40 @@ const INITIAL_DAYS_DATA = {
       {
         id: 'wed-2',
         type: 'LUNCH',
-        title: 'Quinoa Super Bowl',
-        image: require('../../assets/quinoa_bowl.jpg'),
+        title: 'Roasted Pumpkin Soup',
+        image: require('../../assets/creamy_pumpkin_pasta.jpg'),
         badgeType: 'match',
-        badgeText: '92% Match',
+        badgeText: '98% Match',
         servings: 2,
-        price: 1530,
+        price: 750,
         accentColor: '#7C2D12',
       },
+      {
+        id: 'wed-3',
+        type: 'DINNER',
+        title: 'Creamy Pumpkin Pasta',
+        image: require('../../assets/creamy_pumpkin_pasta.jpg'),
+        badgeType: 'match',
+        badgeText: '95% Match',
+        servings: 2,
+        price: 780,
+        accentColor: '#2E7D32',
+      },
     ],
-    unplanned: {
-      type: 'Dinner',
-      title: 'Dinner not planned',
-    },
   },
   thu: {
     dayName: "Thursday's Plan",
-    total: 2200,
+    total: 1950,
     meals: [
       {
         id: 'thu-1',
         type: 'BREAKFAST',
-        title: 'Overnight Chia Oats',
+        title: 'Avocado & Egg Toast',
         image: require('../../assets/avocado_sourdough.jpg'),
-        badgeType: 'tag',
-        badgeText: 'Low Calorie',
+        badgeType: 'match',
+        badgeText: '92% Match',
         servings: 2,
-        price: 900,
+        price: 850,
         accentColor: '#F59E0B',
       },
       {
@@ -139,8 +143,8 @@ const INITIAL_DAYS_DATA = {
         image: require('../../assets/sri_lankan_chicken_curry.jpg'),
         badgeType: 'tag',
         badgeText: 'High Protein',
-        servings: 3,
-        price: 1300,
+        servings: 2,
+        price: 1100,
         accentColor: '#7C2D12',
       },
     ],
@@ -151,17 +155,17 @@ const INITIAL_DAYS_DATA = {
   },
   fri: {
     dayName: "Friday's Plan",
-    total: 2150,
+    total: 2100,
     meals: [
       {
         id: 'fri-1',
         type: 'BREAKFAST',
-        title: 'Avocado & Egg Toast',
+        title: 'Berry Granola Bowl',
         image: require('../../assets/avocado_sourdough.jpg'),
         badgeType: 'match',
-        badgeText: '91% Match',
+        badgeText: '90% Match',
         servings: 2,
-        price: 850,
+        price: 800,
         accentColor: '#F59E0B',
       },
       {
@@ -181,95 +185,14 @@ const INITIAL_DAYS_DATA = {
       title: 'Dinner not planned',
     },
   },
-  sat: {
-    dayName: "Saturday's Plan",
-    total: 0,
-    meals: [],
-    unplanned: {
-      type: 'All Day',
-      title: 'Weekend meals not planned',
-    },
-  },
-  sun: {
-    dayName: "Sunday's Plan",
-    total: 0,
-    meals: [],
-    unplanned: {
-      type: 'All Day',
-      title: 'Weekend meals not planned',
-    },
-  },
 };
 
 export default function MealPlanScreen({
   onSelectMeal,
   onNavigateHome,
-  onOpenRetail,
 }) {
-  const { budget } = useAccount();
   const [selectedDayId, setSelectedDayId] = useState('tue');
   const [daysData, setDaysData] = useState(INITIAL_DAYS_DATA);
-  const [currentPlan, setCurrentPlan] = useState(null);
-  const [planSummary, setPlanSummary] = useState(null);
-  const [generatingList, setGeneratingList] = useState(false);
-
-  // Load active meal plan from backend
-  const loadMealPlan = useCallback(async () => {
-    try {
-      const plan = await mealPlanService.getCurrentMealPlan();
-      if (plan && plan.id) {
-        setCurrentPlan(plan);
-
-        // Fetch summary
-        const summary = await mealPlanService.getSummary(plan.id);
-        if (summary) setPlanSummary(summary);
-
-        // Map items into days
-        if (Array.isArray(plan.items) && plan.items.length > 0) {
-          const daysMap = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-          setDaysData((prev) => {
-            const nextDays = { ...prev };
-            plan.items.forEach((item) => {
-              const d = new Date(item.meal_date);
-              const dayKey = isNaN(d.getDay()) ? 'mon' : daysMap[d.getDay()];
-              if (nextDays[dayKey]) {
-                const existing = nextDays[dayKey].meals.find((m) => m.backendId === item.id);
-                if (!existing) {
-                  nextDays[dayKey] = {
-                    ...nextDays[dayKey],
-                    meals: [
-                      ...nextDays[dayKey].meals,
-                      {
-                        id: item.id,
-                        backendId: item.id,
-                        recipeId: item.recipe_id,
-                        type: (item.meal_type || 'LUNCH').toUpperCase(),
-                        title: item.recipe_name || 'Delicious Meal',
-                        image: item.image_url ? { uri: item.image_url } : require('../../assets/creamy_pumpkin_pasta.jpg'),
-                        badgeType: 'match',
-                        badgeText: '96% Match',
-                        servings: item.servings || 2,
-                        price: Math.round(item.estimated_cost || 600),
-                        accentColor: item.meal_type === 'dinner' ? '#2E7D32' : '#7C2D12',
-                      },
-                    ],
-                    total: nextDays[dayKey].total + Math.round(item.estimated_cost || 600),
-                  };
-                }
-              }
-            });
-            return nextDays;
-          });
-        }
-      }
-    } catch (err) {
-      console.log('Load meal plan note:', err.message);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadMealPlan();
-  }, [loadMealPlan]);
 
   const currentDayData = daysData[selectedDayId] || daysData['tue'];
 
@@ -297,31 +220,18 @@ export default function MealPlanScreen({
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: async () => {
-            if (currentPlan?.id && meal.backendId) {
-              try {
-                await mealPlanService.deleteItem(currentPlan.id, meal.backendId);
-              } catch (e) {
-                console.log('Delete item error:', e.message);
-              }
-            }
-
+          onPress: () => {
             setDaysData((prev) => {
               const updated = { ...prev };
               if (updated[selectedDayId]) {
                 updated[selectedDayId] = {
                   ...updated[selectedDayId],
                   meals: updated[selectedDayId].meals.filter((m) => m.id !== meal.id),
-                  total: Math.max(0, updated[selectedDayId].total - meal.price),
+                  total: updated[selectedDayId].total - meal.price,
                 };
               }
               return updated;
             });
-
-            // refresh summary
-            if (currentPlan?.id) {
-              mealPlanService.getSummary(currentPlan.id).then(setPlanSummary).catch(() => {});
-            }
           },
         },
         { text: 'Cancel', style: 'cancel' },
@@ -329,102 +239,75 @@ export default function MealPlanScreen({
     );
   };
 
-  const handleSuggestMeal = async () => {
-    try {
-      const suggestions = await recipeService.getSuggestions({
-        meal_type: 'dinner',
-        servings: 2,
-        budget: 2000,
-        dietary_preference: 'none',
-      });
-      const suggestedRecipe = (suggestions && suggestions[0]) || {
-        name: 'Creamy Pumpkin Pasta',
-        estimated_cost: 780,
-      };
-
-      Alert.alert(
-        'Suggested Meal',
-        `Based on your pantry and preferences, we suggest ${suggestedRecipe.name} (Rs ${suggestedRecipe.estimated_cost})!`,
-        [
-          {
-            text: 'Add to Plan',
-            onPress: async () => {
-              if (currentPlan?.id) {
-                try {
-                  await mealPlanService.addItem(currentPlan.id, {
-                    recipe_id: suggestedRecipe.id || '22222222-0000-0000-0000-000000000001',
-                    meal_date: '2026-09-09',
-                    meal_type: 'dinner',
-                    servings: 2,
-                  });
-                  loadMealPlan();
-                  return;
-                } catch (e) {
-                  console.log('Add meal error:', e.message);
-                }
-              }
-
-              const newMeal = {
-                id: `${selectedDayId}-3`,
+  const handleSuggestMeal = () => {
+    Alert.alert(
+      'Suggested Meal',
+      'Based on your pantry ingredients, we suggest Creamy Pumpkin Pasta!',
+      [
+        {
+          text: 'View Recipe',
+          onPress: () => {
+            if (onSelectMeal) {
+              onSelectMeal({
+                title: 'Creamy Pumpkin Pasta',
                 type: 'DINNER',
-                title: suggestedRecipe.name,
-                image: suggestedRecipe.image_url ? { uri: suggestedRecipe.image_url } : require('../../assets/creamy_pumpkin_pasta.jpg'),
-                badgeType: 'match',
-                badgeText: '98% Match',
+                price: 780,
                 servings: 2,
-                price: suggestedRecipe.estimated_cost || 780,
-                accentColor: '#2E7D32',
-              };
-
-              setDaysData((prev) => {
-                const day = prev[selectedDayId];
-                return {
-                  ...prev,
-                  [selectedDayId]: {
-                    ...day,
-                    meals: [...day.meals, newMeal],
-                    total: day.total + (suggestedRecipe.estimated_cost || 780),
-                    unplanned: null,
-                  },
-                };
               });
-            },
+            }
           },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
-    } catch (e) {
-      Alert.alert('Suggested Meal', 'Creamy Pumpkin Pasta is a great match for today!');
-    }
+        },
+        {
+          text: 'Add to Dinner',
+          onPress: () => {
+            const newMeal = {
+              id: `${selectedDayId}-3`,
+              type: 'DINNER',
+              title: 'Creamy Pumpkin Pasta',
+              image: require('../../assets/creamy_pumpkin_pasta.jpg'),
+              badgeType: 'match',
+              badgeText: '98% Match',
+              servings: 2,
+              price: 780,
+              accentColor: '#2E7D32',
+            };
+
+            setDaysData((prev) => {
+              const day = prev[selectedDayId];
+              return {
+                ...prev,
+                [selectedDayId]: {
+                  ...day,
+                  meals: [...day.meals, newMeal],
+                  total: day.total + 780,
+                  unplanned: null,
+                },
+              };
+            });
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
-  const handleGenerateShoppingList = async () => {
-    setGeneratingList(true);
-    try {
-      const planId = currentPlan?.id || 'plan-00000000';
-      const shoppingList = await shoppingService.generateFromMealPlan(planId);
-      if (onOpenRetail) {
-        onOpenRetail(shoppingList.items || [], shoppingList.id);
-      } else {
-        Alert.alert(
-          'Shopping List Generated',
-          `Created smart basket with ${shoppingList.items?.length || 0} consolidated items. Ready to compare prices!`,
-          [{ text: 'OK' }]
-        );
-      }
-    } catch (err) {
-      console.log('Generate shopping list error:', err.message);
-      if (onOpenRetail) {
-        onOpenRetail();
-      }
-    } finally {
-      setGeneratingList(false);
-    }
+  const handleFabPress = () => {
+    Alert.alert(
+      'Plan a Meal',
+      `Add a meal to ${currentDayData.dayName}`,
+      [
+        {
+          text: 'Add Creamy Pumpkin Pasta',
+          onPress: handleSuggestMeal,
+        },
+        {
+          text: 'Browse Recipes',
+          onPress: () => onNavigateHome && onNavigateHome(),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
-
-  const targetBudget = planSummary?.weekly_budget || budget?.weeklyBudget || 15000;
-  const spentBudget = planSummary?.estimated_spending || 11450;
-  const isOverBudget = spentBudget > targetBudget;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -443,31 +326,10 @@ export default function MealPlanScreen({
       >
         {/* Weekly Budget Banner */}
         <WeeklyBudgetCard
-          target={targetBudget}
-          spent={spentBudget}
-          status={isOverBudget ? 'OVER BUDGET' : 'ON TRACK'}
+          target={15000}
+          spent={11450}
+          status="ON TRACK"
         />
-
-        {/* Generate Shopping List CTA Button */}
-        <View style={styles.ctaWrapper}>
-          <TouchableOpacity
-            style={styles.generateListBtn}
-            onPress={handleGenerateShoppingList}
-            disabled={generatingList}
-            activeOpacity={0.85}
-          >
-            {generatingList ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="cart-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.generateListBtnText}>
-                  Generate Shopping List & Compare Prices
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
 
         {/* Day Selector (Mon, Tue, Wed, Thu, Fri, Sat, Sun) */}
         <DaySelector
@@ -500,17 +362,31 @@ export default function MealPlanScreen({
           />
         ))}
 
-        {/* Unplanned Meal Slot */}
+        {/* Unplanned Meal State (e.g. Dinner not planned) */}
         {currentDayData.unplanned && (
           <UnplannedMealCard
             mealType={currentDayData.unplanned.type}
             title={currentDayData.unplanned.title}
-            onSuggestPress={handleSuggestMeal}
+            subtitle="You have ingredients left in your pantry."
+            buttonText="Suggest a Meal"
+            onSuggestMeal={handleSuggestMeal}
           />
         )}
 
-        <View style={{ height: 40 }} />
+        {/* Extra scroll padding to clear bottom nav & FAB */}
+        <View style={{ height: 90 }} />
       </ScrollView>
+
+      {/* Floating Action Button (+) */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={handleFabPress}
+        activeOpacity={0.88}
+        accessibilityRole="button"
+        accessibilityLabel="Plan a new meal"
+      >
+        <Ionicons name="add" size={32} color="#FFFFFF" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -518,54 +394,47 @@ export default function MealPlanScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAFAF8',
+    backgroundColor: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 24,
-  },
-  ctaWrapper: {
-    paddingHorizontal: 16,
-    marginTop: 12,
-  },
-  generateListBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  generateListBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    paddingBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: Colors.textPrimary,
+    letterSpacing: -0.2,
   },
   sectionTotal: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: Colors.primary,
+    color: Colors.textPrimary,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.terracottaDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.terracottaDeep,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 10,
   },
 });
