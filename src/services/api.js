@@ -4,26 +4,54 @@ import Constants from 'expo-constants';
 // Local IP detected from ipconfig:
 const DEV_LAN_IP = '172.22.0.103';
 
-// Dynamically extract host IP from Expo Metro bundler if available
+const isIPv4 = (str) => {
+  if (!str) return false;
+  const parts = str.split('.');
+  if (parts.length !== 4) return false;
+  return parts.every((p) => {
+    const n = Number(p);
+    return !isNaN(n) && n >= 0 && n <= 255;
+  });
+};
+
+// Dynamically extract host IP only if it's a valid local IPv4 (not an exp.direct/ngrok tunnel domain)
 const getHostIp = () => {
   const hostUri = Constants.expoConfig?.hostUri;
   if (hostUri) {
-    const ip = hostUri.split(':')[0];
-    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
-      return ip;
+    const rawHost = hostUri.split(':')[0];
+    if (isIPv4(rawHost) && rawHost !== 'localhost' && rawHost !== '127.0.0.1') {
+      return rawHost;
     }
   }
   return DEV_LAN_IP;
 };
 
-const HOST_IP = getHostIp();
+const DEFAULT_HOST = getHostIp();
 
-export const API_BASE_URL = Platform.select({
+let customBaseUrl = Platform.select({
   web: 'http://localhost:5000/api',
-  android: `http://${HOST_IP}:5000/api`,
-  ios: `http://${HOST_IP}:5000/api`,
-  default: `http://${HOST_IP}:5000/api`,
+  android: `http://${DEFAULT_HOST}:5000/api`,
+  ios: `http://${DEFAULT_HOST}:5000/api`,
+  default: `http://${DEFAULT_HOST}:5000/api`,
 });
+
+export const getApiBaseUrl = () => customBaseUrl;
+
+export const setApiBaseUrl = (newUrl) => {
+  if (newUrl && typeof newUrl === 'string') {
+    let clean = newUrl.trim();
+    if (clean.endsWith('/')) {
+      clean = clean.slice(0, -1);
+    }
+    if (!clean.endsWith('/api') && !clean.includes('/api/')) {
+      clean = `${clean}/api`;
+    }
+    customBaseUrl = clean;
+    console.log('[API] Base URL updated to:', customBaseUrl);
+  }
+};
+
+export const API_BASE_URL = customBaseUrl;
 
 let authToken = 'mock-token';
 
@@ -43,7 +71,23 @@ const defaultHeaders = () => {
   return headers;
 };
 
-async function handleResponse(response) {
+// Global log history for in-app debug viewing
+export const apiDebugLogs = [];
+
+const addLog = (type, message, details = null) => {
+  const entry = {
+    id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
+    time: new Date().toLocaleTimeString(),
+    type,
+    message,
+    details,
+  };
+  apiDebugLogs.unshift(entry);
+  if (apiDebugLogs.length > 50) apiDebugLogs.pop();
+  console.log(`[API ${type.toUpperCase()}] ${message}`, details ? JSON.stringify(details) : '');
+};
+
+async function handleResponse(response, url) {
   const contentType = response.headers.get('content-type');
   let data;
   if (contentType && contentType.includes('application/json')) {
@@ -52,6 +96,8 @@ async function handleResponse(response) {
     data = await response.text();
   }
 
+  addLog('response', `${response.status} ${url}`, data);
+
   if (!response.ok) {
     const errorMessage =
       (data && data.error && data.error.message) ||
@@ -59,6 +105,7 @@ async function handleResponse(response) {
     const error = new Error(errorMessage);
     error.status = response.status;
     error.data = data;
+    error.url = url;
     throw error;
   }
 
@@ -67,41 +114,69 @@ async function handleResponse(response) {
 
 export const apiClient = {
   get: async (endpoint, customHeaders = {}) => {
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: { ...defaultHeaders(), ...customHeaders },
-    });
-    return handleResponse(response);
+    const url = endpoint.startsWith('http') ? endpoint : `${getApiBaseUrl()}${endpoint}`;
+    addLog('request', `GET ${url}`);
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { ...defaultHeaders(), ...customHeaders },
+      });
+      return await handleResponse(response, url);
+    } catch (err) {
+      addLog('error', `GET ${url} failed: ${err.message}`, { url, error: err.toString() });
+      err.url = url;
+      throw err;
+    }
   },
 
   post: async (endpoint, body = {}, customHeaders = {}) => {
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { ...defaultHeaders(), ...customHeaders },
-      body: JSON.stringify(body),
-    });
-    return handleResponse(response);
+    const url = endpoint.startsWith('http') ? endpoint : `${getApiBaseUrl()}${endpoint}`;
+    addLog('request', `POST ${url}`, body);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { ...defaultHeaders(), ...customHeaders },
+        body: JSON.stringify(body),
+      });
+      return await handleResponse(response, url);
+    } catch (err) {
+      addLog('error', `POST ${url} failed: ${err.message}`, { url, body, error: err.toString() });
+      err.url = url;
+      throw err;
+    }
   },
 
   patch: async (endpoint, body = {}, customHeaders = {}) => {
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: { ...defaultHeaders(), ...customHeaders },
-      body: JSON.stringify(body),
-    });
-    return handleResponse(response);
+    const url = endpoint.startsWith('http') ? endpoint : `${getApiBaseUrl()}${endpoint}`;
+    addLog('request', `PATCH ${url}`, body);
+    try {
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: { ...defaultHeaders(), ...customHeaders },
+        body: JSON.stringify(body),
+      });
+      return await handleResponse(response, url);
+    } catch (err) {
+      addLog('error', `PATCH ${url} failed: ${err.message}`, { url, body, error: err.toString() });
+      err.url = url;
+      throw err;
+    }
   },
 
   delete: async (endpoint, customHeaders = {}) => {
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: { ...defaultHeaders(), ...customHeaders },
-    });
-    return handleResponse(response);
+    const url = endpoint.startsWith('http') ? endpoint : `${getApiBaseUrl()}${endpoint}`;
+    addLog('request', `DELETE ${url}`);
+    try {
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: { ...defaultHeaders(), ...customHeaders },
+      });
+      return await handleResponse(response, url);
+    } catch (err) {
+      addLog('error', `DELETE ${url} failed: ${err.message}`, { url, error: err.toString() });
+      err.url = url;
+      throw err;
+    }
   },
 };
 
