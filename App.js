@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HomeScreen from './src/screens/HomeScreen';
+import SplashScreen from './src/screens/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
 import AccountScreen from './src/screens/AccountScreen';
@@ -20,6 +21,7 @@ import { AccountProvider, useAccount } from './src/context/AccountContext';
 
 function AppContent() {
   const { isLoggedIn } = useAccount();
+  const [isSplashing, setIsSplashing] = React.useState(true);
   const [authView, setAuthView] = React.useState('login');
   const [currentScreen, setCurrentScreen] = React.useState('home');
   const [selectedRecipe, setSelectedRecipe] = React.useState(null);
@@ -111,6 +113,10 @@ function AppContent() {
       />
     );
   };
+
+  if (isSplashing) {
+    return <SplashScreen onFinish={() => setIsSplashing(false)} />;
+  }
 
   if (!isLoggedIn) {
     if (authView === 'signup') {

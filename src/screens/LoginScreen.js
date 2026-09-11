@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,10 @@ import {
   ScrollView,
   Image,
   Alert,
+  Animated,
+  ActivityIndicator,
 } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import { useAccount } from '../context/AccountContext';
 
@@ -26,8 +28,35 @@ const LoginScreen = ({ onSignUp, onForgotPassword }) => {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
 
   const passwordRef = useRef(null);
+
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const logoScale = useRef(new Animated.Value(0.9)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(logoScale, {
+        toValue: 1,
+        friction: 6,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim, logoScale]);
 
   const validate = () => {
     let valid = true;
@@ -70,20 +99,24 @@ const LoginScreen = ({ onSignUp, onForgotPassword }) => {
     }
   };
 
+  const handleSocialAuth = (provider) => {
+    Alert.alert(
+      `${provider} Sign-In`,
+      `To complete ${provider} Sign-In integration, connect your ${provider} Developer Client ID in your Expo configuration. Check the terminal guide for exact setup steps!`,
+      [{ text: 'Got it' }]
+    );
+  };
+
   const handleForgotPassword = () => {
     if (onForgotPassword) {
       onForgotPassword();
     } else {
       Alert.alert(
-        'Forgot Password',
-        'Enter your email to receive a reset link.',
-        [
-          {
-            text: email.trim() ? email.trim() : 'No email provided',
-            style: 'cancel',
-          },
-          { text: 'OK' },
-        ]
+        'Reset Password',
+        email.trim()
+          ? `Password reset link will be sent to ${email.trim()}.`
+          : 'Please enter your email address first.',
+        [{ text: 'OK' }]
       );
     }
   };
@@ -99,34 +132,103 @@ const LoginScreen = ({ onSignUp, onForgotPassword }) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Branding */}
-        <View style={styles.brandSection}>
+        {/* Animated Brand Header */}
+        <Animated.View
+          style={[
+            styles.brandSection,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: logoScale }],
+            },
+          ]}
+        >
           <View style={styles.logoWrap}>
-            <Image source={require('../../assets/icon.png')} style={styles.logo} />
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={styles.brandName}>StockPot AI</Text>
+          <Text style={styles.brandName}>
+            StockPot <Text style={styles.brandAi}>AI</Text>
+          </Text>
           <Text style={styles.tagline}>
-            Plan meals, cut waste, and shop smarter.
+            Cook Smart • Save Money • Zero Waste
           </Text>
-        </View>
+        </Animated.View>
 
-        {/* Card */}
-        <View style={styles.card}>
-          <Text style={styles.screenTitle}>Welcome Back</Text>
-          <Text style={styles.screenSubtitle}>
-            Sign in to continue to your kitchen.
-          </Text>
+        {/* Animated Auth Card */}
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {/* Segmented Switch */}
+          <View style={styles.tabSwitch}>
+            <TouchableOpacity
+              style={[styles.tabBtn, styles.tabBtnActive]}
+              activeOpacity={0.9}
+            >
+              <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Sign In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.tabBtn}
+              onPress={onSignUp}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.tabBtnText}>Create Account</Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* Email */}
+          {/* Social Sign-In Buttons */}
+          <View style={styles.socialButtonsContainer}>
+            {/* Apple Sign-In */}
+            <TouchableOpacity
+              style={styles.appleBtn}
+              onPress={() => handleSocialAuth('Apple')}
+              activeOpacity={0.85}
+            >
+              <AntDesign name="apple" size={20} color="#FFFFFF" />
+              <Text style={styles.appleBtnText}>Continue with Apple</Text>
+            </TouchableOpacity>
+
+            {/* Google Sign-In */}
+            <TouchableOpacity
+              style={styles.googleBtn}
+              onPress={() => handleSocialAuth('Google')}
+              activeOpacity={0.85}
+            >
+              <AntDesign name="google" size={19} color="#EA4335" />
+              <Text style={styles.googleBtnText}>Continue with Google</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or continue with email</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Email Field */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Email</Text>
+            <Text style={styles.fieldLabel}>Email Address</Text>
             <View
               style={[
                 styles.inputWrap,
+                focusedField === 'email' && styles.inputWrapFocused,
                 emailError ? styles.inputWrapError : null,
               ]}
             >
-              <Ionicons name="mail-outline" size={18} color={Colors.accountTextSecondary} />
+              <Ionicons
+                name="mail-outline"
+                size={19}
+                color={focusedField === 'email' ? '#166534' : '#9CA3AF'}
+              />
               <TextInput
                 style={styles.input}
                 value={email}
@@ -134,29 +236,43 @@ const LoginScreen = ({ onSignUp, onForgotPassword }) => {
                   setEmail(t);
                   if (emailError) setEmailError('');
                 }}
-                placeholder="you@example.com"
-                placeholderTextColor="#9CA3AF"
+                onFocus={() => setFocusedField('email')}
+                onBlur={() => setFocusedField(null)}
+                placeholder="chef@stockpot.ai"
+                placeholderTextColor="#A1A1AA"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="next"
                 onSubmitEditing={() => passwordRef.current?.focus()}
-                accessibilityLabel="Email input"
               />
             </View>
             {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
           </View>
 
-          {/* Password */}
+          {/* Password Field */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Password</Text>
+            <View style={styles.passwordHeader}>
+              <Text style={styles.fieldLabel}>Password</Text>
+              <TouchableOpacity
+                onPress={handleForgotPassword}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.forgotText}>Forgot?</Text>
+              </TouchableOpacity>
+            </View>
             <View
               style={[
                 styles.inputWrap,
+                focusedField === 'password' && styles.inputWrapFocused,
                 passwordError ? styles.inputWrapError : null,
               ]}
             >
-              <Ionicons name="lock-closed-outline" size={18} color={Colors.accountTextSecondary} />
+              <Ionicons
+                name="lock-closed-outline"
+                size={19}
+                color={focusedField === 'password' ? '#166534' : '#9CA3AF'}
+              />
               <TextInput
                 ref={passwordRef}
                 style={styles.input}
@@ -165,66 +281,54 @@ const LoginScreen = ({ onSignUp, onForgotPassword }) => {
                   setPassword(t);
                   if (passwordError) setPasswordError('');
                 }}
-                placeholder="Enter your password"
-                placeholderTextColor="#9CA3AF"
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
+                placeholder="••••••••"
+                placeholderTextColor="#A1A1AA"
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="done"
                 onSubmitEditing={handleLogin}
-                accessibilityLabel="Password input"
               />
               <TouchableOpacity
                 onPress={() => setShowPassword((prev) => !prev)}
                 style={styles.eyeBtn}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 activeOpacity={0.7}
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
               >
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color={Colors.accountTextSecondary}
+                  color="#9CA3AF"
                 />
               </TouchableOpacity>
             </View>
             {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-
-            {/* Forgot Password */}
-            <TouchableOpacity
-              onPress={handleForgotPassword}
-              style={styles.forgotBtn}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
           </View>
 
-          {/* Login Button */}
+          {/* Submit Button */}
           <TouchableOpacity
-            style={[styles.loginBtn, isSubmitting && styles.loginBtnDisabled]}
+            style={[styles.primaryBtn, isSubmitting && styles.primaryBtnDisabled]}
             onPress={handleLogin}
-            activeOpacity={0.85}
+            activeOpacity={0.88}
             disabled={isSubmitting}
-            accessibilityRole="button"
-            accessibilityLabel="Login"
           >
             {isSubmitting ? (
-              <Text style={styles.loginBtnText}>Signing in...</Text>
+              <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <>
-                <Text style={styles.loginBtnText}>Login</Text>
+                <Text style={styles.primaryBtnText}>Sign In</Text>
                 <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
               </>
             )}
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
-        {/* Create Account */}
-        <View style={styles.signupRow}>
-          <Text style={styles.signupQuestion}>Don't have an account?</Text>
+        {/* Footer info */}
+        <View style={styles.footerRow}>
+          <Text style={styles.footerText}>New to StockPot AI?</Text>
           <TouchableOpacity onPress={onSignUp} activeOpacity={0.7}>
-            <Text style={styles.signupLink}>Create Account</Text>
+            <Text style={styles.footerLink}>Create Free Account</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -235,7 +339,7 @@ const LoginScreen = ({ onSignUp, onForgotPassword }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.accountBg,
+    backgroundColor: '#FAFAF8',
   },
   scrollView: {
     flex: 1,
@@ -243,87 +347,188 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'ios' ? 40 : 36,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 44 : 36,
     paddingBottom: 32,
   },
   brandSection: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   logoWrap: {
-    width: 84,
-    height: 84,
-    borderRadius: 24,
+    width: 88,
+    height: 88,
+    borderRadius: 26,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: 'rgba(0,0,0,0.1)',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 4,
-    marginBottom: 16,
+    shadowRadius: 14,
+    elevation: 5,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(230, 225, 215, 0.7)',
   },
   logo: {
-    width: 60,
-    height: 60,
-    borderRadius: 14,
+    width: 70,
+    height: 70,
+    borderRadius: 18,
   },
   brandName: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: Colors.accountTextPrimary,
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#1F2937',
     letterSpacing: -0.5,
   },
+  brandAi: {
+    color: '#166534',
+  },
   tagline: {
-    fontSize: 14,
-    color: Colors.accountTextSecondary,
-    marginTop: 6,
+    fontSize: 13.5,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginTop: 4,
     textAlign: 'center',
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 20,
     paddingBottom: 24,
-    shadowColor: 'rgba(0,0,0,0.06)',
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: 'rgba(0, 0, 0, 0.07)',
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowRadius: 18,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 231, 235, 0.8)',
   },
-  screenTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: Colors.accountTextPrimary,
-    letterSpacing: -0.3,
-  },
-  screenSubtitle: {
-    fontSize: 13.5,
-    color: Colors.accountTextSecondary,
-    marginTop: 4,
+  tabSwitch: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 14,
+    padding: 4,
     marginBottom: 20,
   },
-  fieldGroup: {
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+  },
+  tabBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: 'rgba(0,0,0,0.06)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabBtnText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  tabBtnTextActive: {
+    color: '#111827',
+    fontWeight: '700',
+  },
+  socialButtonsContainer: {
+    gap: 10,
     marginBottom: 16,
   },
-  fieldLabel: {
-    fontSize: 12.5,
+  appleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#000000',
+    paddingVertical: 13,
+    borderRadius: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  appleBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14.5,
     fontWeight: '700',
-    color: Colors.accountSectionHeader,
-    letterSpacing: 0.4,
+    letterSpacing: -0.2,
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: 'rgba(0,0,0,0.04)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  googleBtnText: {
+    color: '#374151',
+    fontSize: 14.5,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 14,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  fieldGroup: {
+    marginBottom: 14,
+  },
+  passwordHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
     marginBottom: 6,
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAF7F2',
-    borderWidth: 1,
-    borderColor: Colors.accountBorder,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  inputWrapFocused: {
+    borderColor: '#166534',
+    backgroundColor: '#FFFFFF',
   },
   inputWrapError: {
     borderColor: '#EF4444',
@@ -332,67 +537,63 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 10,
     fontSize: 15,
-    color: Colors.accountTextPrimary,
+    color: '#111827',
   },
   eyeBtn: {
-    paddingLeft: 8,
-    paddingVertical: 12,
+    padding: 4,
   },
   errorText: {
-    color: '#EF4444',
+    color: '#DC2626',
     fontSize: 12,
     fontWeight: '600',
-    marginTop: 6,
-  },
-  forgotBtn: {
-    alignSelf: 'flex-end',
-    marginTop: 8,
+    marginTop: 4,
   },
   forgotText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: Colors.forestGreen,
+    color: '#166534',
   },
-  loginBtn: {
+  primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.forestGreen,
+    backgroundColor: '#166534',
     borderRadius: 14,
     paddingVertical: 14,
-    marginTop: 8,
-    shadowColor: Colors.forestGreen,
+    marginTop: 6,
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
-  loginBtnDisabled: {
+  primaryBtnDisabled: {
     opacity: 0.7,
   },
-  loginBtnText: {
+  primaryBtnText: {
     fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
-  signupRow: {
+  footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    marginTop: 28,
+    marginTop: 24,
   },
-  signupQuestion: {
+  footerText: {
     fontSize: 14,
-    color: Colors.accountTextSecondary,
+    color: '#6B7280',
+    fontWeight: '500',
   },
-  signupLink: {
+  footerLink: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.forestGreen,
+    color: '#166534',
   },
 });
 

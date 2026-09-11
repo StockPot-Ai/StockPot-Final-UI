@@ -1,12 +1,14 @@
 {
   "expo": {
-    "name": "MealPlanner",
-    "slug": "meal-app",
+    "name": "StockPot AI",
+    "slug": "stockpot-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#FAFAF8"
     },
     "ios": {
