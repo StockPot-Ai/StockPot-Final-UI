@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,9 @@ import {
   ScrollView,
   Image,
   Alert,
-  Animated,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons, AntDesign } from '@expo/vector-icons';
+import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import { useAccount } from '../context/AccountContext';
 
@@ -35,32 +34,6 @@ const SignUpScreen = ({ onSignIn }) => {
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
   const confirmPasswordRef = useRef(null);
-
-  // Animations
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const logoScale = useRef(new Animated.Value(0.9)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.spring(logoScale, {
-        toValue: 1,
-        friction: 6,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fadeAnim, slideAnim, logoScale]);
 
   const validate = () => {
     const newErrors = {};
@@ -113,8 +86,8 @@ const SignUpScreen = ({ onSignIn }) => {
   const handleSocialAuth = (provider) => {
     Alert.alert(
       `${provider} Sign-Up`,
-      `To complete ${provider} Sign-Up integration, connect your ${provider} Developer Client ID in your Expo configuration. Check the terminal guide for exact setup steps!`,
-      [{ text: 'Got it' }]
+      `To use ${provider} Sign-Up, add your ${provider} OAuth credentials to the configuration. Check the setup guide for simple step-by-step instructions!`,
+      [{ text: 'OK' }]
     );
   };
 
@@ -129,16 +102,8 @@ const SignUpScreen = ({ onSignIn }) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Animated Brand Header */}
-        <Animated.View
-          style={[
-            styles.brandSection,
-            {
-              opacity: fadeAnim,
-              transform: [{ scale: logoScale }],
-            },
-          ]}
-        >
+        {/* Brand Header */}
+        <View style={styles.brandSection}>
           <View style={styles.logoWrap}>
             <Image
               source={require('../../assets/logo.png')}
@@ -152,18 +117,10 @@ const SignUpScreen = ({ onSignIn }) => {
           <Text style={styles.tagline}>
             Cook Smart • Save Money • Zero Waste
           </Text>
-        </Animated.View>
+        </View>
 
-        {/* Animated Auth Card */}
-        <Animated.View
-          style={[
-            styles.card,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
+        {/* Auth Card */}
+        <View style={styles.card}>
           {/* Segmented Switch */}
           <View style={styles.tabSwitch}>
             <TouchableOpacity
@@ -173,42 +130,9 @@ const SignUpScreen = ({ onSignIn }) => {
             >
               <Text style={styles.tabBtnText}>Sign In</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tabBtn, styles.tabBtnActive]}
-              activeOpacity={0.9}
-            >
+            <View style={[styles.tabBtn, styles.tabBtnActive]}>
               <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Create Account</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Social Sign-In Buttons */}
-          <View style={styles.socialButtonsContainer}>
-            {/* Apple Sign-In */}
-            <TouchableOpacity
-              style={styles.appleBtn}
-              onPress={() => handleSocialAuth('Apple')}
-              activeOpacity={0.85}
-            >
-              <AntDesign name="apple" size={20} color="#FFFFFF" />
-              <Text style={styles.appleBtnText}>Sign up with Apple</Text>
-            </TouchableOpacity>
-
-            {/* Google Sign-In */}
-            <TouchableOpacity
-              style={styles.googleBtn}
-              onPress={() => handleSocialAuth('Google')}
-              activeOpacity={0.85}
-            >
-              <AntDesign name="google" size={19} color="#EA4335" />
-              <Text style={styles.googleBtnText}>Sign up with Google</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or register with email</Text>
-            <View style={styles.dividerLine} />
+            </View>
           </View>
 
           {/* Full Name */}
@@ -236,7 +160,7 @@ const SignUpScreen = ({ onSignIn }) => {
                 onFocus={() => setFocusedField('fullName')}
                 onBlur={() => setFocusedField(null)}
                 placeholder="Ammar Dharma"
-                placeholderTextColor="#A1A1AA"
+                placeholderTextColor="#9CA3AF"
                 autoCapitalize="words"
                 autoCorrect={false}
                 returnKeyType="next"
@@ -272,7 +196,7 @@ const SignUpScreen = ({ onSignIn }) => {
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
                 placeholder="chef@stockpot.ai"
-                placeholderTextColor="#A1A1AA"
+                placeholderTextColor="#9CA3AF"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -309,7 +233,7 @@ const SignUpScreen = ({ onSignIn }) => {
                 onFocus={() => setFocusedField('password')}
                 onBlur={() => setFocusedField(null)}
                 placeholder="At least 6 characters"
-                placeholderTextColor="#A1A1AA"
+                placeholderTextColor="#9CA3AF"
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -357,7 +281,7 @@ const SignUpScreen = ({ onSignIn }) => {
                 onFocus={() => setFocusedField('confirmPassword')}
                 onBlur={() => setFocusedField(null)}
                 placeholder="Re-enter password"
-                placeholderTextColor="#A1A1AA"
+                placeholderTextColor="#9CA3AF"
                 secureTextEntry={!showConfirmPassword}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -395,7 +319,37 @@ const SignUpScreen = ({ onSignIn }) => {
               </>
             )}
           </TouchableOpacity>
-        </Animated.View>
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or register with</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Social Sign-In Buttons - IN SAME LINE AT BOTTOM */}
+          <View style={styles.socialRow}>
+            {/* Apple Button */}
+            <TouchableOpacity
+              style={styles.socialBtnApple}
+              onPress={() => handleSocialAuth('Apple')}
+              activeOpacity={0.85}
+            >
+              <FontAwesome name="apple" size={20} color="#FFFFFF" />
+              <Text style={styles.socialBtnTextApple}>Apple</Text>
+            </TouchableOpacity>
+
+            {/* Google Button */}
+            <TouchableOpacity
+              style={styles.socialBtnGoogle}
+              onPress={() => handleSocialAuth('Google')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="logo-google" size={18} color="#EA4335" />
+              <Text style={styles.socialBtnTextGoogle}>Google</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Footer info */}
         <View style={styles.footerRow}>
@@ -435,14 +389,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(0,0,0,0.1)',
-    shadowOffset: { width: 0, height: 6 },
+    shadowColor: 'rgba(0,0,0,0.08)',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
-    shadowRadius: 14,
-    elevation: 5,
+    shadowRadius: 12,
+    elevation: 4,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(230, 225, 215, 0.7)',
+    borderColor: '#E5E7EB',
   },
   logo: {
     width: 64,
@@ -467,38 +421,38 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    borderRadius: 22,
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-    shadowColor: 'rgba(0, 0, 0, 0.07)',
-    shadowOffset: { width: 0, height: 8 },
+    paddingTop: 18,
+    paddingBottom: 22,
+    shadowColor: 'rgba(0, 0, 0, 0.06)',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 1,
-    shadowRadius: 18,
-    elevation: 4,
+    shadowRadius: 16,
+    elevation: 3,
     borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.8)',
+    borderColor: '#E5E7EB',
   },
   tabSwitch: {
     flexDirection: 'row',
     backgroundColor: '#F3F4F6',
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 18,
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 16,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
+    borderRadius: 10,
   },
   tabBtnActive: {
     backgroundColor: '#FFFFFF',
     shadowColor: 'rgba(0,0,0,0.06)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 2,
   },
   tabBtnText: {
@@ -509,70 +463,6 @@ const styles = StyleSheet.create({
   tabBtnTextActive: {
     color: '#111827',
     fontWeight: '700',
-  },
-  socialButtonsContainer: {
-    gap: 10,
-    marginBottom: 14,
-  },
-  appleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#000000',
-    paddingVertical: 13,
-    borderRadius: 14,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  appleBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: 'rgba(0,0,0,0.04)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  googleBtnText: {
-    color: '#374151',
-    fontSize: 14.5,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginVertical: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  dividerText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   fieldGroup: {
     marginBottom: 12,
@@ -589,8 +479,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderRadius: 13,
+    paddingHorizontal: 12,
     gap: 8,
   },
   inputWrapFocused: {
@@ -603,7 +493,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    paddingVertical: 11,
+    paddingVertical: 10,
     fontSize: 15,
     color: '#111827',
   },
@@ -622,38 +512,103 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: '#166534',
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginTop: 8,
+    borderRadius: 13,
+    paddingVertical: 13,
+    marginTop: 6,
     shadowColor: '#166534',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   primaryBtnDisabled: {
     opacity: 0.7,
   },
   primaryBtnText: {
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.2,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  socialRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  socialBtnApple: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#000000',
+    paddingVertical: 12,
+    borderRadius: 13,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  socialBtnTextApple: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  socialBtnGoogle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: 'rgba(0,0,0,0.04)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  socialBtnTextGoogle: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '700',
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    marginTop: 20,
+    marginTop: 18,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#6B7280',
     fontWeight: '500',
   },
   footerLink: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800',
     color: '#166534',
   },

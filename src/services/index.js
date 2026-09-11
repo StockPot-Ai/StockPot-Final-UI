@@ -28,6 +28,11 @@ export const authService = {
     const res = await apiClient.get('/auth/me');
     return res.data;
   },
+
+  forgotPassword: async (email) => {
+    const res = await apiClient.post('/auth/forgot-password', { email });
+    return res.data;
+  },
 };
 
 // ── Profile Service ──────────────────────────────────────────────────────────
