@@ -25,9 +25,14 @@ export default function IngredientHeader({
   onFavorite,
   isFavorite = true,
 }) {
+  const imageSource =
+    typeof image === 'string' && (image.startsWith('http') || image.startsWith('data:'))
+      ? { uri: image }
+      : image || require('../../../assets/creamy_pumpkin_pasta.jpg');
+
   return (
     <View style={styles.container}>
-      <Image source={image} style={styles.image} resizeMode="cover" />
+      <Image source={imageSource} style={styles.image} resizeMode="cover" />
 
       {/* Subtle bottom dark gradient overlay for text readability */}
       <View style={styles.bottomOverlay}>

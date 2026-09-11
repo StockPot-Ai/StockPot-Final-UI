@@ -16,7 +16,6 @@ import SavingsDashboard from './src/screens/SavingsDashboard';
 import RetailComparingScreen from './src/screens/RetailComparingScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import BottomNav from './src/components/BottomNav';
-import recipes from './src/data/recipes';
 import { AccountProvider, useAccount } from './src/context/AccountContext';
 
 function AppContent() {
@@ -31,9 +30,12 @@ function AppContent() {
     setSelectedRecipe(null);
   }, []);
 
-  const openRecipe = React.useCallback((title) => {
-    if (recipes[title]) {
-      setSelectedRecipe(recipes[title]);
+  const openRecipe = React.useCallback((recipeItem) => {
+    if (typeof recipeItem === 'object' && recipeItem !== null) {
+      setSelectedRecipe(recipeItem);
+      setCurrentScreen('ingredient');
+    } else if (typeof recipeItem === 'string') {
+      setSelectedRecipe({ title: recipeItem, id: recipeItem });
       setCurrentScreen('ingredient');
     }
   }, []);

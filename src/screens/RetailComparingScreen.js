@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,29 +8,22 @@ import {
   Platform,
   StatusBar,
   Modal,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
-
-// ─── Pricing mock model ─────────────────────────────────────────────────────
-// Deterministic per-store price factor over each ingredient's base cost.
-// No backend is wired up yet, so retailer prices are derived from the
-// ingredient data already passed in from the Available Ingredients page.
-const STORES = [
-  { id: 'cargills', name: 'Cargills', factor: 0.92, kmAway: 1.2, hasDelivery: true },
-  { id: 'keells', name: 'Keells', factor: 0.97, kmAway: 2.4, hasDelivery: true },
-  { id: 'local', name: 'Local Market', factor: 1.04, kmAway: 0.85, hasDelivery: false },
-];
+import { storeService, shoppingService } from '../services';
 
 const formatPrice = (value) => {
   const n = Math.round(Number(value) || 0);
   return 'Rs ' + n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 };
 
-const computeStoreItems = (items, factor) =>
+const computeStoreItems = (items, factor = 1.0) =>
   items.map((item) => {
-    const price = Math.round(((item.cost * factor) / 5) * 5);
+    const price = Math.round((((item.cost || 100) * factor) / 5) * 5);
     return { ...item, price };
   });
 
@@ -68,20 +61,59 @@ export default function RetailComparingScreen({
   const [filterExpanded, setFilterExpanded] = useState(false);
   const [detailStore, setDetailStore] = useState(null);
   const [itemsModalOpen, setItemsModalOpen] = useState(false);
+  const [apiStores, setApiStores] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStoresData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const stores = await storeService.getStores();
+      if (Array.isArray(stores) && stores.length > 0) {
+        setApiStores(
+          stores.map((s, idx) => ({
+            id: s.id || `store-${idx}`,
+            name: s.name || s.store_name || 'Retail Supermarket',
+            factor: s.price_multiplier || s.factor || (idx === 0 ? 0.93 : idx === 1 ? 0.98 : 1.05),
+            kmAway: s.distance_km || s.distance || (1.2 + idx * 0.8),
+            hasDelivery: s.delivery_available ?? s.hasDelivery ?? true,
+          }))
+        );
+      } else {
+        setApiStores([
+          { id: 'cargills', name: 'Cargills Food City', factor: 0.92, kmAway: 1.2, hasDelivery: true },
+          { id: 'keells', name: 'Keells Super', factor: 0.97, kmAway: 2.4, hasDelivery: true },
+          { id: 'local', name: 'Local Farmers Market', factor: 1.04, kmAway: 0.85, hasDelivery: false },
+        ]);
+      }
+    } catch (err) {
+      console.log('[RetailComparingScreen] Note on stores API:', err.message);
+      setApiStores([
+        { id: 'cargills', name: 'Cargills Food City', factor: 0.92, kmAway: 1.2, hasDelivery: true },
+        { id: 'keells', name: 'Keells Super', factor: 0.97, kmAway: 2.4, hasDelivery: true },
+        { id: 'local', name: 'Local Farmers Market', factor: 1.04, kmAway: 0.85, hasDelivery: false },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStoresData();
+  }, [fetchStoresData]);
 
   const comparedItems = useMemo(
     () =>
       items.map((item) => ({
         ...item,
-        quantity: item.quantity || item.baseQuantity,
+        quantity: item.quantity || item.baseQuantity || 1,
         unit: item.unit || 'g',
-        cost: item.cost ?? item.baseCost ?? 0,
+        cost: item.cost ?? item.baseCost ?? 100,
       })),
     [items]
   );
 
   const storeData = useMemo(() => {
-    const computed = STORES.map((store) => {
+    const computed = apiStores.map((store) => {
       const storeItems = computeStoreItems(comparedItems, store.factor);
       return {
         ...store,
@@ -90,15 +122,15 @@ export default function RetailComparingScreen({
       };
     });
     const sorted = [...computed].sort((a, b) => a.total - b.total);
-    const cheapest = sorted[0];
+    const cheapest = sorted[0] || { total: 0, savings: 0 };
     const nextBest = sorted[1] || cheapest;
-    cheapest.savings = Math.max(0, nextBest.total - cheapest.total);
+    cheapest.savings = Math.max(0, (nextBest.total || 0) - (cheapest.total || 0));
     sorted.forEach((store) => {
       store.diff = store.total - cheapest.total;
       store.isCheapest = store.total === cheapest.total;
     });
     return { sorted, cheapest };
-  }, [comparedItems]);
+  }, [apiStores, comparedItems]);
 
   const { sorted: sortedStores, cheapest } = storeData;
 

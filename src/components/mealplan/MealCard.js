@@ -49,7 +49,14 @@ export default function MealCard({
 
       {/* Bottom Content Row */}
       <View style={styles.contentRow}>
-        <Image source={image} style={styles.thumbnail} />
+        <Image
+          source={
+            typeof image === 'string' && (image.startsWith('http') || image.startsWith('data:'))
+              ? { uri: image }
+              : image || require('../../../assets/avocado_sourdough.jpg')
+          }
+          style={styles.thumbnail}
+        />
 
         <View style={styles.middleInfo}>
           {badgeType === 'match' ? (

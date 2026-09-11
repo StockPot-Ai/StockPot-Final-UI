@@ -7,22 +7,22 @@ const AccountContext = createContext(null);
 export const AccountProvider = ({ children }) => {
   // ── Profile State
   const [profile, setProfile] = useState({
-    id: '00000000-0000-0000-0000-000000000001',
-    name: 'Ammar Dharma',
-    email: 'ammar@example.com',
-    phone: '+92 300 1234567',
-    bio: 'Passionate home chef focused on zero-waste cooking.',
+    id: '',
+    name: 'User',
+    email: '',
+    phone: '',
+    bio: '',
     ecoTitle: 'Eco Saver',
-    streakDays: 7,
-    currentXp: 2450,
-    maxXp: 3000,
-    moneySaved: 12450,
-    wasteAvoided: 8.5,
+    streakDays: 0,
+    currentXp: 0,
+    maxXp: 1000,
+    moneySaved: 0,
+    wasteAvoided: 0,
   });
 
   // ── Household & Preferences State
   const [household, setHousehold] = useState({
-    householdSize: 3,
+    householdSize: 1,
     cookingSkill: 'Intermediate',
     prepTimeLimit: '30 mins',
     mealsPerDay: 3,
@@ -30,15 +30,15 @@ export const AccountProvider = ({ children }) => {
 
   // ── Dietary Preferences State
   const [dietary, setDietary] = useState({
-    selected: ['Halal', 'Low-Carb', 'High-Protein'],
-    allergies: ['Shellfish'],
+    selected: [],
+    allergies: [],
   });
 
   // ── Budget Settings State
   const [budget, setBudget] = useState({
-    weeklyBudget: 15000,
+    weeklyBudget: 10000,
     currency: 'Rs.',
-    savingsGoal: 4000,
+    savingsGoal: 2500,
     alertThreshold: 85,
   });
 
@@ -53,7 +53,7 @@ export const AccountProvider = ({ children }) => {
 
   // ── Privacy & Security State
   const [privacy, setPrivacy] = useState({
-    biometricLogin: true,
+    biometricLogin: false,
     shareAnalytics: false,
     twoFactorAuth: false,
   });
@@ -73,8 +73,14 @@ export const AccountProvider = ({ children }) => {
         setProfile((prev) => ({
           ...prev,
           id: data.id || prev.id,
-          name: data.full_name || prev.name,
+          name: data.full_name || data.name || prev.name,
           email: data.email || prev.email,
+          phone: data.phone || prev.phone,
+          bio: data.bio || prev.bio,
+          moneySaved: data.money_saved ?? data.total_saved ?? prev.moneySaved,
+          wasteAvoided: data.waste_avoided ?? prev.wasteAvoided,
+          streakDays: data.streak_days ?? prev.streakDays,
+          currentXp: data.xp ?? prev.currentXp,
         }));
         if (data.household_size) {
           setHousehold((prev) => ({ ...prev, householdSize: data.household_size }));
@@ -83,14 +89,17 @@ export const AccountProvider = ({ children }) => {
           setBudget((prev) => ({ ...prev, weeklyBudget: data.weekly_budget }));
         }
         if (data.dietary_preference && data.dietary_preference !== 'none') {
+          const splitDietary = data.dietary_preference.includes(',')
+            ? data.dietary_preference.split(',').map((s) => s.trim())
+            : [data.dietary_preference];
           setDietary((prev) => ({
             ...prev,
-            selected: Array.from(new Set([...prev.selected, data.dietary_preference])),
+            selected: Array.from(new Set([...prev.selected, ...splitDietary])),
           }));
         }
       }
     } catch (err) {
-      console.log('Backend profile sync note:', err.message);
+      console.log('[AccountContext] Profile sync error:', err.message);
     }
   };
 
@@ -106,6 +115,8 @@ export const AccountProvider = ({ children }) => {
     try {
       await profileService.updateProfile({
         full_name: fields.name,
+        bio: fields.bio,
+        phone: fields.phone,
       });
     } catch (e) {
       console.log('Error updating profile on backend:', e.message);
@@ -184,11 +195,10 @@ export const AccountProvider = ({ children }) => {
 
   const login = async (credentials) => {
     setAuthError(null);
-    if (!credentials || !credentials.email) {
-      setAuthToken('mock-token');
-      setIsLoggedIn(true);
-      fetchProfile();
-      return true;
+    if (!credentials || !credentials.email || !credentials.password) {
+      const err = new Error('Please enter both email and password');
+      setAuthError(err.message);
+      throw err;
     }
 
     try {
@@ -197,7 +207,7 @@ export const AccountProvider = ({ children }) => {
         setAuthToken(data.token);
       }
       setIsLoggedIn(true);
-      fetchProfile();
+      await fetchProfile();
       return true;
     } catch (err) {
       setAuthError(err.message);
@@ -207,28 +217,23 @@ export const AccountProvider = ({ children }) => {
 
   const signup = async (data) => {
     setAuthError(null);
-    if (!data || !data.email) {
-      setIsLoggedIn(true);
-      return true;
+    if (!data || !data.email || !data.password) {
+      const err = new Error('Please provide email and password for registration');
+      setAuthError(err.message);
+      throw err;
     }
 
     try {
       const res = await authService.register({
         full_name: data.fullName || 'New User',
         email: data.email,
-        password: data.password || 'password123',
+        password: data.password,
       });
       if (res?.token) {
         setAuthToken(res.token);
       }
-      if (data.fullName) {
-        updateProfile({ name: data.fullName });
-      }
-      if (data.email) {
-        updateProfile({ email: data.email });
-      }
       setIsLoggedIn(true);
-      fetchProfile();
+      await fetchProfile();
       return true;
     } catch (err) {
       setAuthError(err.message);

@@ -27,7 +27,7 @@ const AccountHeader = ({ onBack, onLeafPress }) => {
         accessibilityLabel="Eco info"
         accessibilityRole="button"
       >
-        <MaterialCommunityIcons name="leaf-outline" size={24} color="#374151" />
+        <MaterialCommunityIcons name="leaf" size={24} color="#374151" />
       </TouchableOpacity>
     </View>
   );

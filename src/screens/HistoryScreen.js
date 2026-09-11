@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,70 +8,13 @@ import {
   StatusBar,
   Platform,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
-
-// ─── Mock Data (replace with real activity feed later) ─────────────────────────
-
-const HISTORY_GROUPS = [
-  { id: 'today', title: 'Today', date: 'September 3, 2026', dotColor: 'retailTerracotta' },
-  { id: 'week', title: 'Earlier This Week', date: 'September 1, 2026', dotColor: 'retailBasil' },
-  { id: 'aug30', title: 'Past Activity', date: 'August 30, 2026', dotColor: 'retailTurmeric' },
-  { id: 'aug28', title: 'Past Activity', date: 'August 28, 2026', dotColor: 'retailOutlineWarm' },
-];
-
-const ACTIVITIES = [
-  {
-    id: 'act-1',
-    groupId: 'today',
-    kind: 'purchase',
-    title: 'Grocery Purchase',
-    store: 'Keells',
-    storeBadge: 'keells',
-    time: '2:45 PM',
-    location: 'Keells Super',
-    amount: 4850,
-    saved: 650,
-    bought: ['Rice', 'Chicken', 'Eggs', 'Milk'],
-    savingsNote: 'Saved Rs. 650 via StockPot Smart Basket',
-  },
-  {
-    id: 'act-2',
-    groupId: 'week',
-    kind: 'mealplan',
-    title: 'Meal Plan Completed',
-    badgeText: 'Planned',
-    time: '10:15 AM',
-    note: 'Weekly meal plan — 5 zero-waste meals planned',
-    wasteNote: '4.8 kg projected waste avoided',
-  },
-  {
-    id: 'act-3',
-    groupId: 'aug30',
-    kind: 'savings',
-    title: 'Smart Savings Recorded',
-    time: '6:20 PM',
-    amount: 1250,
-    description:
-      'Compared prices across Keells, Cargills & Local Market to optimize grocery list.',
-  },
-  {
-    id: 'act-4',
-    groupId: 'aug28',
-    kind: 'purchase',
-    title: 'Grocery Purchase',
-    store: 'Cargills',
-    storeBadge: 'cargills',
-    time: '4:10 PM',
-    location: 'Cargills Food City',
-    amount: 3200,
-    saved: 420,
-    bought: ['Vegetables', 'Pasta', 'Cheese'],
-    savingsNote: 'Saved Rs. 420 using in-season substitution',
-  },
-];
+import { activityService } from '../services';
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -87,16 +30,16 @@ const STORE_BADGES = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const formatCurrency = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const formatCurrency = (n) => (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 const computeStats = (items) => {
   const activities = items.length;
   const totalSpent = items
     .filter((a) => a.kind === 'purchase')
-    .reduce((sum, a) => sum + a.amount, 0);
+    .reduce((sum, a) => sum + (a.amount || 0), 0);
   const totalSaved = items
-    .filter((a) => a.kind === 'savings')
-    .reduce((sum, a) => sum + a.amount, 0);
+    .filter((a) => a.kind === 'savings' || a.saved)
+    .reduce((sum, a) => sum + (a.saved || a.amount || 0), 0);
   return { activities, totalSpent, totalSaved };
 };
 
@@ -112,7 +55,7 @@ const HistoryHeader = ({ onBack }) => (
       <Text style={styles.headerTitle}>Activity History</Text>
     </View>
     <TouchableOpacity
-      onPress={() => Alert.alert('Calendar', 'Choose a date to filter activity.')}
+      onPress={() => Alert.alert('Activity Filter', 'Showing your latest kitchen & grocery activity logs.')}
       style={styles.headerBtn}
       activeOpacity={0.7}
     >
@@ -179,10 +122,10 @@ const SummaryCard = ({ stats, monthLabel }) => (
 const GroupHeader = ({ title, date, dotColor }) => (
   <View style={styles.groupHeader}>
     <View style={styles.groupHeaderLeft}>
-      <View style={[styles.groupDot, { backgroundColor: Colors[dotColor] }]} />
+      <View style={[styles.groupDot, { backgroundColor: Colors[dotColor] || Colors.retailTerracotta }]} />
       <Text style={styles.groupTitle}>{title}</Text>
     </View>
-    <Text style={styles.groupDate}>{date.toUpperCase()}</Text>
+    {date ? <Text style={styles.groupDate}>{date.toUpperCase()}</Text> : null}
   </View>
 );
 
@@ -197,34 +140,26 @@ const PurchaseCard = ({ activity }) => {
           </View>
           <View style={styles.cardTextCol}>
             <View style={styles.badgeRow}>
-              <Text style={styles.cardTitle}>{activity.title}</Text>
-              <View style={[styles.storeBadge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
-                <Text style={[styles.storeBadgeText, { color: badge.text }]}>{activity.store}</Text>
-              </View>
+              <Text style={styles.cardTitle}>{activity.title || 'Grocery Purchase'}</Text>
+              {activity.store && (
+                <View style={[styles.storeBadge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
+                  <Text style={[styles.storeBadgeText, { color: badge.text }]}>{activity.store}</Text>
+                </View>
+              )}
             </View>
-            <View style={styles.metaRow}>
-              <Ionicons name="time-outline" size={13} color={Colors.retailMuted} />
-              <Text style={styles.cardMeta}>
-                {activity.time} • {activity.location}
-              </Text>
-            </View>
+            <Text style={styles.cardTime}>{activity.time || 'Recently'}</Text>
           </View>
         </View>
-        <View style={styles.cardRight}>
-          <Text style={styles.amountText}>Rs. {formatCurrency(activity.amount)}</Text>
-          <Text style={styles.savedText}>-Rs. {formatCurrency(activity.saved)}</Text>
+        <View style={styles.priceCol}>
+          <Text style={styles.cardPrice}>Rs. {formatCurrency(activity.amount)}</Text>
         </View>
       </View>
-      <View style={styles.innerCard}>
-        <Text style={styles.innerBought}>
-          <Text style={styles.innerBoughtLabel}>Bought: </Text>
-          {activity.bought.join(', ')}
-        </Text>
-        <View style={styles.savingRow}>
-          <FontAwesome5 name="piggy-bank" size={14} color={Colors.retailBasil} />
-          <Text style={styles.savingText}>{activity.savingsNote}</Text>
+      {activity.savingsNote && (
+        <View style={styles.savingsNoteRow}>
+          <Ionicons name="sparkles" size={13} color={Colors.retailBasil} />
+          <Text style={styles.savingsNoteText}>{activity.savingsNote}</Text>
         </View>
-      </View>
+      )}
     </View>
   );
 };
@@ -234,30 +169,21 @@ const MealPlanCard = ({ activity }) => (
     <View style={styles.cardTopRow}>
       <View style={styles.cardLeft}>
         <View style={[styles.iconTile, styles.iconTileBasil]}>
-          <MaterialCommunityIcons name="chef-hat" size={20} color={Colors.retailBasil} />
+          <Ionicons name="restaurant" size={19} color={Colors.retailBasil} />
         </View>
         <View style={styles.cardTextCol}>
-          <View style={styles.badgeRow}>
-            <Text style={styles.cardTitle}>{activity.title}</Text>
-            <View style={styles.plannedBadge}>
-              <Text style={styles.plannedBadgeText}>{activity.badgeText}</Text>
-            </View>
-          </View>
-          <View style={styles.metaRow}>
-            <Ionicons name="time-outline" size={13} color={Colors.retailMuted} />
-            <Text style={styles.cardMeta}>{activity.time}</Text>
-          </View>
+          <Text style={styles.cardTitle}>{activity.title || 'Meal Plan'}</Text>
+          <Text style={styles.cardTime}>{activity.time || 'Recently'}</Text>
         </View>
       </View>
-      <Ionicons name="checkmark-circle" size={22} color={Colors.retailBasil} />
     </View>
-    <View style={styles.mealInnerCard}>
-      <Text style={styles.mealNote}>{activity.note}</Text>
-      <View style={styles.savingRow}>
-        <Ionicons name="leaf" size={14} color={Colors.retailBasil} />
-        <Text style={styles.wasteText}>{activity.wasteNote}</Text>
+    {activity.note && <Text style={styles.cardDescription}>{activity.note}</Text>}
+    {activity.wasteNote && (
+      <View style={styles.wastePill}>
+        <Ionicons name="leaf" size={12} color={Colors.retailBasil} />
+        <Text style={styles.wastePillText}>{activity.wasteNote}</Text>
       </View>
-    </View>
+    )}
   </View>
 );
 
@@ -266,21 +192,18 @@ const SavingsCard = ({ activity }) => (
     <View style={styles.cardTopRow}>
       <View style={styles.cardLeft}>
         <View style={[styles.iconTile, styles.iconTileTurmeric]}>
-          <FontAwesome5 name="piggy-bank" size={20} color="#B87B14" />
+          <FontAwesome5 name="piggy-bank" size={17} color={Colors.retailTurmeric} />
         </View>
         <View style={styles.cardTextCol}>
-          <Text style={styles.cardTitle}>{activity.title}</Text>
-          <View style={styles.metaRow}>
-            <Ionicons name="time-outline" size={13} color={Colors.retailMuted} />
-            <Text style={styles.cardMeta}>{activity.time}</Text>
-          </View>
+          <Text style={styles.cardTitle}>{activity.title || 'Savings Recorded'}</Text>
+          <Text style={styles.cardTime}>{activity.time || 'Recently'}</Text>
         </View>
       </View>
       <View style={styles.savingsPill}>
         <Text style={styles.savingsPillText}>+Rs. {formatCurrency(activity.amount)}</Text>
       </View>
     </View>
-    <Text style={styles.cardDescription}>{activity.description}</Text>
+    {activity.description && <Text style={styles.cardDescription}>{activity.description}</Text>}
   </View>
 );
 
@@ -294,8 +217,40 @@ const ActivityCard = ({ activity }) => {
 
 export default function HistoryScreen({ onBack }) {
   const [activeFilter, setActiveFilter] = useState('all');
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filtered = ACTIVITIES.filter(
+  const fetchActivities = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await activityService.getActivity(activeFilter);
+      if (Array.isArray(data)) {
+        setActivities(data);
+      } else if (data?.activities && Array.isArray(data.activities)) {
+        setActivities(data.activities);
+      } else {
+        setActivities([]);
+      }
+    } catch (err) {
+      console.log('[HistoryScreen] Activity fetch note:', err.message);
+      setActivities([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [activeFilter]);
+
+  useEffect(() => {
+    fetchActivities();
+  }, [fetchActivities]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchActivities();
+  };
+
+  const filtered = activities.filter(
     (a) => activeFilter === 'all' || a.kind === activeFilter
   );
   const stats = computeStats(filtered);
@@ -308,21 +263,48 @@ export default function HistoryScreen({ onBack }) {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
+        }
       >
         <FilterChips active={activeFilter} onChange={setActiveFilter} />
-        <SummaryCard stats={stats} monthLabel="Sep 2026" />
-        {HISTORY_GROUPS.map((group) => {
-          const items = filtered.filter((a) => a.groupId === group.id);
-          if (items.length === 0) return null;
-          return (
-            <View key={group.id} style={styles.timelineSection}>
-              <GroupHeader title={group.title} date={group.date} dotColor={group.dotColor} />
-              {items.map((item) => (
-                <ActivityCard key={item.id} activity={item} />
-              ))}
-            </View>
-          );
-        })}
+        <SummaryCard stats={stats} monthLabel="Recent" />
+
+        {loading && (
+          <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={Colors.retailTerracotta} />
+            <Text style={{ fontSize: 13, color: Colors.retailMuted, marginTop: 6 }}>
+              Loading activity history...
+            </Text>
+          </View>
+        )}
+
+        {filtered.length === 0 && !loading && (
+          <View style={{ padding: 32, alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 16, marginTop: 14 }}>
+            <Ionicons name="file-tray-outline" size={36} color="#9CA3AF" />
+            <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.retailCharcoal, marginTop: 10 }}>
+              No Activity Found
+            </Text>
+            <Text style={{ fontSize: 13, color: Colors.retailMuted, textAlign: 'center', marginTop: 4 }}>
+              Your grocery purchases, planned meals, and recorded savings will appear here.
+            </Text>
+          </View>
+        )}
+
+        {filtered.length > 0 && (
+          <View style={styles.timelineSection}>
+            <GroupHeader title="Recent Activity" date="Live Feed" dotColor="retailTerracotta" />
+            {filtered.map((item, idx) => (
+              <ActivityCard key={item.id || idx} activity={item} />
+            ))}
+          </View>
+        )}
+
         <View style={styles.scrollEndSpacer} />
       </ScrollView>
     </SafeAreaView>

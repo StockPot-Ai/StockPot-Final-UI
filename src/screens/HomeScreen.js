@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,38 +9,22 @@ import {
   Dimensions,
   StatusBar,
   Platform,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import AIChatModal from '../components/AIChatModal';
+import { recipeService, savingsService } from '../services';
+import { useAccount } from '../context/AccountContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const MEAL_TABS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
 
-const CHALLENGES = [
-  {
-    id: '1',
-    icon: 'leaf',
-    iconColor: '#2E7D32',
-    iconBg: '#E8F5E9',
-    label: 'Meatless Monday',
-    status: '0/1',
-    isDone: false,
-  },
-  {
-    id: '2',
-    icon: 'piggy-bank',
-    iconColor: '#E53935',
-    iconBg: '#FFEBEE',
-    label: 'Under Budget Week',
-    status: 'Done',
-    isDone: true,
-  },
-];
-
-const Header = () => (
+const Header = ({ userName }) => (
   <View style={styles.header}>
     <View style={styles.headerLeft}>
       <Image
@@ -48,7 +32,7 @@ const Header = () => (
         style={styles.avatar}
       />
       <Text style={styles.greeting}>
-        Hi Ammar <Text style={styles.wave}>👋</Text>
+        Hi {userName || 'Chef'} <Text style={styles.wave}>👋</Text>
       </Text>
     </View>
     <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
@@ -57,11 +41,13 @@ const Header = () => (
   </View>
 );
 
-const MilestoneBanner = ({ onPress }) => (
+const MilestoneBanner = ({ onPress, savingsAmount }) => (
   <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.milestoneBanner}>
     <View style={styles.milestoneLeft}>
       <Text style={styles.milestoneTitle}>Weekly Milestone</Text>
-      <Text style={styles.milestoneSavings}>You've saved Rs 2,500 this week!</Text>
+      <Text style={styles.milestoneSavings}>
+        You've saved Rs {savingsAmount ? savingsAmount.toLocaleString() : '0'} this week!
+      </Text>
       <Text style={styles.milestoneFlame}>🔥</Text>
     </View>
     <View style={styles.trendCircle}>
@@ -112,115 +98,230 @@ const FarmFreshBanner = () => (
   </View>
 );
 
-const MatchBadge = () => (
+const MatchBadge = ({ matchText = '98% Match' }) => (
   <View style={styles.matchBadge}>
     <Ionicons name="star" size={11} color="#FFD700" />
-    <Text style={styles.matchBadgeText}>98% Match</Text>
+    <Text style={styles.matchBadgeText}>{matchText}</Text>
   </View>
 );
 
-const SmallDishCard = ({ image, title, price, onPress }) => (
-  <TouchableOpacity style={styles.smallCard} onPress={onPress} activeOpacity={0.8}>
-    <Image source={image} style={styles.smallImage} />
-    <Text style={styles.smallTitle} numberOfLines={2}>{title}</Text>
-    <View style={styles.smallCardFooter}>
-      <Text style={styles.smallPrice}>{price}</Text>
-      <View style={styles.smallPlusBtn}>
-        <Ionicons name="add" size={18} color={Colors.primary} />
-      </View>
-    </View>
-  </TouchableOpacity>
-);
+const getRecipeImage = (img) => {
+  if (img && typeof img === 'string' && (img.startsWith('http') || img.startsWith('data:'))) {
+    return { uri: img };
+  }
+  return require('../../assets/creamy_pumpkin_pasta.jpg');
+};
 
-const PopularDishes = ({ onSelectDish }) => (
-  <View style={styles.section}>
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>Popular Dishes</Text>
-      <TouchableOpacity activeOpacity={0.7}>
-        <Text style={styles.viewAll}>View All</Text>
-      </TouchableOpacity>
-    </View>
-
-    <TouchableOpacity
-      style={styles.featuredCard}
-      onPress={() => onSelectDish && onSelectDish('Roasted Pumpkin Soup')}
-      activeOpacity={0.85}
-    >
-      <Image
-        source={require('../../assets/pumpkin_soup.jpg')}
-        style={styles.featuredImage}
-      />
-      <MatchBadge />
-      <View style={styles.featuredInfo}>
-        <View style={styles.featuredInfoLeft}>
-          <Text style={styles.featuredTitle}>Roasted Pumpkin Soup</Text>
-          <View style={styles.metaRow}>
-            <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
-            <Text style={styles.metaText}>25m</Text>
-          </View>
+const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
+  if (loading) {
+    return (
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Popular Dishes</Text>
         </View>
-        <View style={styles.plusBtn}>
-          <Ionicons name="add" size={22} color="#FFFFFF" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={Colors.primary} />
+          <Text style={styles.loadingText}>Fetching recipes from API...</Text>
         </View>
       </View>
-    </TouchableOpacity>
+    );
+  }
 
-    <View style={styles.smallCardsRow}>
-      <SmallDishCard
-        image={require('../../assets/avocado_sourdough.jpg')}
-        title="Avocado Sourdough"
-        price="Rs  450"
-        onPress={() => onSelectDish && onSelectDish('Avocado Sourdough')}
-      />
-      <SmallDishCard
-        image={require('../../assets/quinoa_bowl.jpg')}
-        title="Quinoa Super Bowl"
-        price="Rs  780"
-        onPress={() => onSelectDish && onSelectDish('Quinoa Super Bowl')}
-      />
-    </View>
-  </View>
-);
+  if (error) {
+    return (
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Popular Dishes</Text>
+        </View>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={24} color={Colors.error || '#DC2626'} />
+          <Text style={styles.errorText}>Failed to load recipes: {error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
-const WeeklyChallenges = () => (
-  <View style={styles.section}>
-    <Text style={styles.sectionTitle}>Weekly Challenges</Text>
-    <View style={styles.challengesCard}>
-      {CHALLENGES.map((c, idx) => (
-        <View key={c.id}>
-          <View style={styles.challengeRow}>
-            <View style={[styles.challengeIconBg, { backgroundColor: c.iconBg }]}>
-              {c.icon === 'leaf' ? (
-                <Ionicons name="leaf" size={16} color={c.iconColor} />
-              ) : (
-                <FontAwesome5 name="piggy-bank" size={14} color={c.iconColor} />
-              )}
+  if (!recipes || recipes.length === 0) {
+    return (
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Popular Dishes</Text>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Ionicons name="restaurant-outline" size={28} color={Colors.retailMuted || '#9CA3AF'} />
+          <Text style={styles.emptyText}>No recipes available for this category.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const featured = recipes[0];
+  const others = recipes.slice(1);
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Popular Dishes</Text>
+        <TouchableOpacity activeOpacity={0.7}>
+          <Text style={styles.viewAll}>{recipes.length} Available</Text>
+        </TouchableOpacity>
+      </View>
+
+      {featured && (
+        <TouchableOpacity
+          style={styles.featuredCard}
+          onPress={() => onSelectDish && onSelectDish(featured)}
+          activeOpacity={0.85}
+        >
+          <Image
+            source={getRecipeImage(featured.image || featured.image_url)}
+            style={styles.featuredImage}
+          />
+          <MatchBadge matchText={featured.match_percentage ? `${featured.match_percentage}% Match` : '98% Match'} />
+          <View style={styles.featuredInfo}>
+            <View style={styles.featuredInfoLeft}>
+              <Text style={styles.featuredTitle}>{featured.title || featured.name}</Text>
+              <View style={styles.metaRow}>
+                <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
+                <Text style={styles.metaText}>{featured.prep_time || featured.time || '20m'}</Text>
+                {featured.calories && (
+                  <>
+                    <Text style={styles.metaText}> • </Text>
+                    <Text style={styles.metaText}>{featured.calories} kcal</Text>
+                  </>
+                )}
+              </View>
             </View>
-            <Text style={styles.challengeLabel}>{c.label}</Text>
-            <Text
-              style={[
-                styles.challengeStatus,
-                c.isDone && styles.challengeStatusDone,
-              ]}
-            >
-              {c.status}
-            </Text>
+            <View style={styles.plusBtn}>
+              <Ionicons name="add" size={22} color="#FFFFFF" />
+            </View>
           </View>
-          {idx < CHALLENGES.length - 1 && <View style={styles.challengeDivider} />}
+        </TouchableOpacity>
+      )}
+
+      {others.length > 0 && (
+        <View style={styles.smallCardsRow}>
+          {others.slice(0, 4).map((recipe, idx) => (
+            <TouchableOpacity
+              key={recipe.id || idx}
+              style={styles.smallCard}
+              onPress={() => onSelectDish && onSelectDish(recipe)}
+              activeOpacity={0.8}
+            >
+              <Image
+                source={getRecipeImage(recipe.image || recipe.image_url)}
+                style={styles.smallImage}
+              />
+              <Text style={styles.smallTitle} numberOfLines={2}>
+                {recipe.title || recipe.name}
+              </Text>
+              <View style={styles.smallCardFooter}>
+                <Text style={styles.smallPrice}>
+                  Rs {recipe.estimated_cost ?? recipe.base_cost ?? recipe.price ?? 450}
+                </Text>
+                <View style={styles.smallPlusBtn}>
+                  <Ionicons name="add" size={18} color={Colors.primary} />
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
-      ))}
-      <View style={styles.challengeDivider} />
-      <View style={styles.rewardRow}>
-        <Text style={styles.rewardLabel}>REWARD POOL</Text>
-        <Text style={styles.rewardPoints}>250 Pts</Text>
+      )}
+    </View>
+  );
+};
+
+const WeeklyChallenges = ({ challenges = [] }) => {
+  if (!challenges || challenges.length === 0) return null;
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Weekly Challenges</Text>
+      <View style={styles.challengesCard}>
+        {challenges.map((c, idx) => (
+          <View key={c.id || idx}>
+            <View style={styles.challengeRow}>
+              <View style={[styles.challengeIconBg, { backgroundColor: c.iconBg || '#E8F5E9' }]}>
+                {c.icon === 'leaf' ? (
+                  <Ionicons name="leaf" size={16} color={c.iconColor || '#2E7D32'} />
+                ) : (
+                  <FontAwesome5 name="piggy-bank" size={14} color={c.iconColor || '#E53935'} />
+                )}
+              </View>
+              <Text style={styles.challengeLabel}>{c.label || c.title}</Text>
+              <Text
+                style={[
+                  styles.challengeStatus,
+                  c.isDone && styles.challengeStatusDone,
+                ]}
+              >
+                {c.status || (c.isDone ? 'Done' : '0/1')}
+              </Text>
+            </View>
+            {idx < challenges.length - 1 && <View style={styles.challengeDivider} />}
+          </View>
+        ))}
+        <View style={styles.challengeDivider} />
+        <View style={styles.rewardRow}>
+          <Text style={styles.rewardLabel}>REWARD POOL</Text>
+          <Text style={styles.rewardPoints}>250 Pts</Text>
+        </View>
       </View>
     </View>
-  </View>
-);
+  );
+};
 
 const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
+  const { profile } = useAccount();
   const [activeTab, setActiveTab] = useState('Breakfast');
+  const [recipes, setRecipes] = useState([]);
+  const [loadingRecipes, setLoadingRecipes] = useState(true);
+  const [recipeError, setRecipeError] = useState(null);
+  const [weeklySavings, setWeeklySavings] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [aiModalVisible, setAiModalVisible] = useState(false);
+
+  const fetchHomeData = useCallback(async () => {
+    setLoadingRecipes(true);
+    setRecipeError(null);
+    try {
+      const [recipesRes, savingsRes] = await Promise.allSettled([
+        recipeService.getRecipes({ category: activeTab }),
+        savingsService.getSummary(),
+      ]);
+
+      if (recipesRes.status === 'fulfilled') {
+        const recipeList = Array.isArray(recipesRes.value)
+          ? recipesRes.value
+          : recipesRes.value?.recipes || [];
+        setRecipes(recipeList);
+      } else {
+        const errMsg = recipesRes.reason?.message || 'Failed to fetch recipes from API';
+        setRecipeError(errMsg);
+      }
+
+      if (savingsRes.status === 'fulfilled' && savingsRes.value) {
+        setWeeklySavings(savingsRes.value.weekly_saved || savingsRes.value.this_month || 0);
+      }
+    } catch (err) {
+      setRecipeError(err.message || 'API connection failed');
+    } finally {
+      setLoadingRecipes(false);
+      setRefreshing(false);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    fetchHomeData();
+  }, [fetchHomeData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchHomeData();
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -230,12 +331,26 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[Colors.primary]}
+              tintColor={Colors.primary}
+            />
+          }
         >
-          <Header />
-          <MilestoneBanner onPress={onMilestonePress} />
+          <Header userName={profile.name} />
+          <MilestoneBanner onPress={onMilestonePress} savingsAmount={weeklySavings || profile.moneySaved} />
           <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
           <FarmFreshBanner />
-          <PopularDishes onSelectDish={onSelectRecipe} />
+          <PopularDishes
+            recipes={recipes}
+            loading={loadingRecipes}
+            error={recipeError}
+            onSelectDish={onSelectRecipe}
+            onRetry={fetchHomeData}
+          />
           <WeeklyChallenges />
           <View style={{ height: 20 }} />
         </ScrollView>
@@ -661,6 +776,60 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
+  },
+  loadingContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    gap: 8,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#991B1B',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  retryBtn: {
+    marginTop: 6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    paddingVertical: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    gap: 8,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
 });
 

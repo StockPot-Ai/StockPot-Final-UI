@@ -53,10 +53,10 @@ export const setApiBaseUrl = (newUrl) => {
 
 export const API_BASE_URL = customBaseUrl;
 
-let authToken = 'mock-token';
+let authToken = null;
 
 export const setAuthToken = (token) => {
-  authToken = token || 'mock-token';
+  authToken = token || null;
 };
 
 export const getAuthToken = () => authToken;
@@ -99,9 +99,17 @@ async function handleResponse(response, url) {
   addLog('response', `${response.status} ${url}`, data);
 
   if (!response.ok) {
-    const errorMessage =
-      (data && data.error && data.error.message) ||
-      (typeof data === 'string' ? data : `Request failed with status ${response.status}`);
+    let errorMessage = `Request failed with status ${response.status}`;
+    if (data && typeof data === 'object') {
+      errorMessage =
+        data.message ||
+        data.error?.message ||
+        (typeof data.error === 'string' ? data.error : null) ||
+        data.msg ||
+        JSON.stringify(data);
+    } else if (typeof data === 'string' && data.length > 0) {
+      errorMessage = data;
+    }
     const error = new Error(errorMessage);
     error.status = response.status;
     error.data = data;

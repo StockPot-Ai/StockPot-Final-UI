@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
@@ -16,20 +17,70 @@ import DescriptionCard from '../components/ingredient/DescriptionCard';
 import ServingsControl from '../components/ingredient/ServingsControl';
 import IngredientList from '../components/ingredient/IngredientList';
 import AddToMealPlanBar from '../components/ingredient/AddToMealPlanBar';
+import { recipeService, mealPlanService } from '../services';
 
 export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCompare }) {
-  // Fallback so the screen still renders if opened without a recipe.
-  const defaultIngredients = [];
-  const data = recipe || {};
-
-  const ingredients = data.ingredients || defaultIngredients;
-
-  const [servings, setServings] = useState(2);
-  const [isFavorite, setIsFavorite] = useState(true);
-  const [selectedIds, setSelectedIds] = useState(
-    ingredients.map((item) => item.id)
-  );
+  const [data, setData] = useState(recipe || {});
+  const [servings, setServings] = useState(recipe?.servings || 2);
+  const [ingredients, setIngredients] = useState(recipe?.ingredients || []);
+  const [loading, setLoading] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [ingredientFilter, setIngredientFilter] = useState('all');
+
+  const fetchIngredients = useCallback(async (recipeId, currentServings) => {
+    if (!recipeId) return;
+    setLoading(true);
+    try {
+      const res = await recipeService.getRecipeIngredients(recipeId, currentServings);
+      const ingredientList = Array.isArray(res) ? res : res?.ingredients || [];
+      if (ingredientList.length > 0) {
+        setIngredients(
+          ingredientList.map((ing, idx) => ({
+            id: ing.id || `ing-${idx}`,
+            name: ing.name || ing.ingredient_name,
+            baseQuantity: ing.quantity || ing.base_quantity || 100,
+            unit: ing.unit || 'g',
+            baseCost: ing.cost || ing.base_cost || ing.price || 100,
+            inPantry: ing.in_pantry ?? ing.available ?? false,
+            iconName: ing.icon || 'food-apple',
+            iconLib: 'MaterialCommunityIcons',
+            iconBg: ing.in_pantry ? '#ECFDF5' : '#FFF7ED',
+            iconColor: ing.in_pantry ? '#059669' : '#EA580C',
+          }))
+        );
+      }
+    } catch (err) {
+      console.log('[IngredientScreen] Note on ingredients fetch:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (recipe) {
+      setData(recipe);
+      if (recipe.ingredients && recipe.ingredients.length > 0) {
+        setIngredients(recipe.ingredients);
+        setSelectedIds(recipe.ingredients.map((i) => i.id));
+      } else if (recipe.id) {
+        fetchIngredients(recipe.id, servings);
+      }
+    }
+  }, [recipe, fetchIngredients]);
+
+  useEffect(() => {
+    if (ingredients.length > 0 && selectedIds.length === 0) {
+      setSelectedIds(ingredients.map((i) => i.id));
+    }
+  }, [ingredients]);
+
+  const handleServingsChange = (newServings) => {
+    setServings(newServings);
+    if (data.id) {
+      fetchIngredients(data.id, newServings);
+    }
+  };
 
   const handleToggleItem = (id) => {
     setSelectedIds((prev) =>
@@ -49,7 +100,7 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
   const totalCost = Math.round(
     ingredients
       .filter((item) => selectedIds.includes(item.id))
-      .reduce((acc, item) => acc + (item.baseCost * servings) / 2, 0)
+      .reduce((acc, item) => acc + ((item.baseCost || 100) * servings) / 2, 0)
   );
 
   // Filtered ingredients
@@ -60,18 +111,32 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
 
   const availableCount = ingredients.filter((i) => i.inPantry).length;
 
-  const handleAddToMealPlan = () => {
+  const handleAddToMealPlan = async () => {
+    const payload = {
+      recipe_id: data.id,
+      title: data.title || data.name || 'Recipe',
+      servings,
+      cost: totalCost,
+      meal_type: 'LUNCH',
+      day: 'mon',
+      ingredients: ingredients.filter((i) => selectedIds.includes(i.id)),
+    };
+
+    try {
+      const currentPlan = await mealPlanService.getCurrentMealPlan();
+      if (currentPlan && currentPlan.id) {
+        await mealPlanService.addItem(currentPlan.id, payload);
+      }
+    } catch (err) {
+      console.log('[IngredientScreen] Direct meal plan add note:', err.message);
+    }
+
     if (onAddToMealPlan) {
-      onAddToMealPlan({
-        title: data.title || 'Recipe',
-        servings,
-        cost: totalCost,
-        ingredients: ingredients.filter((i) => selectedIds.includes(i.id)),
-      });
+      onAddToMealPlan(payload);
     } else {
       Alert.alert(
         'Added to Meal Plan',
-        `${data.title || 'Recipe'} (${servings} servings, Rs ${totalCost}) was added to your meal plan.`,
+        `${data.title || data.name || 'Recipe'} (${servings} servings, Rs ${totalCost}) was added to your meal plan.`,
         [{ text: 'OK' }]
       );
     }
@@ -86,7 +151,7 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
         name: item.name,
         quantity: Math.round(((item.baseQuantity * servings) / 2) * 10) / 10,
         unit: item.unit,
-        cost: Math.round((item.baseCost * servings) / 2),
+        cost: Math.round(((item.baseCost || 100) * servings) / 2),
       }));
     onCompare(items);
   };
@@ -102,31 +167,43 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
       >
         {/* Top Hero Image Header with Navigation Buttons and Recipe Meta */}
         <IngredientHeader
-          title={data.title}
-          rating={data.rating}
-          time={data.time}
-          calories={data.calories}
-          image={data.image}
+          title={data.title || data.name}
+          rating={data.rating || '4.5'}
+          time={data.prep_time || data.time || '20 min'}
+          calories={data.calories ? `${data.calories} kcal` : '450 kcal'}
+          image={data.image || data.image_url}
           onBack={onBack}
           onFavorite={() => setIsFavorite(!isFavorite)}
           isFavorite={isFavorite}
         />
 
+        {loading && (
+          <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+            <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 4 }}>
+              Loading ingredients...
+            </Text>
+          </View>
+        )}
+
         {/* Available Ingredients Section */}
         <AvailableIngredientsCard
           availableCount={availableCount}
           totalCount={ingredients.length}
-          availableItems={data.availableItems || []}
+          availableItems={
+            data.availableItems ||
+            ingredients.filter((i) => i.inPantry).map((i) => i.name)
+          }
           onFilterChange={setIngredientFilter}
         />
 
         {/* Description Section */}
-        <DescriptionCard description={data.description} />
+        <DescriptionCard description={data.description || 'A delicious, wholesome recipe prepared with fresh ingredients.'} />
 
         {/* Servings Stepper Control */}
         <ServingsControl
           servings={servings}
-          onServingsChange={setServings}
+          onServingsChange={handleServingsChange}
           min={1}
           max={10}
         />

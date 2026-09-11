@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,56 +8,30 @@ import {
   Dimensions,
   Platform,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import Colors from '../constants/colors';
+import { savingsService } from '../services';
+import { useAccount } from '../context/AccountContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_PADDING = 16;
 
-// ─── Mock Data (replace with real data source later) ──────────────────────────
-
-const SAVINGS_STATS = {
-  totalSaved: 12450,
-  goal: 20000,
-  thisMonth: 2500,
-  weeklyAvg: 625,
-  foodWasteAvoided: 3.2,
-  mealsPlanned: 15,
-};
-
-const MONTHLY_TREND = [
-  { month: 'Jan', amount: 1800 },
-  { month: 'Feb', amount: 2100 },
-  { month: 'Mar', amount: 1900 },
-  { month: 'Apr', amount: 2300 },
-  { month: 'May', amount: 2500 },
-  { month: 'Jun', amount: 1850 },
-];
-
-const SAVINGS_LEVEL = {
-  current: 'Silver Saver',
-  next: 'Gold Saver',
-  progress: 0.62,
-  icon: '\u{1F949}',
-};
-
-const RECENT_SAVINGS = [
-  { id: '1', label: 'Meal Planning', amount: 450, icon: 'restaurant-outline', iconColor: '#2E7D32', iconBg: '#E8F5E9', date: 'Today' },
-  { id: '2', label: 'Smart Shopping', amount: 320, icon: 'cart-outline', iconColor: '#1565C0', iconBg: '#E3F2FD', date: 'Yesterday' },
-  { id: '3', label: 'Food Saved', amount: 280, icon: 'leaf-outline', iconColor: '#E53935', iconBg: '#FFEBEE', date: '2 days ago' },
-  { id: '4', label: 'Bulk Purchase', amount: 550, icon: 'basket-outline', iconColor: '#7C4A00', iconBg: '#FFF8E1', date: '3 days ago' },
-];
-
-const CHALLENGES = [
-  { id: '1', icon: 'leaf', iconColor: '#2E7D32', iconBg: '#E8F5E9', label: 'Meatless Monday', status: '0/1', isDone: false },
-  { id: '2', icon: 'piggy-bank', iconColor: '#E53935', iconBg: '#FFEBEE', label: 'Under Budget Week', status: 'Done', isDone: true },
+const DEFAULT_TREND = [
+  { month: 'Jan', amount: 1200 },
+  { month: 'Feb', amount: 1800 },
+  { month: 'Mar', amount: 1500 },
+  { month: 'Apr', amount: 2200 },
+  { month: 'May', amount: 2400 },
+  { month: 'Jun', amount: 2100 },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const formatCurrency = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const formatCurrency = (n) => (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -73,8 +47,9 @@ const SavingsHeader = ({ onBack }) => (
   </View>
 );
 
-const TotalSavingsCard = ({ total, goal }) => {
-  const pct = Math.round((total / goal) * 100);
+const TotalSavingsCard = ({ total = 0, goal = 20000 }) => {
+  const safeGoal = goal > 0 ? goal : 1;
+  const pct = Math.min(100, Math.round((total / safeGoal) * 100));
   return (
     <View style={styles.heroCard}>
       <Text style={styles.heroLabel}>Total Saved</Text>
@@ -100,13 +75,14 @@ const StatCard = ({ value, label, icon, color, bgColor }) => (
   </View>
 );
 
-const BarChart = ({ data }) => {
-  const maxAmount = Math.max(...data.map((d) => d.amount));
+const BarChart = ({ data = [] }) => {
+  const chartData = data && data.length > 0 ? data : DEFAULT_TREND;
+  const maxAmount = Math.max(...chartData.map((d) => d.amount || 100), 100);
   return (
     <View style={styles.chartCard}>
       <View style={styles.chartContainer}>
-        {data.map((item, index) => {
-          const barHeight = Math.round((item.amount / maxAmount) * 100);
+        {chartData.map((item, index) => {
+          const barHeight = Math.max(10, Math.round(((item.amount || 0) / maxAmount) * 100));
           const isMax = item.amount === maxAmount;
           return (
             <View key={index} style={styles.chartColumn}>
@@ -115,13 +91,13 @@ const BarChart = ({ data }) => {
                   style={[
                     styles.barFill,
                     {
-                      height: barHeight,
+                      height: `${barHeight}%`,
                       backgroundColor: isMax ? Colors.primary : Colors.primaryLight,
                     },
                   ]}
                 />
               </View>
-              <Text style={styles.barLabel}>{item.month}</Text>
+              <Text style={styles.barLabel}>{item.month || `M${index + 1}`}</Text>
             </View>
           );
         })}
@@ -130,35 +106,43 @@ const BarChart = ({ data }) => {
   );
 };
 
-const SavingsLevelCard = ({ level }) => (
-  <View style={styles.levelCard}>
-    <View style={styles.levelHeader}>
-      <Text style={styles.levelEmoji}>{level.icon}</Text>
-      <View style={styles.levelTextCol}>
-        <Text style={styles.levelCurrent}>{level.current}</Text>
-        <Text style={styles.levelNext}>to {level.next}</Text>
+const SavingsLevelCard = ({ level }) => {
+  const safeLevel = level || {
+    current: 'Silver Saver',
+    next: 'Gold Saver',
+    progress: 0.5,
+    icon: '🥈',
+  };
+  return (
+    <View style={styles.levelCard}>
+      <View style={styles.levelHeader}>
+        <Text style={styles.levelEmoji}>{safeLevel.icon || '🥈'}</Text>
+        <View style={styles.levelTextCol}>
+          <Text style={styles.levelCurrent}>{safeLevel.current}</Text>
+          <Text style={styles.levelNext}>to {safeLevel.next}</Text>
+        </View>
+        <View style={styles.levelBadge}>
+          <Text style={styles.levelBadgeText}>{Math.round((safeLevel.progress || 0) * 100)}%</Text>
+        </View>
       </View>
-      <View style={styles.levelBadge}>
-        <Text style={styles.levelBadgeText}>{Math.round(level.progress * 100)}%</Text>
+      <View style={styles.levelProgressTrack}>
+        <View style={[styles.levelProgressFill, { width: `${(safeLevel.progress || 0) * 100}%` }]} />
       </View>
     </View>
-    <View style={styles.levelProgressTrack}>
-      <View style={[styles.levelProgressFill, { width: `${level.progress * 100}%` }]} />
-    </View>
-  </View>
-);
+  );
+};
 
 const RecentSavingsItem = ({ item, isLast }) => (
   <View>
     <View style={styles.recentRow}>
-      <View style={[styles.recentIconBg, { backgroundColor: item.iconBg }]}>
-        <Ionicons name={item.icon} size={18} color={item.iconColor} />
+      <View style={[styles.recentIconBg, { backgroundColor: item.iconBg || '#E8F5E9' }]}>
+        <Ionicons name={item.icon || 'leaf-outline'} size={18} color={item.iconColor || '#2E7D32'} />
       </View>
       <View style={styles.recentInfo}>
-        <Text style={styles.recentLabel}>{item.label}</Text>
-        <Text style={styles.recentDate}>{item.date}</Text>
+        <Text style={styles.recentLabel}>{item.label || item.description || 'Smart Savings'}</Text>
+        <Text style={styles.recentDate}>{item.date || item.created_at || 'Recent'}</Text>
       </View>
-      <Text style={styles.recentAmount}>+Rs {item.amount}</Text>
+      <Text style={styles.recentAmount}>+Rs {item.amount || 0}</Text>
     </View>
     {!isLast && <View style={styles.divider} />}
   </View>
@@ -167,6 +151,63 @@ const RecentSavingsItem = ({ item, isLast }) => (
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function SavingsDashboard({ onBack }) {
+  const { budget, profile } = useAccount();
+  const [stats, setStats] = useState({
+    totalSaved: profile.moneySaved || 0,
+    goal: budget.savingsGoal || 20000,
+    thisMonth: 0,
+    weeklyAvg: 0,
+    foodWasteAvoided: profile.wasteAvoided || 0,
+    mealsPlanned: 0,
+  });
+  const [trend, setTrend] = useState(DEFAULT_TREND);
+  const [recentSavings, setRecentSavings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchSavingsData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [summaryRes, trendRes] = await Promise.allSettled([
+        savingsService.getSummary(),
+        savingsService.getTrend(),
+      ]);
+
+      if (summaryRes.status === 'fulfilled' && summaryRes.value) {
+        const s = summaryRes.value;
+        setStats({
+          totalSaved: s.total_saved ?? profile.moneySaved ?? 0,
+          goal: s.savings_goal ?? budget.savingsGoal ?? 20000,
+          thisMonth: s.this_month ?? s.monthly_saved ?? 0,
+          weeklyAvg: s.weekly_avg ?? Math.round((s.this_month || 0) / 4),
+          foodWasteAvoided: s.food_waste_avoided ?? profile.wasteAvoided ?? 0,
+          mealsPlanned: s.meals_planned ?? 0,
+        });
+        if (Array.isArray(s.recent_savings)) {
+          setRecentSavings(s.recent_savings);
+        }
+      }
+
+      if (trendRes.status === 'fulfilled' && Array.isArray(trendRes.value)) {
+        setTrend(trendRes.value);
+      }
+    } catch (err) {
+      console.log('[SavingsDashboard] Note on savings fetch:', err.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [budget.savingsGoal, profile.moneySaved, profile.wasteAvoided]);
+
+  useEffect(() => {
+    fetchSavingsData();
+  }, [fetchSavingsData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchSavingsData();
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
@@ -175,37 +216,51 @@ export default function SavingsDashboard({ onBack }) {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
+        }
       >
+        {loading && (
+          <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+          </View>
+        )}
+
         <TotalSavingsCard
-          total={SAVINGS_STATS.totalSaved}
-          goal={SAVINGS_STATS.goal}
+          total={stats.totalSaved}
+          goal={stats.goal}
         />
 
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
           <StatCard
-            value={`Rs ${formatCurrency(SAVINGS_STATS.thisMonth)}`}
+            value={`Rs ${formatCurrency(stats.thisMonth)}`}
             label="This Month"
             icon="calendar-outline"
             color="#2E7D32"
             bgColor="#E8F5E9"
           />
           <StatCard
-            value={`Rs ${SAVINGS_STATS.weeklyAvg}`}
+            value={`Rs ${formatCurrency(stats.weeklyAvg)}`}
             label="Weekly Avg"
             icon="wallet-outline"
             color="#1565C0"
             bgColor="#E3F2FD"
           />
           <StatCard
-            value={`${SAVINGS_STATS.foodWasteAvoided} kg`}
+            value={`${stats.foodWasteAvoided} kg`}
             label="Waste Saved"
             icon="leaf-outline"
             color="#E53935"
             bgColor="#FFEBEE"
           />
           <StatCard
-            value={SAVINGS_STATS.mealsPlanned}
+            value={stats.mealsPlanned}
             label="Meals Planned"
             icon="restaurant-outline"
             color="#7C4A00"
@@ -216,33 +271,39 @@ export default function SavingsDashboard({ onBack }) {
         {/* Savings Trend */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Savings Trend</Text>
-          <BarChart data={MONTHLY_TREND} />
+          <BarChart data={trend} />
         </View>
 
         {/* Savings Level */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Savings Level</Text>
-          <SavingsLevelCard level={SAVINGS_LEVEL} />
+          <SavingsLevelCard
+            level={{
+              current: stats.totalSaved > 10000 ? 'Gold Saver' : 'Silver Saver',
+              next: stats.totalSaved > 10000 ? 'Platinum Saver' : 'Gold Saver',
+              progress: Math.min(1, stats.totalSaved / (stats.goal || 20000)),
+              icon: stats.totalSaved > 10000 ? '🥇' : '🥈',
+            }}
+          />
         </View>
 
         {/* Recent Savings */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Savings</Text>
-            <TouchableOpacity activeOpacity={0.7}>
-              <Text style={styles.viewAll}>View All</Text>
-            </TouchableOpacity>
+        {recentSavings.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recent Savings</Text>
+            </View>
+            <View style={styles.recentCard}>
+              {recentSavings.map((item, index) => (
+                <RecentSavingsItem
+                  key={item.id || index}
+                  item={item}
+                  isLast={index === recentSavings.length - 1}
+                />
+              ))}
+            </View>
           </View>
-          <View style={styles.recentCard}>
-            {RECENT_SAVINGS.map((item, index) => (
-              <RecentSavingsItem
-                key={item.id}
-                item={item}
-                isLast={index === RECENT_SAVINGS.length - 1}
-              />
-            ))}
-          </View>
-        </View>
+        )}
 
         {/* Weekly Challenges */}
         <View style={styles.section}>
