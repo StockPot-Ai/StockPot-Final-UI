@@ -8,7 +8,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { useAccount } from '../../context/AccountContext';
 
@@ -37,7 +37,7 @@ const ALLERGIES_OPTIONS = [
 ];
 
 const DietaryPreferencesModal = ({ visible, onClose }) => {
-  const { dietary } = useAccount();
+  const { dietary, toggleDietaryPreference } = useAccount();
 
   const [selectedDiet, setSelectedDiet] = useState(dietary.selected || []);
   const [selectedAllergies, setSelectedAllergies] = useState(dietary.allergies || []);
@@ -46,6 +46,7 @@ const DietaryPreferencesModal = ({ visible, onClose }) => {
     setSelectedDiet((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
+    toggleDietaryPreference(id);
   };
 
   const toggleAllergy = (allergy) => {
@@ -57,7 +58,6 @@ const DietaryPreferencesModal = ({ visible, onClose }) => {
   };
 
   const handleSave = () => {
-    // Save to context if needed or persist
     onClose();
   };
 
@@ -65,11 +65,16 @@ const DietaryPreferencesModal = ({ visible, onClose }) => {
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.sheetContainer}>
+          {/* Apple Grabber Bar */}
+          <View style={styles.grabberWrap}>
+            <View style={styles.grabber} />
+          </View>
+
           {/* Header */}
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Dietary Preferences</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <Feather name="x" size={22} color="#4B5563" />
+              <Ionicons name="close" size={18} color="#6B7280" />
             </TouchableOpacity>
           </View>
 
@@ -78,80 +83,71 @@ const DietaryPreferencesModal = ({ visible, onClose }) => {
             contentContainerStyle={styles.scrollContent}
           >
             {/* Dietary Tags */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.label}>Diets & Lifestyles</Text>
-              <Text style={styles.subtitle}>Select dietary requirements for recipes</Text>
-              <View style={styles.tagsContainer}>
-                {DIETARY_OPTIONS.map((item) => {
-                  const isSelected = selectedDiet.includes(item.id);
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[styles.tagItem, isSelected && styles.tagItemSelected]}
-                      onPress={() => toggleDiet(item.id)}
-                      activeOpacity={0.7}
+            <Text style={styles.sectionHeader}>DIETS & LIFESTYLES</Text>
+            <View style={styles.tagsContainer}>
+              {DIETARY_OPTIONS.map((item) => {
+                const isSelected = selectedDiet.includes(item.id);
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.tagItem, isSelected && styles.tagItemSelected]}
+                    onPress={() => toggleDiet(item.id)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name={item.icon}
+                      size={17}
+                      color={isSelected ? '#FFFFFF' : '#4B5563'}
+                    />
+                    <Text
+                      style={[
+                        styles.tagText,
+                        isSelected && styles.tagTextSelected,
+                      ]}
                     >
-                      <MaterialCommunityIcons
-                        name={item.icon}
-                        size={17}
-                        color={isSelected ? '#FFFFFF' : Colors.accountTextSecondary}
-                      />
-                      <Text
-                        style={[
-                          styles.tagText,
-                          isSelected && styles.tagTextSelected,
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                      {isSelected && (
-                        <Feather name="check" size={14} color="#FFFFFF" style={{ marginLeft: 2 }} />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                      {item.label}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={14} color="#FFFFFF" style={{ marginLeft: 2 }} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Allergies */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.label}>Food Allergies & Intolerances</Text>
-              <Text style={styles.subtitle}>We will strictly exclude recipes with these items</Text>
-              <View style={styles.tagsContainer}>
-                {ALLERGIES_OPTIONS.map((allergy) => {
-                  const isSelected = selectedAllergies.includes(allergy);
-                  return (
-                    <TouchableOpacity
-                      key={allergy}
-                      style={[styles.tagItem, isSelected && styles.tagItemAllergy]}
-                      onPress={() => toggleAllergy(allergy)}
-                      activeOpacity={0.7}
+            <Text style={[styles.sectionHeader, { marginTop: 18 }]}>EXCLUDED ALLERGIES</Text>
+            <View style={styles.tagsContainer}>
+              {ALLERGIES_OPTIONS.map((allergy) => {
+                const isSelected = selectedAllergies.includes(allergy);
+                return (
+                  <TouchableOpacity
+                    key={allergy}
+                    style={[styles.tagItem, isSelected && styles.tagItemAllergy]}
+                    onPress={() => toggleAllergy(allergy)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.tagText,
+                        isSelected && styles.tagTextSelected,
+                      ]}
                     >
-                      <Text
-                        style={[
-                          styles.tagText,
-                          isSelected && styles.tagTextSelected,
-                        ]}
-                      >
-                        {allergy}
-                      </Text>
-                      {isSelected && (
-                        <Feather name="x" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                      {allergy}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="close-circle" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </ScrollView>
 
           {/* Action Row */}
           <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.7}>
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
-              <Text style={styles.saveBtnText}>Save Preferences</Text>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
+              <Text style={styles.saveBtnText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -163,53 +159,66 @@ const DietaryPreferencesModal = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.42)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    backgroundColor: '#F9FAFB',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '90%',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  grabberWrap: {
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  grabber: {
+    width: 38,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#D1D5DB',
   },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 8,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3ECE4',
   },
   sheetTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: Colors.accountTextPrimary,
+    color: '#111827',
+    letterSpacing: -0.4,
   },
   closeBtn: {
-    padding: 4,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 14,
   },
-  sectionBlock: {
-    marginBottom: 22,
-  },
-  label: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: Colors.accountSectionHeader,
-    letterSpacing: 0.3,
-    marginBottom: 4,
-  },
-  subtitle: {
+  sectionHeader: {
     fontSize: 12,
-    color: Colors.accountTextSecondary,
-    marginBottom: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.6,
+    marginBottom: 10,
+    marginLeft: 4,
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -219,62 +228,52 @@ const styles = StyleSheet.create({
   tagItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 9,
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.accountBorder,
-    backgroundColor: '#FAF7F2',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
     gap: 6,
   },
   tagItemSelected: {
-    backgroundColor: Colors.forestGreen,
-    borderColor: Colors.forestGreen,
+    backgroundColor: '#166534',
+    borderColor: '#166534',
   },
   tagItemAllergy: {
-    backgroundColor: '#EF4444',
-    borderColor: '#EF4444',
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
   },
   tagText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.accountTextSecondary,
+    color: '#374151',
   },
   tagTextSelected: {
     color: '#FFFFFF',
+    fontWeight: '700',
   },
   actionRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 10,
-    gap: 12,
-  },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.accountBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.accountTextSecondary,
   },
   saveBtn: {
-    flex: 2,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: Colors.forestGreen,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#166534',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#166534',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
   },
   saveBtnText: {
-    fontSize: 14,
+    fontSize: 15.5,
     fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
 });
 

@@ -4,11 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 
 const NAV_ITEMS = [
-  { id: 'Home', icon: 'home', label: 'Home' },
-  { id: 'MealPlan', icon: 'calendar-outline', label: 'Meal Plan' },
-  { id: 'Savings', icon: 'wallet-outline', label: 'Savings' },
-  { id: 'History', icon: 'receipt', label: 'History' },
-  { id: 'Profile', icon: 'person-outline', label: 'Profile' },
+  { id: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'Home' },
+  { id: 'MealPlan', icon: 'calendar-outline', activeIcon: 'calendar', label: 'Meal Plan' },
+  { id: 'Savings', icon: 'wallet-outline', activeIcon: 'wallet', label: 'Savings' },
+  { id: 'History', icon: 'receipt-outline', activeIcon: 'receipt', label: 'History' },
+  { id: 'Profile', icon: 'person-outline', activeIcon: 'person', label: 'Profile' },
 ];
 
 const BottomNav = ({ activeNav, onNavChange }) => {
@@ -28,9 +28,9 @@ const BottomNav = ({ activeNav, onNavChange }) => {
           >
             <View style={[styles.navIconWrap, isActive && styles.navIconWrapActive]}>
               <Ionicons
-                name={item.icon}
+                name={isActive ? item.activeIcon : item.icon}
                 size={22}
-                color={isActive ? Colors.primary : Colors.tabInactive}
+                color={isActive ? '#166534' : '#9CA3AF'}
               />
             </View>
             <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
@@ -48,40 +48,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: Colors.tabBackground,
-    paddingVertical: 8,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 6,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    shadowColor: 'rgba(0,0,0,0.06)',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 1,
+    borderTopColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 10,
+    elevation: 8,
   },
   navItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 3,
+    gap: 2,
   },
   navIconWrap: {
     width: 44,
-    height: 36,
-    borderRadius: 18,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navIconWrapActive: {
-    backgroundColor: Colors.milestoneCard,
+    backgroundColor: '#DCFCE7',
   },
   navLabel: {
-    fontSize: 11,
-    color: Colors.tabInactive,
+    fontSize: 10.5,
+    color: '#9CA3AF',
     fontWeight: '500',
   },
   navLabelActive: {
-    color: Colors.tabActive,
-    fontWeight: '600',
+    color: '#166534',
+    fontWeight: '700',
   },
 });
 

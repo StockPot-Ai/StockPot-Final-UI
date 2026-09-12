@@ -11,8 +11,8 @@ import Colors from '../../constants/colors';
 
 export default function MealCard({
   mealType = 'BREAKFAST',
-  title = 'Avocado & Egg Toast',
-  image = require('../../../assets/avocado_sourdough.jpg'),
+  title = 'Meal Item',
+  image = require('../../../assets/creamy_pumpkin_pasta.jpg'),
   badgeType = 'match', // 'match' or 'tag'
   badgeText = '95% Match',
   servings = 2,
@@ -53,7 +53,7 @@ export default function MealCard({
           source={
             typeof image === 'string' && (image.startsWith('http') || image.startsWith('data:'))
               ? { uri: image }
-              : image || require('../../../assets/avocado_sourdough.jpg')
+              : image || require('../../../assets/creamy_pumpkin_pasta.jpg')
           }
           style={styles.thumbnail}
         />

@@ -34,11 +34,17 @@ const EcoInfoModal = ({ visible, onClose }) => {
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.sheetContainer}>
+          {/* iOS Grabber Pill */}
+          <View style={styles.grabber} />
+
           {/* Header */}
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Eco Impact & Green Tips</Text>
+            <View>
+              <Text style={styles.sheetTitle}>Eco Impact & Tips</Text>
+              <Text style={styles.sheetSub}>Sustainable cooking & zero-waste kitchen</Text>
+            </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <Feather name="x" size={22} color="#4B5563" />
+              <Feather name="x" size={18} color="#4B5563" />
             </TouchableOpacity>
           </View>
 
@@ -49,7 +55,7 @@ const EcoInfoModal = ({ visible, onClose }) => {
             {/* Eco Badge Overview */}
             <View style={styles.heroCard}>
               <View style={styles.iconCircle}>
-                <MaterialCommunityIcons name="flower-outline" size={32} color={Colors.forestGreen} />
+                <MaterialCommunityIcons name="flower-outline" size={32} color="#166534" />
               </View>
               <Text style={styles.heroTitle}>{profile.ecoTitle}</Text>
               <Text style={styles.heroSub}>
@@ -58,18 +64,23 @@ const EcoInfoModal = ({ visible, onClose }) => {
             </View>
 
             {/* Quick Tips */}
-            <Text style={styles.sectionHeader}>Zero-Waste Kitchen Tips</Text>
-            {TIPS.map((tip) => (
-              <View key={tip.title} style={styles.tipCard}>
-                <View style={styles.tipIconWrap}>
-                  <MaterialCommunityIcons name="leaf" size={18} color={Colors.forestGreen} />
+            <Text style={styles.sectionHeader}>ZERO-WASTE KITCHEN TIPS</Text>
+            <View style={styles.tipsGroup}>
+              {TIPS.map((tip, idx) => (
+                <View key={tip.title}>
+                  <View style={styles.tipCard}>
+                    <View style={styles.tipIconWrap}>
+                      <MaterialCommunityIcons name="leaf" size={18} color="#166534" />
+                    </View>
+                    <View style={styles.tipTextWrap}>
+                      <Text style={styles.tipTitle}>{tip.title}</Text>
+                      <Text style={styles.tipDesc}>{tip.desc}</Text>
+                    </View>
+                  </View>
+                  {idx < TIPS.length - 1 && <View style={styles.divider} />}
                 </View>
-                <View style={styles.tipTextWrap}>
-                  <Text style={styles.tipTitle}>{tip.title}</Text>
-                  <Text style={styles.tipDesc}>{tip.desc}</Text>
-                </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </ScrollView>
 
           {/* Action Row */}
@@ -87,45 +98,68 @@ const EcoInfoModal = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    backgroundColor: '#F9FAFB',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '85%',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  grabber: {
+    width: 38,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#D1D5DB',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 6,
   },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 10,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3ECE4',
   },
   sheetTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Colors.accountTextPrimary,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: -0.3,
+  },
+  sheetSub: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
   },
   closeBtn: {
-    padding: 4,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 8,
     paddingBottom: 12,
   },
   heroCard: {
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#DCFCE7',
     borderWidth: 1,
-    borderColor: Colors.accountBorder,
-    borderRadius: 18,
-    padding: 18,
+    borderColor: '#BBF7D0',
+    borderRadius: 20,
+    padding: 20,
     alignItems: 'center',
     marginBottom: 20,
   },
@@ -133,46 +167,54 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: Colors.statMintBg,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
+    shadowColor: '#166534',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   heroTitle: {
     fontSize: 20,
-    fontWeight: '800',
-    color: Colors.forestGreen,
+    fontWeight: '700',
+    color: '#166534',
     marginBottom: 4,
   },
   heroSub: {
-    fontSize: 13,
-    color: Colors.accountTextSecondary,
+    fontSize: 13.5,
+    color: '#374151',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 19,
   },
   sectionHeader: {
-    fontSize: 13.5,
+    fontSize: 12,
     fontWeight: '700',
-    color: Colors.accountSectionHeader,
-    letterSpacing: 0.3,
+    color: '#6B7280',
+    letterSpacing: 0.6,
     marginBottom: 10,
+    marginLeft: 4,
+  },
+  tipsGroup: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
   },
   tipCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: Colors.accountBorder,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
+    padding: 16,
     gap: 12,
     alignItems: 'flex-start',
   },
   tipIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.statMintBg,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F0FDF4',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
@@ -181,26 +223,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tipTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.accountTextPrimary,
-    marginBottom: 2,
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 3,
   },
   tipDesc: {
-    fontSize: 12.5,
-    color: Colors.accountTextSecondary,
-    lineHeight: 17,
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginLeft: 62,
   },
   actionRow: {
     paddingHorizontal: 20,
     paddingTop: 10,
   },
   doneBtn: {
-    paddingVertical: 13,
-    borderRadius: 12,
-    backgroundColor: Colors.forestGreen,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#166534',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#166534',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   doneBtnText: {
     fontSize: 15,

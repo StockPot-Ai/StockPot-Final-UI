@@ -7,8 +7,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Colors from '../../constants/colors';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAccount } from '../../context/AccountContext';
 
 const LogoutDialog = ({ visible, onCancel, onConfirm }) => {
@@ -25,13 +24,13 @@ const LogoutDialog = ({ visible, onCancel, onConfirm }) => {
         <View style={styles.dialogCard}>
           {/* Icon Circle */}
           <View style={styles.iconCircle}>
-            <MaterialCommunityIcons name="logout" size={28} color={Colors.terracotta} />
+            <MaterialCommunityIcons name="logout" size={26} color="#DC2626" />
           </View>
 
           {/* Title & Description */}
           <Text style={styles.dialogTitle}>Log Out</Text>
           <Text style={styles.dialogMessage}>
-            Are you sure you want to log out? Your meal plan and pantry items are safely synced to the cloud.
+            Are you sure you want to log out? Your meal plan and pantry items are safely synced to your account.
           </Text>
 
           {/* Buttons */}
@@ -47,7 +46,7 @@ const LogoutDialog = ({ visible, onCancel, onConfirm }) => {
             <TouchableOpacity
               style={styles.logoutButton}
               onPress={handleLogout}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
               <Text style={styles.logoutButtonText}>Log Out</Text>
             </TouchableOpacity>
@@ -64,42 +63,43 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
   },
   dialogCard: {
     width: '100%',
     maxWidth: 340,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 22,
     paddingVertical: 24,
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
   },
   iconCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#FEE2E2',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   dialogTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Colors.accountTextPrimary,
-    marginBottom: 8,
+    fontSize: 19,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
+    letterSpacing: -0.3,
   },
   dialogMessage: {
     fontSize: 13.5,
-    color: Colors.accountTextSecondary,
+    color: '#6B7280',
     textAlign: 'center',
-    lineHeight: 19,
+    lineHeight: 20,
     marginBottom: 22,
   },
   buttonRow: {
@@ -109,29 +109,32 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.accountBorder,
+    paddingVertical: 13,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#F3F4F6',
   },
   cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.accountTextSecondary,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
   },
   logoutButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: Colors.terracotta,
+    paddingVertical: 13,
+    borderRadius: 14,
+    backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   logoutButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },

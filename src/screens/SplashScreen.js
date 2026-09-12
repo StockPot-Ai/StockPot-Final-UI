@@ -7,6 +7,7 @@ import {
   Animated,
   StatusBar,
 } from 'react-native';
+import CountryFlag from 'react-native-country-flag';
 
 export default function SplashScreen({ onFinish }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -57,12 +58,13 @@ export default function SplashScreen({ onFinish }) {
         </View>
 
         <Text style={styles.tagline}>
-          Cook Smart • Save Money • Zero Waste
+          Cook Smart • Save More • Waste Less
         </Text>
       </Animated.View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Powered by Live Supermarket Data</Text>
+        <Text style={styles.footerText}>Powered by Team Stockpot</Text>
+        <CountryFlag isoCode="lk" size={13} style={styles.flag} />
       </View>
     </View>
   );
@@ -136,10 +138,17 @@ const styles = StyleSheet.create({
   footer: {
     position: 'absolute',
     bottom: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   footerText: {
     fontSize: 12,
     fontWeight: '500',
     color: '#9CA3AF',
+  },
+  flag: {
+    borderRadius: 2,
   },
 });

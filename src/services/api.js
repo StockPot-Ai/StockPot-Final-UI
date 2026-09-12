@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 // Local IP detected from ipconfig:
-const DEV_LAN_IP = '172.22.0.103';
+const DEV_LAN_IP = '192.168.1.8';
 
 const isIPv4 = (str) => {
   if (!str) return false;

@@ -11,7 +11,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { useAccount } from '../../context/AccountContext';
 
@@ -58,11 +58,16 @@ const EditProfileModal = ({ visible, onClose }) => {
         style={styles.modalOverlay}
       >
         <View style={styles.sheetContainer}>
+          {/* Apple-style Grabber Bar */}
+          <View style={styles.grabberWrap}>
+            <View style={styles.grabber} />
+          </View>
+
           {/* Header */}
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Edit Profile</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <Feather name="x" size={22} color="#4B5563" />
+              <Ionicons name="close" size={18} color="#6B7280" />
             </TouchableOpacity>
           </View>
 
@@ -70,84 +75,94 @@ const EditProfileModal = ({ visible, onClose }) => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            {/* Field: Full Name */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Full Name</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Enter full name"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
+            {/* Form Group */}
+            <View style={styles.formCard}>
+              {/* Field: Full Name */}
+              <View style={styles.fieldRow}>
+                <Text style={styles.fieldLabel}>Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Your Name"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
 
-            {/* Field: Email */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Email Address</Text>
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholder="Enter email"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
+              <View style={styles.separator} />
 
-            {/* Field: Phone */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Phone Number</Text>
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                placeholder="Enter phone number"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
+              {/* Field: Email */}
+              <View style={styles.fieldRow}>
+                <Text style={styles.fieldLabel}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  placeholder="chef@stockpot.ai"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
 
-            {/* Field: Bio */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Bio</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={bio}
-                onChangeText={setBio}
-                multiline
-                numberOfLines={3}
-                placeholder="Tell us about your cooking style..."
-                placeholderTextColor="#9CA3AF"
-              />
+              <View style={styles.separator} />
+
+              {/* Field: Phone */}
+              <View style={styles.fieldRow}>
+                <Text style={styles.fieldLabel}>Phone</Text>
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  placeholder="+94 77 123 4567"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+
+              <View style={styles.separator} />
+
+              {/* Field: Bio */}
+              <View style={[styles.fieldRow, { alignItems: 'flex-start', paddingTop: 12 }]}>
+                <Text style={[styles.fieldLabel, { marginTop: 2 }]}>Bio</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={bio}
+                  onChangeText={setBio}
+                  multiline
+                  numberOfLines={2}
+                  placeholder="Tell us about your cooking style..."
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
             </View>
 
             {/* Field: Eco Badge Title */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Eco Title</Text>
-              <View style={styles.pillRow}>
-                {BADGE_OPTIONS.map((badge) => {
-                  const isSelected = ecoTitle === badge;
-                  return (
-                    <TouchableOpacity
-                      key={badge}
-                      style={[styles.badgePill, isSelected && styles.badgePillSelected]}
-                      onPress={() => setEcoTitle(badge)}
-                      activeOpacity={0.7}
+            <Text style={styles.sectionHeader}>ECO BADGE TITLE</Text>
+            <View style={styles.pillGroup}>
+              {BADGE_OPTIONS.map((badge) => {
+                const isSelected = ecoTitle === badge;
+                return (
+                  <TouchableOpacity
+                    key={badge}
+                    style={[styles.badgePill, isSelected && styles.badgePillSelected]}
+                    onPress={() => setEcoTitle(badge)}
+                    activeOpacity={0.7}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    )}
+                    <Text
+                      style={[
+                        styles.badgePillText,
+                        isSelected && styles.badgePillTextSelected,
+                      ]}
                     >
-                      <Text
-                        style={[
-                          styles.badgePillText,
-                          isSelected && styles.badgePillTextSelected,
-                        ]}
-                      >
-                        {badge}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                      {badge}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </ScrollView>
 
@@ -156,7 +171,7 @@ const EditProfileModal = ({ visible, onClose }) => {
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.7}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
               <Text style={styles.saveBtnText}>Save Changes</Text>
             </TouchableOpacity>
           </View>
@@ -169,120 +184,175 @@ const EditProfileModal = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.42)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: '#F9FAFB',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     maxHeight: '90%',
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  grabberWrap: {
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  grabber: {
+    width: 38,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#D1D5DB',
   },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 8,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3ECE4',
   },
   sheetTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: Colors.accountTextPrimary,
+    color: '#111827',
+    letterSpacing: -0.4,
   },
   closeBtn: {
-    padding: 4,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 14,
   },
-  fieldGroup: {
-    marginBottom: 16,
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    marginBottom: 20,
+    shadowColor: 'rgba(0,0,0,0.03)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  fieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   fieldLabel: {
-    fontSize: 12.5,
+    width: 80,
+    fontSize: 14,
     fontWeight: '700',
-    color: Colors.accountSectionHeader,
-    letterSpacing: 0.4,
-    marginBottom: 6,
+    color: '#374151',
   },
   input: {
-    backgroundColor: '#FAF7F2',
-    borderWidth: 1,
-    borderColor: Colors.accountBorder,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    flex: 1,
     fontSize: 14.5,
-    color: Colors.accountTextPrimary,
+    color: '#111827',
+    paddingVertical: 6,
   },
   textArea: {
-    height: 72,
+    height: 50,
     textAlignVertical: 'top',
   },
-  pillRow: {
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E5E7EB',
+    marginLeft: 80,
+  },
+  sectionHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.6,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+  pillGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 10,
   },
   badgePill: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.accountBorder,
-    backgroundColor: '#FAF7F2',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
   },
   badgePillSelected: {
-    backgroundColor: Colors.forestGreen,
-    borderColor: Colors.forestGreen,
+    backgroundColor: '#166534',
+    borderColor: '#166534',
   },
   badgePillText: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '600',
-    color: Colors.accountTextSecondary,
+    color: '#4B5563',
   },
   badgePillTextSelected: {
     color: '#FFFFFF',
+    fontWeight: '700',
   },
   actionRow: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 10,
-    gap: 12,
+    gap: 10,
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 13,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.accountBorder,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    color: Colors.accountTextSecondary,
+    color: '#6B7280',
   },
   saveBtn: {
     flex: 2,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: Colors.forestGreen,
+    paddingVertical: 13,
+    borderRadius: 14,
+    backgroundColor: '#166534',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#166534',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
   },
   saveBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
 });
 

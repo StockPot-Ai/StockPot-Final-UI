@@ -29,6 +29,27 @@ const DEFAULT_TREND = [
   { month: 'Jun', amount: 2100 },
 ];
 
+const CHALLENGES = [
+  {
+    id: 1,
+    label: 'Zero-Waste Chef',
+    status: '1/3 meals',
+    icon: 'leaf',
+    iconColor: '#2E7D32',
+    iconBg: '#E8F5E9',
+    isDone: false,
+  },
+  {
+    id: 2,
+    label: 'Budget Master',
+    status: 'Rs 1,200 saved',
+    icon: 'piggy-bank',
+    iconColor: '#D32F2F',
+    iconBg: '#FFEBEE',
+    isDone: true,
+  },
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatCurrency = (n) => (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');

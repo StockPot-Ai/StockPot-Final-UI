@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 import { authService, profileService } from '../services';
 import { setAuthToken } from '../services/api';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const AccountContext = createContext(null);
 
@@ -102,6 +106,23 @@ export const AccountProvider = ({ children }) => {
       console.log('[AccountContext] Profile sync error:', err.message);
     }
   };
+
+  // Restore session token on app startup
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const storedToken = await authService.getStoredToken();
+        if (storedToken) {
+          setAuthToken(storedToken);
+          setIsLoggedIn(true);
+          await fetchProfile();
+        }
+      } catch (err) {
+        console.log('[AccountContext] Token restore error:', err.message);
+      }
+    };
+    restoreSession();
+  }, []);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -206,6 +227,15 @@ export const AccountProvider = ({ children }) => {
       if (data?.token) {
         setAuthToken(data.token);
       }
+      if (data?.user || data?.profile) {
+        const u = data.user || data.profile;
+        setProfile((prev) => ({
+          ...prev,
+          id: u.id || prev.id,
+          name: u.full_name || u.name || prev.name,
+          email: u.email || credentials.email || prev.email,
+        }));
+      }
       setIsLoggedIn(true);
       await fetchProfile();
       return true;
@@ -224,17 +254,96 @@ export const AccountProvider = ({ children }) => {
     }
 
     try {
+      // Immediately set user profile info in state
+      if (data.fullName) {
+        setProfile((prev) => ({
+          ...prev,
+          name: data.fullName,
+          email: data.email,
+        }));
+      }
+
       const res = await authService.register({
         full_name: data.fullName || 'New User',
         email: data.email,
         password: data.password,
       });
+
+      if (res?.user || res?.profile) {
+        const u = res.user || res.profile;
+        setProfile((prev) => ({
+          ...prev,
+          id: u.id || prev.id,
+          name: u.full_name || u.name || data.fullName || prev.name,
+          email: u.email || data.email || prev.email,
+        }));
+      }
+
       if (res?.token) {
         setAuthToken(res.token);
       }
       setIsLoggedIn(true);
       await fetchProfile();
       return true;
+    } catch (err) {
+      setAuthError(err.message);
+      throw err;
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    setAuthError(null);
+    try {
+      // 1. Create redirect URI for both Expo Go and standalone apps
+      const redirectUri = AuthSession.makeRedirectUri({
+        scheme: 'stockpot',
+        path: 'auth',
+      });
+
+      console.log('[Google Auth] Starting login with redirectUri:', redirectUri);
+
+      let authUrl = await authService.getGoogleOAuthUrl(redirectUri);
+      if (!authUrl) {
+        throw new Error('Failed to retrieve Google OAuth authorization URL from server.');
+      }
+
+      // Pass prompt to both Supabase and Google provider params
+      const separator = authUrl.includes('?') ? '&' : '?';
+      authUrl += `${separator}prompt=select_account&queryParams[prompt]=select_account&queryParams[access_type]=offline`;
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri, {
+        showInRecents: true,
+        preferEphemeralSession: false,
+      });
+
+      if (result.type === 'success' && result.url) {
+        let token = null;
+
+        if (result.url.includes('#')) {
+          const hashPart = result.url.split('#')[1];
+          const hashParams = new URLSearchParams(hashPart);
+          token = hashParams.get('access_token') || hashParams.get('token');
+        }
+        if (!token && result.url.includes('?')) {
+          const queryPart = result.url.split('?')[1]?.split('#')[0];
+          const queryParams = new URLSearchParams(queryPart);
+          token = queryParams.get('access_token') || queryParams.get('token');
+        }
+
+        if (!token) {
+          throw new Error('Authentication completed, but no access token was returned.');
+        }
+
+        await authService.saveToken(token);
+        setAuthToken(token);
+        setIsLoggedIn(true);
+        await fetchProfile();
+        return { success: true, token };
+      } else if (result.type === 'cancel' || result.type === 'dismiss') {
+        return { success: false, cancelled: true };
+      } else {
+        throw new Error(result.error || 'Google login could not be completed.');
+      }
     } catch (err) {
       setAuthError(err.message);
       throw err;
@@ -262,6 +371,7 @@ export const AccountProvider = ({ children }) => {
         setLanguage,
         logout,
         login,
+        loginWithGoogle,
         signup,
         fetchProfile,
       }}

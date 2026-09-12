@@ -8,7 +8,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { useAccount } from '../../context/AccountContext';
 
@@ -38,11 +38,16 @@ const HouseholdModal = ({ visible, onClose }) => {
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.sheetContainer}>
+          {/* Apple Grabber Bar */}
+          <View style={styles.grabberWrap}>
+            <View style={styles.grabber} />
+          </View>
+
           {/* Header */}
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Household & Preferences</Text>
+            <Text style={styles.sheetTitle}>Household & Servings</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <Feather name="x" size={22} color="#4B5563" />
+              <Ionicons name="close" size={18} color="#6B7280" />
             </TouchableOpacity>
           </View>
 
@@ -50,92 +55,104 @@ const HouseholdModal = ({ visible, onClose }) => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            {/* Household Size Stepper */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.label}>Household Members</Text>
-              <Text style={styles.subtitle}>Number of people to cook for each meal</Text>
+            {/* Household Size Card */}
+            <View style={styles.groupedCard}>
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={styles.cardTitle}>Household Members</Text>
+                  <Text style={styles.cardSubtitle}>Rescales recipe portions and groceries</Text>
+                </View>
+              </View>
               <View style={styles.stepperRow}>
                 <TouchableOpacity
                   style={[styles.stepBtn, householdSize <= 1 && styles.stepBtnDisabled]}
                   onPress={() => setHouseholdSize((prev) => Math.max(1, prev - 1))}
                   disabled={householdSize <= 1}
+                  activeOpacity={0.7}
                 >
-                  <Feather name="minus" size={18} color={householdSize <= 1 ? '#9CA3AF' : '#1F2937'} />
+                  <Ionicons name="remove" size={20} color={householdSize <= 1 ? '#D1D5DB' : '#111827'} />
                 </TouchableOpacity>
-                <Text style={styles.stepValue}>{householdSize} {householdSize === 1 ? 'person' : 'people'}</Text>
+                <View style={styles.stepValueWrap}>
+                  <Text style={styles.stepValue}>{householdSize}</Text>
+                  <Text style={styles.stepUnit}>{householdSize === 1 ? 'Person' : 'People'}</Text>
+                </View>
                 <TouchableOpacity
                   style={styles.stepBtn}
                   onPress={() => setHouseholdSize((prev) => Math.min(12, prev + 1))}
+                  activeOpacity={0.7}
                 >
-                  <Feather name="plus" size={18} color="#1F2937" />
+                  <Ionicons name="add" size={20} color="#111827" />
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* Cooking Skill */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.label}>Cooking Skill Level</Text>
-              <View style={styles.pillRow}>
-                {SKILLS.map((skill) => {
-                  const isSelected = cookingSkill === skill;
-                  return (
-                    <TouchableOpacity
-                      key={skill}
-                      style={[styles.pill, isSelected && styles.pillSelected]}
-                      onPress={() => setCookingSkill(skill)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>
-                        {skill}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+            <Text style={styles.sectionHeader}>COOKING SKILL LEVEL</Text>
+            <View style={styles.pillGroup}>
+              {SKILLS.map((skill) => {
+                const isSelected = cookingSkill === skill;
+                return (
+                  <TouchableOpacity
+                    key={skill}
+                    style={[styles.pill, isSelected && styles.pillSelected]}
+                    onPress={() => setCookingSkill(skill)}
+                    activeOpacity={0.7}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    )}
+                    <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>
+                      {skill}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* Max Prep Time */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.label}>Preferred Prep Time</Text>
-              <View style={styles.pillRow}>
-                {PREP_TIMES.map((time) => {
-                  const isSelected = prepTimeLimit === time;
-                  return (
-                    <TouchableOpacity
-                      key={time}
-                      style={[styles.pill, isSelected && styles.pillSelected]}
-                      onPress={() => setPrepTimeLimit(time)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>
-                        {time}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+            {/* Preferred Prep Time */}
+            <Text style={styles.sectionHeader}>PREFERRED PREP TIME</Text>
+            <View style={styles.pillGroup}>
+              {PREP_TIMES.map((time) => {
+                const isSelected = prepTimeLimit === time;
+                return (
+                  <TouchableOpacity
+                    key={time}
+                    style={[styles.pill, isSelected && styles.pillSelected]}
+                    onPress={() => setPrepTimeLimit(time)}
+                    activeOpacity={0.7}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    )}
+                    <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>
+                      {time}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* Meals per day */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.label}>Meals Cooked Per Day</Text>
-              <View style={styles.pillRow}>
-                {MEALS.map((num) => {
-                  const isSelected = mealsPerDay === num;
-                  return (
-                    <TouchableOpacity
-                      key={num}
-                      style={[styles.pill, isSelected && styles.pillSelected]}
-                      onPress={() => setMealsPerDay(num)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>
-                        {num} {num === 1 ? 'meal' : 'meals'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+            {/* Meals per Day */}
+            <Text style={styles.sectionHeader}>MEALS COOKED PER DAY</Text>
+            <View style={styles.pillGroup}>
+              {MEALS.map((num) => {
+                const isSelected = mealsPerDay === num;
+                return (
+                  <TouchableOpacity
+                    key={num}
+                    style={[styles.pill, isSelected && styles.pillSelected]}
+                    onPress={() => setMealsPerDay(num)}
+                    activeOpacity={0.7}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    )}
+                    <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>
+                      {num} {num === 1 ? 'Meal' : 'Meals'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </ScrollView>
 
@@ -144,7 +161,7 @@ const HouseholdModal = ({ visible, onClose }) => {
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.7}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
               <Text style={styles.saveBtnText}>Save Preferences</Text>
             </TouchableOpacity>
           </View>
@@ -157,139 +174,199 @@ const HouseholdModal = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.42)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    backgroundColor: '#F9FAFB',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '90%',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  grabberWrap: {
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  grabber: {
+    width: 38,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#D1D5DB',
   },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 8,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3ECE4',
   },
   sheetTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: Colors.accountTextPrimary,
+    color: '#111827',
+    letterSpacing: -0.4,
   },
   closeBtn: {
-    padding: 4,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 14,
   },
-  sectionBlock: {
+  groupedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     marginBottom: 20,
+    shadowColor: 'rgba(0,0,0,0.03)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 1,
   },
-  label: {
-    fontSize: 13,
+  cardHeader: {
+    marginBottom: 12,
+  },
+  cardTitle: {
+    fontSize: 15,
     fontWeight: '700',
-    color: Colors.accountSectionHeader,
-    letterSpacing: 0.3,
-    marginBottom: 4,
+    color: '#111827',
+    marginBottom: 2,
   },
-  subtitle: {
+  cardSubtitle: {
     fontSize: 12,
-    color: Colors.accountTextSecondary,
-    marginBottom: 10,
+    color: '#6B7280',
   },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAF7F2',
-    borderWidth: 1,
-    borderColor: Colors.accountBorder,
+    justifyContent: 'space-between',
+    backgroundColor: '#F3F4F6',
     borderRadius: 14,
     padding: 6,
-    justifyContent: 'space-between',
   },
   stepBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 11,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.accountBorder,
+    shadowColor: 'rgba(0,0,0,0.06)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 1,
   },
   stepBtnDisabled: {
-    opacity: 0.4,
+    opacity: 0.5,
+  },
+  stepValueWrap: {
+    alignItems: 'center',
   },
   stepValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.accountTextPrimary,
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#111827',
   },
-  pillRow: {
+  stepUnit: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  sectionHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.6,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+  pillGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 18,
   },
   pill: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 15,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.accountBorder,
-    backgroundColor: '#FAF7F2',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
   },
   pillSelected: {
-    backgroundColor: Colors.forestGreen,
-    borderColor: Colors.forestGreen,
+    backgroundColor: '#166534',
+    borderColor: '#166534',
   },
   pillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.accountTextSecondary,
+    color: '#4B5563',
   },
   pillTextSelected: {
     color: '#FFFFFF',
+    fontWeight: '700',
   },
   actionRow: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 10,
-    gap: 12,
+    gap: 10,
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 13,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.accountBorder,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    color: Colors.accountTextSecondary,
+    color: '#6B7280',
   },
   saveBtn: {
     flex: 2,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: Colors.forestGreen,
+    paddingVertical: 13,
+    borderRadius: 14,
+    backgroundColor: '#166534',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#166534',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
   },
   saveBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
 });
 

@@ -1,37 +1,95 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient, { setAuthToken } from './api';
 
-// ── Auth Service ─────────────────────────────────────────────────────────────
+const AUTH_TOKEN_KEY = '@stockpot_auth_token';
+
+// ── Auth Service (Backend-Only) ─────────────────────────────────────────────
 export const authService = {
   register: async (payload) => {
     const res = await apiClient.post('/auth/register', payload);
-    if (res.data?.token) {
-      setAuthToken(res.data.token);
+    const token = res.data?.token || res.token;
+    if (token) {
+      setAuthToken(token);
+      try {
+        await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
+      } catch (_) {}
     }
-    return res.data;
+    return res.data || res;
   },
 
   login: async (credentials) => {
     const res = await apiClient.post('/auth/login', credentials);
-    if (res.data?.token) {
-      setAuthToken(res.data.token);
+    const token = res.data?.token || res.token;
+    if (token) {
+      setAuthToken(token);
+      try {
+        await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
+      } catch (_) {}
     }
-    return res.data;
+    return res.data || res;
   },
 
   logout: async () => {
-    const res = await apiClient.post('/auth/logout');
+    try {
+      await apiClient.post('/auth/logout');
+    } catch (_) {}
     setAuthToken(null);
-    return res.data;
+    try {
+      await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+    } catch (_) {}
+    return { success: true };
   },
 
   getMe: async () => {
     const res = await apiClient.get('/auth/me');
-    return res.data;
+    return res.data || res;
   },
 
   forgotPassword: async (email) => {
     const res = await apiClient.post('/auth/forgot-password', { email });
-    return res.data;
+    return res.data || res;
+  },
+
+  getStoredToken: async () => {
+    try {
+      return await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+    } catch (_) {
+      return null;
+    }
+  },
+
+  saveToken: async (token) => {
+    if (token) {
+      setAuthToken(token);
+      try {
+        await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
+      } catch (_) {}
+    }
+  },
+
+  getGoogleOAuthUrl: async (redirectTo = 'stockpot://auth') => {
+    try {
+      const res = await apiClient.get(`/auth/google/url?redirect_to=${encodeURIComponent(redirectTo)}`);
+      return res.data?.url || res.url;
+    } catch (err) {
+      const res = await apiClient.get(`/auth/oauth/google/url?redirect_to=${encodeURIComponent(redirectTo)}`);
+      return res.data?.url || res.url;
+    }
+  },
+
+  exchangeGoogleIdToken: async (idToken, accessToken = null) => {
+    const res = await apiClient.post('/auth/google', {
+      id_token: idToken,
+      access_token: accessToken,
+    });
+    const token = res.data?.token || res.token;
+    if (token) {
+      setAuthToken(token);
+      try {
+        await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
+      } catch (_) {}
+    }
+    return res.data || res;
   },
 };
 

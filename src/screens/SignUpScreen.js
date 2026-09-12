@@ -19,7 +19,7 @@ import { useAccount } from '../context/AccountContext';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const SignUpScreen = ({ onSignIn }) => {
-  const { signup } = useAccount();
+  const { signup, loginWithGoogle } = useAccount();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,6 +29,7 @@ const SignUpScreen = ({ onSignIn }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
 
   const emailRef = useRef(null);
@@ -83,12 +84,25 @@ const SignUpScreen = ({ onSignIn }) => {
     }
   };
 
-  const handleSocialAuth = (provider) => {
-    Alert.alert(
-      `${provider} Sign-Up`,
-      `To use ${provider} Sign-Up, add your ${provider} OAuth credentials to the configuration. Check the setup guide for simple step-by-step instructions!`,
-      [{ text: 'OK' }]
-    );
+  const handleSocialAuth = async (provider) => {
+    if (provider === 'Google') {
+      setIsGoogleSubmitting(true);
+      try {
+        await loginWithGoogle();
+      } catch (err) {
+        if (!err.message?.includes('cancelled') && !err.message?.includes('dismissed')) {
+          Alert.alert('Google Sign-In Failed', err.message || 'Could not complete Google Sign-In.');
+        }
+      } finally {
+        setIsGoogleSubmitting(false);
+      }
+    } else {
+      Alert.alert(
+        `${provider} Sign-Up`,
+        `${provider} Sign-Up is available on supported iOS devices.`,
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   return (
@@ -341,12 +355,19 @@ const SignUpScreen = ({ onSignIn }) => {
 
             {/* Google Button */}
             <TouchableOpacity
-              style={styles.socialBtnGoogle}
+              style={[styles.socialBtnGoogle, isGoogleSubmitting && { opacity: 0.7 }]}
               onPress={() => handleSocialAuth('Google')}
               activeOpacity={0.85}
+              disabled={isGoogleSubmitting || isSubmitting}
             >
-              <Ionicons name="logo-google" size={18} color="#EA4335" />
-              <Text style={styles.socialBtnTextGoogle}>Google</Text>
+              {isGoogleSubmitting ? (
+                <ActivityIndicator size="small" color="#EA4335" />
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={18} color="#EA4335" />
+                  <Text style={styles.socialBtnTextGoogle}>Google</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </View>

@@ -12,15 +12,15 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import { aiService } from '../services';
 
 const QUICK_PROMPTS = [
-  'Suggest a cheap dinner for four people',
-  'What are the best grocery discounts today?',
+  'Suggest a cheap dinner for four',
+  'Best grocery discounts today?',
   'Quick high-protein breakfast recipe',
-  'How can I reduce food waste this week?',
+  'How to reduce food waste this week?',
 ];
 
 export default function AIChatModal({ visible, onClose }) {
@@ -98,19 +98,19 @@ export default function AIChatModal({ visible, onClose }) {
           style={styles.container}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          {/* Header */}
+          {/* iOS Navigation Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.aiBadge}>
                 <Ionicons name="sparkles" size={16} color="#FFFFFF" />
               </View>
               <View>
-                <Text style={styles.headerTitle}>StockPot AI Assistant</Text>
+                <Text style={styles.headerTitle}>StockPot AI Chef</Text>
                 <Text style={styles.headerSubtitle}>Powered by Google Gemini</Text>
               </View>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              <Feather name="x" size={18} color="#4B5563" />
             </TouchableOpacity>
           </View>
 
@@ -133,7 +133,7 @@ export default function AIChatModal({ visible, onClose }) {
                 >
                   {!isUser && (
                     <View style={styles.assistantHeader}>
-                      <Ionicons name="sparkles" size={12} color={Colors.primary} />
+                      <Ionicons name="sparkles" size={12} color="#166534" />
                       <Text style={styles.assistantLabel}>StockPot AI</Text>
                     </View>
                   )}
@@ -151,7 +151,7 @@ export default function AIChatModal({ visible, onClose }) {
 
             {loading && (
               <View style={[styles.messageBubble, styles.assistantBubble, styles.loadingBubble]}>
-                <ActivityIndicator size="small" color={Colors.primary} />
+                <ActivityIndicator size="small" color="#166534" />
                 <Text style={styles.loadingText}>StockPot AI is thinking...</Text>
               </View>
             )}
@@ -169,7 +169,7 @@ export default function AIChatModal({ visible, onClose }) {
                   key={idx}
                   style={styles.quickPromptChip}
                   onPress={() => handleSend(prompt)}
-                  activeOpacity={0.8}
+                  activeOpacity={0.75}
                 >
                   <Text style={styles.quickPromptText}>{prompt}</Text>
                 </TouchableOpacity>
@@ -177,12 +177,12 @@ export default function AIChatModal({ visible, onClose }) {
             </ScrollView>
           </View>
 
-          {/* Input Box */}
+          {/* iOS Input Box */}
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
               placeholder="Ask about recipes, budget, stores..."
-              placeholderTextColor={Colors.textSecondary}
+              placeholderTextColor="#9CA3AF"
               value={inputText}
               onChangeText={setInputText}
               onSubmitEditing={() => handleSend()}
@@ -195,7 +195,7 @@ export default function AIChatModal({ visible, onClose }) {
               ]}
               onPress={() => handleSend()}
               disabled={!inputText.trim() || loading}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
               <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
             </TouchableOpacity>
@@ -213,17 +213,17 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAFAF8',
+    backgroundColor: '#F9FAFB',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 14,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EFEA',
+    borderBottomColor: '#F3F4F6',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -234,21 +234,27 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#166534',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: '#111827',
   },
   headerSubtitle: {
-    fontSize: 11,
-    color: Colors.textSecondary,
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 1,
   },
   closeBtn: {
-    padding: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chatScroll: {
     flex: 1,
@@ -259,25 +265,30 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: '82%',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: 20,
   },
   userBubble: {
     alignSelf: 'flex-end',
-    backgroundColor: Colors.primary,
+    backgroundColor: '#166534',
     borderBottomRightRadius: 4,
+    shadowColor: '#166534',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   assistantBubble: {
     alignSelf: 'flex-start',
     backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: '#ECEAE4',
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
     elevation: 1,
   },
   assistantHeader: {
@@ -288,18 +299,18 @@ const styles = StyleSheet.create({
   },
   assistantLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: Colors.primary,
+    fontWeight: '700',
+    color: '#166534',
   },
   messageText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 14.5,
+    lineHeight: 21,
   },
   userText: {
     color: '#FFFFFF',
   },
   assistantText: {
-    color: Colors.textPrimary,
+    color: '#1F2937',
   },
   loadingBubble: {
     flexDirection: 'row',
@@ -308,40 +319,41 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: '#6B7280',
     fontStyle: 'italic',
   },
   quickPromptsWrapper: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#F0EFEA',
+    borderTopColor: '#F3F4F6',
   },
   quickPromptsContent: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     gap: 8,
   },
   quickPromptChip: {
     backgroundColor: '#F3F4F6',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   quickPromptText: {
-    fontSize: 12,
-    color: Colors.textPrimary,
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: '#374151',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    gap: 8,
+    borderTopColor: '#F3F4F6',
+    gap: 10,
   },
   input: {
     flex: 1,
@@ -349,18 +361,23 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    fontSize: 14,
-    color: Colors.textPrimary,
+    fontSize: 14.5,
+    color: '#111827',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primary,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#166534',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#166534',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   sendBtnDisabled: {
     opacity: 0.4,

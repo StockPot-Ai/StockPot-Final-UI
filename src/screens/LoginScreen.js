@@ -21,7 +21,7 @@ import { authService } from '../services';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const LoginScreen = ({ onSignUp }) => {
-  const { login } = useAccount();
+  const { login, loginWithGoogle } = useAccount();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,6 +29,7 @@ const LoginScreen = ({ onSignUp }) => {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
 
   // Forgot password modal state
@@ -81,12 +82,25 @@ const LoginScreen = ({ onSignUp }) => {
     }
   };
 
-  const handleSocialAuth = (provider) => {
-    Alert.alert(
-      `${provider} Sign-In`,
-      `To use ${provider} Sign-In, add your ${provider} OAuth credentials to the configuration. Check the setup guide for simple step-by-step instructions!`,
-      [{ text: 'OK' }]
-    );
+  const handleSocialAuth = async (provider) => {
+    if (provider === 'Google') {
+      setIsGoogleSubmitting(true);
+      try {
+        await loginWithGoogle();
+      } catch (err) {
+        if (!err.message?.includes('cancelled') && !err.message?.includes('dismissed')) {
+          Alert.alert('Google Sign-In Failed', err.message || 'Could not complete Google Sign-In.');
+        }
+      } finally {
+        setIsGoogleSubmitting(false);
+      }
+    } else {
+      Alert.alert(
+        `${provider} Sign-In`,
+        `${provider} Sign-In is available on supported iOS devices.`,
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleSendForgotPassword = async () => {
@@ -100,8 +114,7 @@ const LoginScreen = ({ onSignUp }) => {
       await authService.forgotPassword(forgotEmail.trim());
       setForgotSuccess(true);
     } catch (err) {
-      // Even if endpoint is not created yet on backend, show clear confirmation
-      setForgotSuccess(true);
+      setForgotError(err.message || 'Failed to send reset email. Please try again.');
     } finally {
       setIsSendingForgot(false);
     }
@@ -288,12 +301,19 @@ const LoginScreen = ({ onSignUp }) => {
 
             {/* Google Button */}
             <TouchableOpacity
-              style={styles.socialBtnGoogle}
+              style={[styles.socialBtnGoogle, isGoogleSubmitting && { opacity: 0.7 }]}
               onPress={() => handleSocialAuth('Google')}
               activeOpacity={0.85}
+              disabled={isGoogleSubmitting || isSubmitting}
             >
-              <Ionicons name="logo-google" size={18} color="#EA4335" />
-              <Text style={styles.socialBtnTextGoogle}>Google</Text>
+              {isGoogleSubmitting ? (
+                <ActivityIndicator size="small" color="#EA4335" />
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={18} color="#EA4335" />
+                  <Text style={styles.socialBtnTextGoogle}>Google</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -425,8 +445,8 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   logo: {
-    width: 66,
-    height: 66,
+    width: 80,
+    height: 80,
     borderRadius: 18,
   },
   brandName: {

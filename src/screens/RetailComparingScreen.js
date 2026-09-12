@@ -388,42 +388,48 @@ function StoreCard({ store, itemsCount, onPress }) {
 function ItemDetailModal({ store, onClose }) {
   return (
     <View style={styles.modalOverlay}>
-      <SafeAreaView style={styles.modalSheet}>
+      <View style={styles.modalSheet}>
         <View style={styles.modalHandle} />
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>{store.name}</Text>
-          <TouchableOpacity onPress={onClose} style={styles.iconButton} activeOpacity={0.7}>
-            <Ionicons name="close" size={22} color={Colors.retailCharcoal} />
+          <View>
+            <Text style={styles.modalTitle}>{store.name}</Text>
+            <Text style={styles.modalSub}>Item price breakdown</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+            <Ionicons name="close" size={18} color="#4B5563" />
           </TouchableOpacity>
         </View>
 
         <Text style={styles.modalPrice}>{formatPrice(store.total)}</Text>
-        <Text style={styles.modalSub}>Item price breakdown</Text>
 
         <ScrollView
           style={styles.modalList}
           contentContainerStyle={styles.modalListContent}
           showsVerticalScrollIndicator={false}
         >
-          {store.items.map((item) => (
-            <View key={item.id} style={styles.modalRow}>
-              <View style={styles.modalRowLeft}>
-                <Text style={styles.modalItemName}>{item.name}</Text>
-                <Text style={styles.modalItemQty}>
-                  {formatQty(item.quantity)} {item.unit}
-                </Text>
+          <View style={styles.modalGroupCard}>
+            {store.items.map((item, idx) => (
+              <View key={item.id}>
+                <View style={styles.modalRow}>
+                  <View style={styles.modalRowLeft}>
+                    <Text style={styles.modalItemName}>{item.name}</Text>
+                    <Text style={styles.modalItemQty}>
+                      {formatQty(item.quantity)} {item.unit}
+                    </Text>
+                  </View>
+                  <Text style={styles.modalItemPrice}>{formatPrice(item.price)}</Text>
+                </View>
+                {idx < store.items.length - 1 && <View style={styles.modalDivider} />}
               </View>
-              <Text style={styles.modalItemPrice}>{formatPrice(item.price)}</Text>
-            </View>
-          ))}
+            ))}
+          </View>
 
-          <View style={styles.receiptDashed} />
-          <View style={styles.modalTotalRow}>
+          <View style={styles.modalTotalCard}>
             <Text style={styles.modalTotalLabel}>Store total</Text>
             <Text style={styles.modalTotalValue}>{formatPrice(store.total)}</Text>
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
@@ -436,12 +442,15 @@ function ItemsCompareModal({ stores, onClose }) {
 
   return (
     <View style={styles.modalOverlay}>
-      <SafeAreaView style={styles.modalSheet}>
+      <View style={styles.modalSheet}>
         <View style={styles.modalHandle} />
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Compare Items</Text>
-          <TouchableOpacity onPress={onClose} style={styles.iconButton} activeOpacity={0.7}>
-            <Ionicons name="close" size={22} color={Colors.retailCharcoal} />
+          <View>
+            <Text style={styles.modalTitle}>Compare Items</Text>
+            <Text style={styles.modalSub}>Best prices across nearby supermarkets</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+            <Ionicons name="close" size={18} color="#4B5563" />
           </TouchableOpacity>
         </View>
 
@@ -484,7 +493,7 @@ function ItemsCompareModal({ stores, onClose }) {
             );
           })}
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
@@ -851,43 +860,57 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   modalSheet: {
-    backgroundColor: Colors.retailBg,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: '#F9FAFB',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
-    maxHeight: '80%',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modalHandle: {
     alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.retailOutlineWarm,
-    marginBottom: 12,
+    width: 38,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#D1D5DB',
+    marginBottom: 10,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    color: Colors.retailCharcoal,
+    color: '#111827',
+    letterSpacing: -0.3,
   },
   modalPrice: {
     fontSize: 26,
-    fontFamily: 'monospace',
-    fontWeight: '700',
-    color: Colors.retailCharcoal,
+    fontWeight: '800',
+    color: '#166534',
+    marginBottom: 12,
   },
   modalSub: {
     fontSize: 13,
-    color: Colors.retailMuted,
-    marginBottom: 8,
+    color: '#6B7280',
+    marginTop: 2,
   },
   modalList: {
     flexGrow: 0,
@@ -895,50 +918,62 @@ const styles = StyleSheet.create({
   modalListContent: {
     paddingBottom: 16,
   },
+  modalGroupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
   modalRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(43,36,32,0.05)',
+    paddingVertical: 12,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
   },
   modalRowLeft: {
     flex: 1,
     paddingRight: 12,
   },
   modalItemName: {
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '600',
-    color: Colors.retailCharcoal,
+    color: '#111827',
   },
   modalItemQty: {
-    fontSize: 12,
-    color: Colors.retailMuted,
-    marginTop: 1,
+    fontSize: 12.5,
+    color: '#6B7280',
+    marginTop: 2,
   },
   modalItemPrice: {
-    fontSize: 14,
-    fontFamily: 'monospace',
-    fontWeight: '500',
-    color: Colors.retailCharcoal,
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: '#111827',
   },
-  modalTotalRow: {
+  modalTotalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 12,
   },
   modalTotalLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    color: Colors.retailCharcoal,
+    color: '#111827',
   },
   modalTotalValue: {
-    fontSize: 16,
-    fontFamily: 'monospace',
-    fontWeight: '700',
-    color: Colors.retailBasil,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#166534',
   },
 
   // ── Compare items modal

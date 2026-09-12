@@ -23,11 +23,11 @@ const StatDetailModal = ({ visible, statType, onClose }) => {
         return (
           <>
             <View style={styles.topIconBadge}>
-              <View style={[styles.largeCircle, { backgroundColor: Colors.statMintBg }]}>
+              <View style={[styles.largeCircle, { backgroundColor: '#DCFCE7' }]}>
                 <MaterialCommunityIcons
                   name="piggy-bank-outline"
                   size={32}
-                  color={Colors.statMintIcon}
+                  color="#166534"
                 />
               </View>
               <Text style={styles.statLargeVal}>Rs. {profile.moneySaved.toLocaleString()}</Text>
@@ -35,7 +35,7 @@ const StatDetailModal = ({ visible, statType, onClose }) => {
             </View>
 
             <View style={styles.breakdownCard}>
-              <Text style={styles.breakdownHeader}>Savings Sources</Text>
+              <Text style={styles.breakdownHeader}>SAVINGS BREAKDOWN</Text>
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownTitle}>Pantry Ingredient Reuse</Text>
                 <Text style={styles.breakdownAmount}>Rs. 6,800</Text>
@@ -58,11 +58,11 @@ const StatDetailModal = ({ visible, statType, onClose }) => {
         return (
           <>
             <View style={styles.topIconBadge}>
-              <View style={[styles.largeCircle, { backgroundColor: Colors.statPinkBg }]}>
+              <View style={[styles.largeCircle, { backgroundColor: '#FEE2E2' }]}>
                 <MaterialCommunityIcons
                   name="delete-outline"
                   size={32}
-                  color={Colors.statPinkIcon}
+                  color="#DC2626"
                 />
               </View>
               <Text style={styles.statLargeVal}>{profile.wasteAvoided} kg</Text>
@@ -70,7 +70,7 @@ const StatDetailModal = ({ visible, statType, onClose }) => {
             </View>
 
             <View style={styles.breakdownCard}>
-              <Text style={styles.breakdownHeader}>Environmental Impact</Text>
+              <Text style={styles.breakdownHeader}>ENVIRONMENTAL IMPACT</Text>
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownTitle}>Fresh Produce Saved</Text>
                 <Text style={styles.breakdownAmount}>4.8 kg</Text>
@@ -93,15 +93,15 @@ const StatDetailModal = ({ visible, statType, onClose }) => {
         return (
           <>
             <View style={styles.topIconBadge}>
-              <View style={[styles.largeCircle, { backgroundColor: Colors.statRustBg }]}>
-                <Ionicons name="flame" size={32} color="#FFFFFF" />
+              <View style={[styles.largeCircle, { backgroundColor: '#FFEDD5' }]}>
+                <Ionicons name="flame" size={32} color="#EA580C" />
               </View>
               <Text style={styles.statLargeVal}>{profile.streakDays} Days</Text>
               <Text style={styles.statLargeLabel}>Active Cooking Streak</Text>
             </View>
 
             <View style={styles.breakdownCard}>
-              <Text style={styles.breakdownHeader}>Streak Milestones</Text>
+              <Text style={styles.breakdownHeader}>STREAK MILESTONES</Text>
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownTitle}>Current Streak</Text>
                 <Text style={styles.breakdownAmount}>{profile.streakDays} Days 🔥</Text>
@@ -125,15 +125,15 @@ const StatDetailModal = ({ visible, statType, onClose }) => {
         return (
           <>
             <View style={styles.topIconBadge}>
-              <View style={[styles.largeCircle, { backgroundColor: Colors.statAmberBg }]}>
-                <Ionicons name="star" size={30} color="#FFFFFF" />
+              <View style={[styles.largeCircle, { backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="star" size={30} color="#D97706" />
               </View>
               <Text style={styles.statLargeVal}>{profile.currentXp.toLocaleString()} XP</Text>
               <Text style={styles.statLargeLabel}>Level 6 Chef Rank</Text>
             </View>
 
             <View style={styles.breakdownCard}>
-              <Text style={styles.breakdownHeader}>XP Level Breakdown</Text>
+              <Text style={styles.breakdownHeader}>XP LEVEL BREAKDOWN</Text>
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownTitle}>Planned Meals Logged</Text>
                 <Text style={styles.breakdownAmount}>+1,200 XP</Text>
@@ -158,11 +158,17 @@ const StatDetailModal = ({ visible, statType, onClose }) => {
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.sheetContainer}>
+          {/* iOS Grabber Pill */}
+          <View style={styles.grabber} />
+
           {/* Header */}
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Achievement & Stats</Text>
+            <View>
+              <Text style={styles.sheetTitle}>Achievement & Stats</Text>
+              <Text style={styles.sheetSub}>Detailed insights & progress history</Text>
+            </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <Feather name="x" size={22} color="#4B5563" />
+              <Feather name="x" size={18} color="#4B5563" />
             </TouchableOpacity>
           </View>
 
@@ -188,37 +194,60 @@ const StatDetailModal = ({ visible, statType, onClose }) => {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    backgroundColor: '#F9FAFB',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '85%',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  grabber: {
+    width: 38,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#D1D5DB',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 6,
   },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 10,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3ECE4',
   },
   sheetTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Colors.accountTextPrimary,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: -0.3,
+  },
+  sheetSub: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
   },
   closeBtn: {
-    padding: 4,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 8,
     paddingBottom: 12,
   },
   topIconBadge: {
@@ -226,36 +255,43 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   largeCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   statLargeVal: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
-    color: Colors.accountTextPrimary,
+    color: '#111827',
     marginBottom: 4,
+    letterSpacing: -0.5,
   },
   statLargeLabel: {
-    fontSize: 13,
-    color: Colors.accountTextSecondary,
+    fontSize: 13.5,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   breakdownCard: {
-    backgroundColor: '#FAF7F2',
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: Colors.accountBorder,
+    borderColor: '#E5E7EB',
     padding: 16,
     marginBottom: 10,
+    shadowColor: 'rgba(0,0,0,0.03)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 1,
   },
   breakdownHeader: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: Colors.accountSectionHeader,
-    letterSpacing: 0.3,
+    color: '#6B7280',
+    letterSpacing: 0.6,
     marginBottom: 12,
   },
   breakdownRow: {
@@ -265,29 +301,34 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   breakdownTitle: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '600',
-    color: Colors.accountTextPrimary,
+    color: '#111827',
   },
   breakdownAmount: {
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '700',
-    color: Colors.forestGreen,
+    color: '#166534',
   },
   divider: {
     height: 1,
-    backgroundColor: '#EDE5DC',
+    backgroundColor: '#F3F4F6',
   },
   actionRow: {
     paddingHorizontal: 20,
     paddingTop: 10,
   },
   doneBtn: {
-    paddingVertical: 13,
-    borderRadius: 12,
-    backgroundColor: Colors.forestGreen,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#166534',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#166534',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   doneBtnText: {
     fontSize: 15,

@@ -16,7 +16,11 @@ const ProfileCard = ({ onEditProfile, onStreakPress, onEcoPress }) => {
     <View style={styles.card}>
       {/* Avatar */}
       <Image
-        source={require('../../../assets/ammar_avatar.jpg')}
+        source={
+          profile.avatarUrl || profile.avatar_url
+            ? { uri: profile.avatarUrl || profile.avatar_url }
+            : require('../../../assets/user_avatar.jpg')
+        }
         style={styles.avatar}
       />
 
