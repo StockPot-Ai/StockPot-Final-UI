@@ -12,1009 +12,1018 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
-import { storeService, shoppingService } from '../services';
+import NearbyShopsModal from '../components/store/NearbyShopsModal';
+import ShopOwnerModal from '../components/store/ShopOwnerModal';
+import { smartBasketService, storeService, savingsService, gamificationService } from '../services';
 
 const formatPrice = (value) => {
   const n = Math.round(Number(value) || 0);
   return 'Rs ' + n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 };
 
-const computeStoreItems = (items, factor = 1.0) =>
-  items.map((item) => {
-    const price = Math.round((((item.cost || 100) * factor) / 5) * 5);
-    return { ...item, price };
-  });
-
-const computeStoreTotal = (storeItems) =>
-  storeItems.reduce((acc, item) => acc + item.price, 0);
-
-// ─── Small presentational helpers ──────────────────────────────────────────
-
-const StoreMeta = ({ itemCount, kmAway, hasDelivery, showCheck = false }) => (
-  <View style={styles.storeMeta}>
-    <Ionicons
-      name={showCheck ? 'checkmark-circle' : 'cube-outline'}
-      size={14}
-      color={showCheck ? Colors.retailBasil : Colors.retailMuted}
-    />
-    <Text style={styles.storeMetaText}>{itemCount} items in stock</Text>
-    <Text style={styles.storeMetaSep}>•</Text>
-    <Text style={styles.storeMetaText}>{kmAway} km away</Text>
-    {hasDelivery && (
-      <>
-        <Text style={styles.storeMetaSep}>•</Text>
-        <Ionicons name="car-outline" size={14} color={Colors.retailMuted} />
-      </>
-    )}
-  </View>
-);
-
-// ─── Screen ────────────────────────────────────────────────────────────────
-
-export default function RetailComparingScreen({
-  items = [],
-  onBack,
-  onEcoPress,
-}) {
-  const [filterExpanded, setFilterExpanded] = useState(false);
-  const [detailStore, setDetailStore] = useState(null);
-  const [itemsModalOpen, setItemsModalOpen] = useState(false);
-  const [apiStores, setApiStores] = useState([]);
+export default function RetailComparingScreen({ items = [], onBack }) {
+  const [activeStrategy, setActiveStrategy] = useState('single'); // 'single' | 'split'
+  const [storeFilter, setStoreFilter] = useState('all'); // 'all' | 'supermarkets' | 'local'
+  const [basketItems, setBasketItems] = useState([]);
+  const [discounts, setDiscounts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchStoresData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const stores = await storeService.getStores();
-      if (Array.isArray(stores) && stores.length > 0) {
-        setApiStores(
-          stores.map((s, idx) => ({
-            id: s.id || `store-${idx}`,
-            name: s.name || s.store_name || 'Retail Supermarket',
-            factor: s.price_multiplier || s.factor || (idx === 0 ? 0.93 : idx === 1 ? 0.98 : 1.05),
-            kmAway: s.distance_km || s.distance || (1.2 + idx * 0.8),
-            hasDelivery: s.delivery_available ?? s.hasDelivery ?? true,
-          }))
-        );
-      } else {
-        setApiStores([
-          { id: 'cargills', name: 'Cargills Food City', factor: 0.92, kmAway: 1.2, hasDelivery: true },
-          { id: 'keells', name: 'Keells Super', factor: 0.97, kmAway: 2.4, hasDelivery: true },
-          { id: 'local', name: 'Local Farmers Market', factor: 1.04, kmAway: 0.85, hasDelivery: false },
-        ]);
-      }
-    } catch (err) {
-      console.log('[RetailComparingScreen] Note on stores API:', err.message);
-      setApiStores([
-        { id: 'cargills', name: 'Cargills Food City', factor: 0.92, kmAway: 1.2, hasDelivery: true },
-        { id: 'keells', name: 'Keells Super', factor: 0.97, kmAway: 2.4, hasDelivery: true },
-        { id: 'local', name: 'Local Farmers Market', factor: 1.04, kmAway: 0.85, hasDelivery: false },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Modal states
+  const [nearbyModalVisible, setNearbyModalVisible] = useState(false);
+  const [shopOwnerModalVisible, setShopOwnerModalVisible] = useState(false);
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+
+  // Settings
+  const [maxStores, setMaxStores] = useState(3);
+  const [minSavings, setMinSavings] = useState(150);
 
   useEffect(() => {
-    fetchStoresData();
-  }, [fetchStoresData]);
+    loadComparisonData();
+  }, [items]);
 
-  const comparedItems = useMemo(
-    () =>
-      items.map((item) => ({
-        ...item,
-        quantity: item.quantity || item.baseQuantity || 1,
-        unit: item.unit || 'g',
-        cost: item.cost ?? item.baseCost ?? 100,
-      })),
-    [items]
-  );
+  const loadComparisonData = async () => {
+    setLoading(true);
+    try {
+      const generatedBasket = smartBasketService.buildBasketFromIngredients(items);
+      setBasketItems(generatedBasket);
 
-  const storeData = useMemo(() => {
-    const computed = apiStores.map((store) => {
-      const storeItems = computeStoreItems(comparedItems, store.factor);
-      return {
-        ...store,
-        items: storeItems,
-        total: computeStoreTotal(storeItems),
-      };
-    });
-    const sorted = [...computed].sort((a, b) => a.total - b.total);
-    const cheapest = sorted[0] || { total: 0, savings: 0 };
-    const nextBest = sorted[1] || cheapest;
-    cheapest.savings = Math.max(0, (nextBest.total || 0) - (cheapest.total || 0));
-    sorted.forEach((store) => {
-      store.diff = store.total - cheapest.total;
-      store.isCheapest = store.total === cheapest.total;
-    });
-    return { sorted, cheapest };
-  }, [apiStores, comparedItems]);
-
-  const { sorted: sortedStores, cheapest } = storeData;
-
-  const itemsCount = comparedItems.length;
-
-  const handleBack = () => {
-    if (onBack) onBack();
+      const activeDiscounts = await storeService.getAllDiscounts();
+      setDiscounts(activeDiscounts);
+    } catch (_) {}
+    setLoading(false);
   };
 
-  const handleEco = () => {
-    if (onEcoPress) {
-      onEcoPress();
+  // Compute optimization results
+  const optimization = useMemo(() => {
+    return smartBasketService.optimizeBasket(basketItems, {
+      maxStores,
+      minSavings,
+    });
+  }, [basketItems, maxStores, minSavings]);
+
+  const { cheapestSingleStore, sortedSingleStores, splitStrategy } = optimization;
+
+  const filteredSingleStores = useMemo(() => {
+    if (!sortedSingleStores) return [];
+    if (storeFilter === 'supermarkets') {
+      return sortedSingleStores.filter((s) => !s.store.isLocalShop);
     }
-  };
+    if (storeFilter === 'local') {
+      return sortedSingleStores.filter((s) => s.store.isLocalShop);
+    }
+    return sortedSingleStores;
+  }, [sortedSingleStores, storeFilter]);
 
-  const openDetail = (store) => {
-    setDetailStore(store);
+  const handleApplySplitSavings = async () => {
+    if (splitStrategy.potentialSavings > 0) {
+      await gamificationService.awardXp(
+        25,
+        `Saved Rs. ${splitStrategy.potentialSavings} with Split-Basket`,
+        `Optimized between ${splitStrategy.storesInvolved.length} nearby stores!`
+      );
+      Alert.alert(
+        '🎉 Savings Applied!',
+        `You unlocked Rs. ${splitStrategy.potentialSavings} in estimated grocery savings!\n\n🏆 You earned +25 XP!`,
+        [{ text: 'Great!' }]
+      );
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.retailBg} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FAFAF8" />
 
-      {/* ── Top App Bar ── */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          onPress={handleBack}
-          style={styles.iconButton}
-          activeOpacity={0.7}
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="arrow-back" size={22} color={Colors.retailTerracotta} />
+      {/* Top App Bar */}
+      <View style={styles.appBar}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={22} color="#111827" />
         </TouchableOpacity>
-
-        <View style={styles.topBarCenter}>
-          <Text style={styles.topBarTitle}>Shopping List</Text>
-          <Text style={styles.topBarSubtitle}>
-            {itemsCount} {itemsCount === 1 ? 'Item' : 'Items'}
-          </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.appBarTitle}>Price Comparison Engine</Text>
+          <Text style={styles.appBarSub}>{basketItems.length} Products in Shopping Basket</Text>
         </View>
-
         <TouchableOpacity
-          onPress={handleEco}
-          style={styles.iconButton}
-          activeOpacity={0.7}
-          accessibilityLabel="Eco settings"
+          style={styles.nearbyBtn}
+          onPress={() => setNearbyModalVisible(true)}
+          activeOpacity={0.8}
         >
-          <Ionicons name="leaf-outline" size={22} color={Colors.retailMuted} />
+          <Ionicons name="location" size={16} color="#166534" />
+          <Text style={styles.nearbyBtnText}>Shops</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Collapsible Filter ── */}
-        <View style={styles.filterCard}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Strategy Switcher Tab */}
+        <View style={styles.strategyTabs}>
           <TouchableOpacity
-            style={styles.filterHeader}
-            onPress={() => setFilterExpanded((v) => !v)}
-            activeOpacity={0.75}
+            style={[styles.strategyTab, activeStrategy === 'single' && styles.strategyTabActive]}
+            onPress={() => setActiveStrategy('single')}
+            activeOpacity={0.8}
           >
-            <View>
-              <Text style={styles.filterTitle}>Stores with items in stock</Text>
-              <Text style={styles.filterSubtitle}>Prices for all {itemsCount} items</Text>
-            </View>
             <Ionicons
-              name={filterExpanded ? 'chevron-up' : 'chevron-down'}
-              size={22}
-              color={Colors.retailCharcoal}
+              name="storefront-outline"
+              size={17}
+              color={activeStrategy === 'single' ? '#166534' : '#6B7280'}
             />
+            <Text
+              style={[
+                styles.strategyTabText,
+                activeStrategy === 'single' && styles.strategyTabTextActive,
+              ]}
+            >
+              Cheapest Single Store
+            </Text>
           </TouchableOpacity>
 
-          {filterExpanded && (
-            <View style={styles.filterBody}>
-              {sortedStores.map((store) => (
-                <View key={store.id} style={styles.filterRow}>
-                  <Text style={styles.filterRowLabel}>{store.name}</Text>
-                  <View style={styles.filterRowRight}>
-                    {store.isCheapest && (
-                      <View style={styles.foundBadge}>
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={13}
-                          color={Colors.retailBasil}
-                        />
-                        <Text style={styles.foundBadgeText}>In stock</Text>
-                      </View>
-                    )}
-                    <Text style={styles.filterRowPrice}>
-                      {formatPrice(store.total)}
+          <TouchableOpacity
+            style={[styles.strategyTab, activeStrategy === 'split' && styles.strategyTabActive]}
+            onPress={() => setActiveStrategy('split')}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="git-merge-outline"
+              size={17}
+              color={activeStrategy === 'split' ? '#166534' : '#6B7280'}
+            />
+            <Text
+              style={[
+                styles.strategyTabText,
+                activeStrategy === 'split' && styles.strategyTabTextActive,
+              ]}
+            >
+              Split-Basket Optimizer
+            </Text>
+            {splitStrategy?.potentialSavings > 0 && (
+              <View style={styles.savePill}>
+                <Text style={styles.savePillText}>-Rs.{splitStrategy.potentialSavings}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Discount Intelligence Deals Carousel */}
+        {discounts.length > 0 && (
+          <View style={styles.discountSection}>
+            <View style={styles.discountHeader}>
+              <View style={styles.discountTitleRow}>
+                <Text style={styles.discountFire}>🔥</Text>
+                <Text style={styles.discountSectionTitle}>Matched Discount Deals</Text>
+              </View>
+              <Text style={styles.discountSubTitle}>Verified live store promotions</Text>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.discountScroll}>
+              {discounts.map((d) => (
+                <View key={d.id} style={styles.dealCard}>
+                  <View style={styles.dealBadge}>
+                    <Text style={styles.dealBadgeText}>{d.discountPercent}% OFF</Text>
+                  </View>
+                  <Text style={styles.dealName} numberOfLines={1}>{d.productName}</Text>
+                  <Text style={styles.dealStore}>{d.storeName}</Text>
+                  <View style={styles.dealPriceRow}>
+                    <Text style={styles.dealCurrentPrice}>Rs {d.discountedPrice}</Text>
+                    <Text style={styles.dealOriginalPrice}>Rs {d.originalPrice}</Text>
+                  </View>
+                  <Text style={styles.dealValid}>⏳ {d.validUntil}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Loading Spinner */}
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+            <Text style={styles.loadingText}>Comparing 60+ store prices...</Text>
+          </View>
+        ) : activeStrategy === 'single' ? (
+          /* ─── Strategy A: Single Store Comparison ──────────────────────── */
+          <View style={styles.contentSection}>
+            {/* Store Type Filter */}
+            <View style={styles.storeTypeRow}>
+              {[
+                { key: 'all', label: 'All Stores (7)' },
+                { key: 'supermarkets', label: 'Supermarkets (5)' },
+                { key: 'local', label: 'Local Shops (2)' },
+              ].map((f) => (
+                <TouchableOpacity
+                  key={f.key}
+                  style={[styles.typeChip, storeFilter === f.key && styles.typeChipActive]}
+                  onPress={() => setStoreFilter(f.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[styles.typeChipText, storeFilter === f.key && styles.typeChipTextActive]}
+                  >
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Cheapest Store Highlight Hero */}
+            {cheapestSingleStore && (
+              <View style={styles.heroStoreCard}>
+                <View style={styles.heroHeader}>
+                  <View style={styles.heroBestBadge}>
+                    <Ionicons name="trophy" size={14} color="#B45309" />
+                    <Text style={styles.heroBestText}>Cheapest Single Store</Text>
+                  </View>
+                  <Text style={styles.heroPrice}>{formatPrice(cheapestSingleStore.totalCost)}</Text>
+                </View>
+
+                <Text style={styles.heroStoreName}>{cheapestSingleStore.store.name}</Text>
+                <Text style={styles.heroStoreAddress}>
+                  {cheapestSingleStore.store.address} • {cheapestSingleStore.store.isLocalShop ? 'Local Grocer' : 'Supermarket'}
+                </Text>
+
+                <View style={styles.heroDetails}>
+                  <View style={styles.heroDetailItem}>
+                    <Ionicons name="checkmark-done" size={16} color="#166534" />
+                    <Text style={styles.heroDetailText}>All {basketItems.length} items in stock</Text>
+                  </View>
+                  <View style={styles.heroDetailItem}>
+                    <Ionicons name="car-outline" size={16} color="#166534" />
+                    <Text style={styles.heroDetailText}>
+                      {cheapestSingleStore.store.deliveryAvailable ? 'Delivery available' : 'In-store pickup'}
                     </Text>
                   </View>
                 </View>
-              ))}
-            </View>
-          )}
-        </View>
+              </View>
+            )}
 
-        {/* ── Store Comparison Cards ── */}
-        <View style={styles.storeList}>
-          {sortedStores.map((store) => (
-            <StoreCard
-              key={store.id}
-              store={store}
-              itemsCount={itemsCount}
-              onPress={() => openDetail(store)}
-            />
-          ))}
-        </View>
+            {/* Ranked Store List */}
+            <Text style={styles.rankedTitle}>All Store Comparisons</Text>
+            {filteredSingleStores.map((st, idx) => {
+              const priceDiff = st.totalCost - (cheapestSingleStore?.totalCost || 0);
+              return (
+                <View key={st.store.id} style={styles.storeComparisonCard}>
+                  <View style={styles.storeRank}>
+                    <Text style={styles.rankNum}>#{idx + 1}</Text>
+                  </View>
 
-        {/* ── Best Price Summary Banner ── */}
-        <View style={styles.summaryBanner}>
-          <View style={styles.summaryLeft}>
-            <View style={styles.summaryTrophy}>
-              <MaterialCommunityIcons
-                name="trophy"
-                size={20}
-                color="#FFFFFF"
-              />
-            </View>
-            <View>
-              <Text style={styles.summaryTitle}>
-                Best price at {cheapest.name}
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.storeNameRow}>
+                      <Text style={styles.storeTitle}>{st.store.name}</Text>
+                      {st.store.isVerified && (
+                        <View style={styles.verifiedMiniBadge}>
+                          <Ionicons name="checkmark-circle" size={12} color="#166534" />
+                          <Text style={styles.verifiedMiniText}>Verified</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.storeCatText}>
+                      {st.store.category} • {st.store.openingHours}
+                    </Text>
+                  </View>
+
+                  <View style={styles.storePriceCol}>
+                    <Text style={styles.storeTotalText}>{formatPrice(st.totalCost)}</Text>
+                    {priceDiff > 0 ? (
+                      <Text style={styles.storeDiffText}>+{formatPrice(priceDiff)}</Text>
+                    ) : (
+                      <Text style={styles.cheapestLabel}>Best Price ⭐</Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          /* ─── Strategy B: Smart Split-Basket Optimizer ──────────────────── */
+          <View style={styles.contentSection}>
+            {/* Split Highlight Hero */}
+            <View style={styles.splitHeroCard}>
+              <View style={styles.splitHeaderRow}>
+                <View style={styles.splitTag}>
+                  <Ionicons name="flash" size={14} color="#7C2D12" />
+                  <Text style={styles.splitTagText}>Optimized Multi-Store Split</Text>
+                </View>
+                <TouchableOpacity onPress={() => setSettingsModalVisible(true)}>
+                  <Ionicons name="settings-outline" size={18} color="#4B5563" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.splitComparisonRow}>
+                <View>
+                  <Text style={styles.splitLabel}>Split Total</Text>
+                  <Text style={styles.splitTotalAmount}>{formatPrice(splitStrategy.totalCost)}</Text>
+                </View>
+                <View style={styles.splitSavingsBadge}>
+                  <Text style={styles.splitSavingsLabel}>Total Savings</Text>
+                  <Text style={styles.splitSavingsValue}>
+                    Save {formatPrice(splitStrategy.potentialSavings)}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.splitStoresNotice}>
+                Items distributed across <Text style={{ fontWeight: '700' }}>{splitStrategy.storesInvolved.length} nearby stores</Text> for maximum savings.
               </Text>
-              <Text style={styles.summarySubtitle}>
-                Save Rs {cheapest.savings} vs. next best
+
+              {splitStrategy.potentialSavings > 0 && (
+                <TouchableOpacity
+                  style={styles.claimSavingsBtn}
+                  onPress={handleApplySplitSavings}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="sparkles" size={16} color="#FFFFFF" />
+                  <Text style={styles.claimSavingsBtnText}>Claim & Log Savings (+25 XP)</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Split Items Breakdown */}
+            <Text style={styles.rankedTitle}>Item-by-Item Optimized Routing</Text>
+            {splitStrategy.items.map((it, idx) => (
+              <View key={idx} style={styles.splitItemCard}>
+                <View style={styles.splitItemLeft}>
+                  <Text style={styles.splitItemName}>{it.product.name}</Text>
+                  <Text style={styles.splitItemQty}>Quantity: {it.quantity}</Text>
+                  <View style={[styles.storePill, { backgroundColor: it.bestStore.color + '15' }]}>
+                    <Ionicons name="cart" size={12} color={it.bestStore.color} />
+                    <Text style={[styles.storePillText, { color: it.bestStore.color }]}>
+                      Buy at {it.bestStore.name}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.splitItemRight}>
+                  <Text style={styles.splitItemPrice}>{formatPrice(it.price)}</Text>
+                  {it.isDiscounted && (
+                    <Text style={styles.splitDiscountLabel}>Deal Applied 🔥</Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Local Business Portal Banner */}
+        <View style={styles.shopOwnerBanner}>
+          <View style={styles.shopOwnerLeft}>
+            <MaterialCommunityIcons name="store-plus" size={24} color="#0F766E" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.shopOwnerTitle}>Are you a local grocery shop owner?</Text>
+              <Text style={styles.shopOwnerSub}>
+                List your business and products in StockPot's comparison engine.
               </Text>
             </View>
           </View>
-          <View style={styles.summaryPill}>
-            <Text style={styles.summaryPillText}>
-              Rs {cheapest.savings}
-            </Text>
-          </View>
+          <TouchableOpacity
+            style={styles.shopOwnerBtn}
+            onPress={() => setShopOwnerModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.shopOwnerBtnText}>Register Shop →</Text>
+          </TouchableOpacity>
         </View>
+
+        <View style={{ height: 30 }} />
       </ScrollView>
 
-      {/* ── Sticky Bottom CTA ── */}
-      <View style={styles.bottomCtaWrap}>
-        <TouchableOpacity
-          style={styles.bottomCta}
-          onPress={() => setItemsModalOpen(true)}
-          activeOpacity={0.88}
-        >
-          <Ionicons name="cart-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.bottomCtaText}>View Items & Compare</Text>
-          <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+      {/* Nearby Stores Modal */}
+      <NearbyShopsModal
+        visible={nearbyModalVisible}
+        onClose={() => setNearbyModalVisible(false)}
+        onSelectStore={(st) => {
+          Alert.alert(st.name, `Address: ${st.address}\nOpening: ${st.openingHours}\nPhone: ${st.phone}`);
+        }}
+      />
 
-      {/* ── Item detail modal (per store) ── */}
-      <Modal
-        visible={detailStore !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setDetailStore(null)}
-      >
-        {detailStore && (
-          <ItemDetailModal store={detailStore} onClose={() => setDetailStore(null)} />
-        )}
-      </Modal>
+      {/* Shop Owner Portal Modal */}
+      <ShopOwnerModal
+        visible={shopOwnerModalVisible}
+        onClose={() => setShopOwnerModalVisible(false)}
+        onShopRegistered={() => loadComparisonData()}
+      />
 
-      {/* ── Compare items across stores modal ── */}
-      <Modal
-        visible={itemsModalOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setItemsModalOpen(false)}
-      >
-        <ItemsCompareModal
-          stores={sortedStores}
-          onClose={() => setItemsModalOpen(false)}
-        />
+      {/* Split Settings Modal */}
+      <Modal visible={settingsModalVisible} animationType="fade" transparent onRequestClose={() => setSettingsModalVisible(false)}>
+        <View style={styles.settingsOverlay}>
+          <View style={styles.settingsCard}>
+            <Text style={styles.settingsTitle}>Split Optimizer Settings</Text>
+
+            <Text style={styles.settingsLabel}>Max Stores Allowed: {maxStores}</Text>
+            <View style={styles.settingsRow}>
+              {[2, 3, 4].map((num) => (
+                <TouchableOpacity
+                  key={num}
+                  style={[styles.numBtn, maxStores === num && styles.numBtnActive]}
+                  onPress={() => setMaxStores(num)}
+                >
+                  <Text style={[styles.numBtnText, maxStores === num && styles.numBtnTextActive]}>
+                    {num} Stores
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.settingsLabel}>Min. Savings Required: Rs. {minSavings}</Text>
+            <View style={styles.settingsRow}>
+              {[100, 150, 250, 400].map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.numBtn, minSavings === s && styles.numBtnActive]}
+                  onPress={() => setMinSavings(s)}
+                >
+                  <Text style={[styles.numBtnText, minSavings === s && styles.numBtnTextActive]}>
+                    Rs {s}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity style={styles.closeSettingsBtn} onPress={() => setSettingsModalVisible(false)}>
+              <Text style={styles.closeSettingsBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
 }
 
-// ─── Store Card ─────────────────────────────────────────────────────────────
-
-function StoreCard({ store, itemsCount, onPress }) {
-  const isCheapest = store.diff === 0;
-
-  return (
-    <TouchableOpacity
-      style={[
-        styles.storeCard,
-        isCheapest && styles.storeCardCheapest,
-      ]}
-      onPress={onPress}
-      activeOpacity={0.88}
-    >
-      {isCheapest && (
-        <View style={styles.cheapestBadge}>
-          <Text style={styles.cheapestBadgeText}>CHEAPEST</Text>
-        </View>
-      )}
-
-      <View style={styles.storeCardHeader}>
-        <Text style={styles.storeName}>{store.name}</Text>
-        <View style={styles.storePriceBlock}>
-          <Text
-            style={[
-              styles.storePrice,
-              !isCheapest && store.diff > 0 && styles.storePriceDim,
-            ]}
-          >
-            {formatPrice(store.total)}
-          </Text>
-          {!isCheapest && store.diff > 0 && (
-            <Text style={styles.storeDiffText}>
-              Rs {store.diff} more
-            </Text>
-          )}
-        </View>
-      </View>
-
-      <StoreMeta
-        itemCount={itemsCount}
-        kmAway={store.kmAway}
-        hasDelivery={store.hasDelivery}
-        showCheck={isCheapest}
-      />
-
-      <View
-        style={[
-          styles.receiptDashed,
-          isCheapest && styles.receiptDashedCheapest,
-        ]}
-      />
-
-      {isCheapest ? (
-        <View style={styles.savingsRow}>
-          <View style={styles.savingsLeft}>
-            <Ionicons name="wallet-outline" size={16} color={Colors.retailBasil} />
-            <Text style={styles.savingsText}>
-              You save Rs {store.savings} / Compared to next best
-            </Text>
-          </View>
-          <Ionicons name="arrow-forward" size={18} color={Colors.retailBasil} />
-        </View>
-      ) : (
-        <View style={styles.savingsRowMuted}>
-          <Text style={styles.savingsMutedText}>Tap to see item prices</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-}
-
-// ─── Item Detail Modal ──────────────────────────────────────────────────────
-
-function ItemDetailModal({ store, onClose }) {
-  return (
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalSheet}>
-        <View style={styles.modalHandle} />
-        <View style={styles.modalHeader}>
-          <View>
-            <Text style={styles.modalTitle}>{store.name}</Text>
-            <Text style={styles.modalSub}>Item price breakdown</Text>
-          </View>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-            <Ionicons name="close" size={18} color="#4B5563" />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.modalPrice}>{formatPrice(store.total)}</Text>
-
-        <ScrollView
-          style={styles.modalList}
-          contentContainerStyle={styles.modalListContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.modalGroupCard}>
-            {store.items.map((item, idx) => (
-              <View key={item.id}>
-                <View style={styles.modalRow}>
-                  <View style={styles.modalRowLeft}>
-                    <Text style={styles.modalItemName}>{item.name}</Text>
-                    <Text style={styles.modalItemQty}>
-                      {formatQty(item.quantity)} {item.unit}
-                    </Text>
-                  </View>
-                  <Text style={styles.modalItemPrice}>{formatPrice(item.price)}</Text>
-                </View>
-                {idx < store.items.length - 1 && <View style={styles.modalDivider} />}
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.modalTotalCard}>
-            <Text style={styles.modalTotalLabel}>Store total</Text>
-            <Text style={styles.modalTotalValue}>{formatPrice(store.total)}</Text>
-          </View>
-        </ScrollView>
-      </View>
-    </View>
-  );
-}
-
-// ─── Items Compare Modal (all stores, cheapest per item) ───────────────────
-
-function ItemsCompareModal({ stores, onClose }) {
-  const firstStore = stores[0] || { items: [] };
-  const items = firstStore.items || [];
-
-  return (
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalSheet}>
-        <View style={styles.modalHandle} />
-        <View style={styles.modalHeader}>
-          <View>
-            <Text style={styles.modalTitle}>Compare Items</Text>
-            <Text style={styles.modalSub}>Best prices across nearby supermarkets</Text>
-          </View>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-            <Ionicons name="close" size={18} color="#4B5563" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          style={styles.modalList}
-          contentContainerStyle={styles.modalListContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {items.map((item) => {
-            const prices = stores.map((s) => ({
-              name: s.name,
-              price: s.items.find((i) => i.id === item.id)?.price ?? 0,
-            }));
-            const best = Math.min(...prices.map((p) => p.price));
-            return (
-              <View key={item.id} style={styles.compareItemCard}>
-                <Text style={styles.compareItemName}>{item.name}</Text>
-                {prices.map((p) => (
-                  <View key={p.name} style={styles.compareRow}>
-                    <Text style={styles.compareStoreName}>{p.name}</Text>
-                    {p.price === best ? (
-                      <View style={styles.compareBestWrap}>
-                        <Text style={styles.compareBestPrice}>
-                          {formatPrice(p.price)}
-                        </Text>
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={15}
-                          color={Colors.retailBasil}
-                        />
-                      </View>
-                    ) : (
-                      <Text style={styles.compareRowPrice}>
-                        {formatPrice(p.price)}
-                      </Text>
-                    )}
-                  </View>
-                ))}
-              </View>
-            );
-          })}
-        </ScrollView>
-      </View>
-    </View>
-  );
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-const formatQty = (q) => {
-  const num = Number(q);
-  if (Number.isInteger(num)) return String(num);
-  return num.toFixed(1).replace(/\.0$/, '');
-};
-
-// ─── Styles ────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.retailBg,
+    backgroundColor: '#FAFAF8',
   },
-
-  // ── Top App Bar
-  topBar: {
+  appBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.retailBg,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(43,36,32,0.1)',
-    shadowColor: 'rgba(43,36,32,0.04)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
+    borderBottomColor: '#E5E7EB',
+    gap: 12,
+  },
+  backBtn: {
+    padding: 6,
+  },
+  appBarTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  appBarSub: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  nearbyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  nearbyBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  strategyTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12,
+  },
+  strategyTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  strategyTabActive: {
+    backgroundColor: '#DCFCE7',
+  },
+  strategyTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  strategyTabTextActive: {
+    color: '#166534',
+    fontWeight: '700',
+  },
+  savePill: {
+    backgroundColor: '#166534',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  savePillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  discountSection: {
+    marginBottom: 14,
+  },
+  discountHeader: {
+    marginBottom: 8,
+  },
+  discountTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  discountFire: {
+    fontSize: 16,
+  },
+  discountSectionTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  discountSubTitle: {
+    fontSize: 11.5,
+    color: '#6B7280',
+  },
+  discountScroll: {
+    gap: 10,
+    paddingVertical: 4,
+  },
+  dealCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    width: 170,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  dealBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFEDD5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  dealBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#C2410C',
+  },
+  dealName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  dealStore: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  dealPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  dealCurrentPrice: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  dealOriginalPrice: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
+  },
+  dealValid: {
+    fontSize: 10,
+    color: '#9A3412',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  contentSection: {
+    marginBottom: 16,
+  },
+  storeTypeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  typeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  typeChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  typeChipText: {
+    fontSize: 11.5,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  typeChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  heroStoreCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    marginBottom: 14,
+    shadowColor: '#166534',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 2,
   },
-  iconButton: {
-    padding: 8,
-    marginLeft: -8,
-    marginRight: -8,
-    borderRadius: 999,
-  },
-  topBarCenter: {
-    alignItems: 'center',
-  },
-  topBarTitle: {
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '700',
-    color: Colors.retailTerracotta,
-  },
-  topBarSubtitle: {
-    fontSize: 11,
-    lineHeight: 12,
-    letterSpacing: 0.5,
-    color: Colors.retailMuted,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-
-  // ── Scroll content
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 120,
-    gap: 16,
-  },
-
-  // ── Collapsible Filter
-  filterCard: {
-    backgroundColor: Colors.retailSurface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(220,193,185,0.4)',
-    shadowColor: 'rgba(43,36,32,0.04)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 1,
-  },
-  filterHeader: {
+  heroHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    marginBottom: 6,
   },
-  filterTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.retailCharcoal,
-  },
-  filterSubtitle: {
-    fontSize: 14,
-    lineHeight: 18,
-    color: Colors.retailMuted,
-    marginTop: 2,
-  },
-  filterBody: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 10,
-  },
-  filterRow: {
+  heroBestBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  filterRowLabel: {
-    fontSize: 14,
-    color: Colors.retailCharcoal,
-  },
-  filterRowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  foundBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: Colors.retailCheapestBg,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  foundBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.retailBasil,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  filterRowPrice: {
-    fontSize: 13,
-    fontFamily: 'monospace',
-    fontWeight: '500',
-    color: Colors.retailCharcoal,
-  },
-
-  // ── Store Cards
-  storeList: {
-    flexDirection: 'column',
-    gap: 12,
-  },
-  storeCard: {
-    backgroundColor: Colors.retailCard,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(43,36,32,0.1)',
-    shadowColor: 'rgba(43,36,32,0.04)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 1,
-    overflow: 'hidden',
-    opacity: 1,
-  },
-  storeCardCheapest: {
-    borderWidth: 2,
-    borderColor: Colors.retailBasil,
-  },
-  cheapestBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: Colors.retailBasil,
+    backgroundColor: '#FEF3C7',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderBottomLeftRadius: 8,
+    borderRadius: 10,
+    gap: 4,
   },
-  cheapestBadgeText: {
-    fontSize: 11,
-    lineHeight: 12,
-    letterSpacing: 0.5,
+  heroBestText: {
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
+    color: '#92400E',
   },
-  storeCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingRight: 44,
-  },
-  storeName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.retailCharcoal,
-  },
-  storePriceBlock: {
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-  },
-  storePrice: {
-    fontSize: 16,
-    lineHeight: 16,
-    fontFamily: 'monospace',
-    fontWeight: '700',
-    color: Colors.retailCharcoal,
-  },
-  storePriceDim: {
-    color: 'rgba(43,36,32,0.6)',
-  },
-  storeDiffText: {
-    fontSize: 11,
-    lineHeight: 12,
-    letterSpacing: 0.5,
-    fontWeight: '700',
-    color: Colors.retailTerracotta,
-    marginTop: 4,
-    textTransform: 'uppercase',
-  },
-  storeMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 12,
-  },
-  storeMetaText: {
-    fontSize: 13,
-    color: Colors.retailMuted,
-  },
-  storeMetaSep: {
-    color: 'rgba(43,36,32,0.2)',
-    marginHorizontal: 4,
-    fontSize: 12,
-  },
-  receiptDashed: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(43,36,32,0.1)',
-    borderStyle: 'dashed',
-    marginBottom: 12,
-  },
-  receiptDashedCheapest: {
-    borderBottomColor: 'rgba(58,104,71,0.35)',
-  },
-  savingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.retailSurfaceLow,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  savingsLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  savingsText: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    color: Colors.retailBasil,
-  },
-  savingsRowMuted: {
-    alignItems: 'flex-start',
-  },
-  savingsMutedText: {
-    fontSize: 12,
-    color: Colors.retailMuted,
-  },
-
-  // ── Best Price Summary Banner
-  summaryBanner: {
-    marginTop: 4,
-    backgroundColor: 'rgba(232,169,63,0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(232,169,63,0.2)',
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: 'rgba(43,36,32,0.04)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 1,
-  },
-  summaryLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  summaryTrophy: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.retailTurmeric,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.retailCharcoal,
-  },
-  summarySubtitle: {
-    fontSize: 12,
-    color: Colors.retailMuted,
-    marginTop: 2,
-  },
-  summaryPill: {
-    backgroundColor: Colors.retailBasil,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  summaryPillText: {
-    fontSize: 13,
-    lineHeight: 14,
-    fontFamily: 'monospace',
-    fontWeight: '500',
-    color: '#FFFFFF',
-  },
-
-  // ── Sticky Bottom CTA
-  bottomCtaWrap: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
-    paddingTop: 32,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
-    backgroundColor: 'transparent',
-    overflow: 'hidden',
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-  },
-  bottomCta: {
-    backgroundColor: Colors.retailTerracotta,
-    height: 52,
-    borderRadius: 26,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: 'rgba(43,36,32,0.2)',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  bottomCtaText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-
-  // ── Modal shared
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  modalSheet: {
-    backgroundColor: '#F9FAFB',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    maxHeight: '85%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  modalHandle: {
-    alignSelf: 'center',
-    width: 38,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#D1D5DB',
-    marginBottom: 10,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-    letterSpacing: -0.3,
-  },
-  modalPrice: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#166534',
-    marginBottom: 12,
-  },
-  modalSub: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  modalList: {
-    flexGrow: 0,
-  },
-  modalListContent: {
-    paddingBottom: 16,
-  },
-  modalGroupCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  modalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  modalDivider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-  },
-  modalRowLeft: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  modalItemName: {
-    fontSize: 14.5,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  modalItemQty: {
-    fontSize: 12.5,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  modalItemPrice: {
-    fontSize: 14.5,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  modalTotalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  modalTotalLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  modalTotalValue: {
+  heroPrice: {
     fontSize: 18,
     fontWeight: '800',
     color: '#166534',
   },
-
-  // ── Compare items modal
-  compareItemCard: {
-    backgroundColor: Colors.retailCard,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.retailOutlineWarm,
+  heroStoreName: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
+    marginTop: 4,
+  },
+  heroStoreAddress: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  heroDetails: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  heroDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  heroDetailText: {
+    fontSize: 12,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  rankedTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  storeComparisonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     padding: 12,
-    marginBottom: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  storeRank: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  rankNum: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  storeNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
-  compareItemName: {
+  storeTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  verifiedMiniBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 6,
+    gap: 2,
+  },
+  verifiedMiniText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  storeCatText: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  storePriceCol: {
+    alignItems: 'flex-end',
+  },
+  storeTotalText: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.retailCharcoal,
-    marginBottom: 2,
+    color: '#111827',
   },
-  compareRow: {
+  storeDiffText: {
+    fontSize: 11,
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  cheapestLabel: {
+    fontSize: 10.5,
+    color: '#166534',
+    fontWeight: '700',
+  },
+  splitHeroCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#FDBA74',
+    marginBottom: 14,
+  },
+  splitHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  compareStoreName: {
-    fontSize: 13,
-    color: Colors.retailMuted,
-  },
-  compareRowPrice: {
-    fontSize: 13,
-    fontFamily: 'monospace',
-    color: Colors.retailCharcoal,
-  },
-  compareBestWrap: {
+  splitTag: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFEDD5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
     gap: 4,
   },
-  compareBestPrice: {
-    fontSize: 13,
-    fontFamily: 'monospace',
+  splitTagText: {
+    fontSize: 11.5,
     fontWeight: '700',
-    color: Colors.retailBasil,
+    color: '#9A3412',
+  },
+  splitComparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  splitLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  splitTotalAmount: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  splitSavingsBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignItems: 'flex-end',
+  },
+  splitSavingsLabel: {
+    fontSize: 10,
+    color: '#166534',
+    fontWeight: '600',
+  },
+  splitSavingsValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  splitStoresNotice: {
+    fontSize: 12,
+    color: '#4B5563',
+    marginTop: 10,
+    lineHeight: 16,
+  },
+  claimSavingsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 12,
+    gap: 6,
+  },
+  claimSavingsBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  splitItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  splitItemLeft: {
+    flex: 1,
+  },
+  splitItemName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  splitItemQty: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  storePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginTop: 6,
+    gap: 4,
+  },
+  storePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  splitItemRight: {
+    alignItems: 'flex-end',
+  },
+  splitItemPrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  splitDiscountLabel: {
+    fontSize: 10,
+    color: '#C2410C',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  shopOwnerBanner: {
+    backgroundColor: '#F0FDFA',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    marginTop: 10,
+  },
+  shopOwnerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  shopOwnerTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#115E59',
+  },
+  shopOwnerSub: {
+    fontSize: 11.5,
+    color: '#0F766E',
+    marginTop: 2,
+  },
+  shopOwnerBtn: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#0F766E',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginTop: 8,
+  },
+  shopOwnerBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  loadingBox: {
+    padding: 40,
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  settingsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  settingsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+  },
+  settingsTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  settingsLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  numBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  numBtnActive: {
+    backgroundColor: Colors.primary,
+  },
+  numBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  numBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  closeSettingsBtn: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  closeSettingsBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

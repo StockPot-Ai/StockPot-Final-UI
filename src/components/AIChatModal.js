@@ -60,11 +60,15 @@ export default function AIChatModal({ visible, onClose }) {
 
     try {
       const response = await aiService.chat(text);
+      const replyText =
+        typeof response === 'string'
+          ? response
+          : response?.response || response?.reply || 'Here is your personalized StockPot AI culinary suggestion!';
       const assistantMsg = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        text: response.response || 'I found a great recipe suggestion for you!',
-        source: response.source || 'gemini',
+        text: replyText,
+        source: response?.source || 'gemini',
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err) {
