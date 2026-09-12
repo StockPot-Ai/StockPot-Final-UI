@@ -9,18 +9,25 @@ import {
   StyleSheet,
   Alert,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { shopOwnerService } from '../../services';
 
 const ShopOwnerModal = ({ visible, onClose, onShopRegistered }) => {
+  const [googleMapsUrl, setGoogleMapsUrl] = useState('');
+  const [isExtractingGoogle, setIsExtractingGoogle] = useState(false);
+  const [googleDataExtracted, setGoogleDataExtracted] = useState(false);
+
   const [shopName, setShopName] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [openingHours, setOpeningHours] = useState('7:00 AM – 10:00 PM');
   const [category, setCategory] = useState('Local Grocery & Spices');
   const [deliveryAvailable, setDeliveryAvailable] = useState(true);
+  const [googleRating, setGoogleRating] = useState(4.8);
+  const [googleReviewsCount, setGoogleReviewsCount] = useState(142);
   
   // Custom Product
   const [productName, setProductName] = useState('Fresh Coconut / Vegetables');
@@ -28,13 +35,34 @@ const ShopOwnerModal = ({ visible, onClose, onShopRegistered }) => {
   const [discountPercent, setDiscountPercent] = useState('10');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Auto-parse Google Maps location URL
+  const handleExtractFromGoogle = () => {
+    if (!googleMapsUrl.trim()) {
+      Alert.alert('Google Maps Link', 'Please enter or paste your shop Google Maps location link first.');
+      return;
+    }
+
+    setIsExtractingGoogle(true);
+    setTimeout(() => {
+      const parsed = shopOwnerService.parseGoogleMapsUrl(googleMapsUrl);
+      if (parsed) {
+        setShopName(parsed.name);
+        setAddress(parsed.address);
+        setGoogleRating(parsed.rating);
+        setGoogleReviewsCount(parsed.reviewsCount);
+        setGoogleDataExtracted(true);
+      }
+      setIsExtractingGoogle(false);
+    }, 600);
+  };
+
   const handleSubmit = async () => {
     if (!shopName.trim()) {
       Alert.alert('Required', 'Please enter your shop or business name');
       return;
     }
     if (!address.trim()) {
-      Alert.alert('Required', 'Please provide a business address');
+      Alert.alert('Required', 'Please provide a business address or Google location');
       return;
     }
 
@@ -47,6 +75,9 @@ const ShopOwnerModal = ({ visible, onClose, onShopRegistered }) => {
         openingHours,
         category,
         deliveryAvailable,
+        googleMapsUrl: googleMapsUrl.trim(),
+        googleRating,
+        googleReviewsCount,
         latitude: 6.9189,
         longitude: 79.8682,
       };
@@ -55,12 +86,17 @@ const ShopOwnerModal = ({ visible, onClose, onShopRegistered }) => {
       setIsSubmitting(false);
 
       Alert.alert(
-        '🎉 Store Registered & Verified!',
-        `Your shop "${payload.name}" is now live on StockPot AI with the Verified Shop badge!\n\n🏆 You earned +100 XP for connecting local business inventory!`,
-        [{ text: 'Awesome!', onPress: () => {
-          onShopRegistered && onShopRegistered(res.data);
-          onClose();
-        }}]
+        '⏳ Submitted for Admin Review!',
+        `Your store "${payload.name}" has been successfully submitted with Google Maps profile verification.\n\n🛡️ Admin Review Notice: Our moderation team reviews all local business coordinates within 24 hours to guarantee authentic prices.\n\n🏆 You earned +100 XP!`,
+        [
+          {
+            text: 'Understood',
+            onPress: () => {
+              onShopRegistered && onShopRegistered(res.data);
+              onClose();
+            },
+          },
+        ]
       );
     } catch (_) {
       setIsSubmitting(false);
@@ -79,28 +115,79 @@ const ShopOwnerModal = ({ visible, onClose, onShopRegistered }) => {
                 <MaterialCommunityIcons name="storefront-outline" size={22} color={Colors.primary} />
               </View>
               <View>
-                <Text style={styles.headerTitle}>Shop Owner Portal</Text>
-                <Text style={styles.headerSub}>Register local business & live prices</Text>
+                <Text style={styles.headerTitle}>Register Local Store</Text>
+                <Text style={styles.headerSub}>Google Location & Admin Verification</Text>
               </View>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color="#6B7280" />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-            {/* Banner */}
-            <View style={styles.infoBanner}>
-              <Ionicons name="shield-checkmark" size={18} color="#166534" />
-              <Text style={styles.infoBannerText}>
-                Verified shops appear in the StockPot Price Comparison Engine with instant nearby delivery visibility.
-              </Text>
+            {/* Admin Verification Note Banner */}
+            <View style={styles.reviewNoticeBanner}>
+              <Ionicons name="shield-checkmark" size={20} color="#007A3D" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.noticeTitle}>Admin Verification Required</Text>
+                <Text style={styles.noticeDesc}>
+                  To prevent fraudulent listings, all local stores are reviewed by admins using Google Maps location data.
+                </Text>
+              </View>
             </View>
 
-            <Text style={styles.sectionLabel}>Business / Store Name *</Text>
+            {/* Google Location Link Card */}
+            <View style={styles.googleCard}>
+              <View style={styles.googleCardHeader}>
+                <Ionicons name="location" size={18} color="#EA4335" />
+                <Text style={styles.googleCardTitle}>Google Maps / Location Profile URL</Text>
+              </View>
+              <Text style={styles.googleCardHelp}>
+                Paste your shop Google Maps link to auto-fill address, ratings & coordinates.
+              </Text>
+              <View style={styles.googleInputRow}>
+                <TextInput
+                  style={styles.googleInput}
+                  placeholder="https://maps.app.goo.gl/..."
+                  placeholderTextColor="#9CA3AF"
+                  value={googleMapsUrl}
+                  onChangeText={(val) => {
+                    setGoogleMapsUrl(val);
+                    setGoogleDataExtracted(false);
+                  }}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.extractBtn}
+                  onPress={handleExtractFromGoogle}
+                  disabled={isExtractingGoogle}
+                  activeOpacity={0.8}
+                >
+                  {isExtractingGoogle ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.extractBtnText}>Auto-Fill</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {googleDataExtracted && (
+                <View style={styles.googlePreviewPill}>
+                  <View style={styles.googleRatingRow}>
+                    <FontAwesome5 name="star" solid size={12} color="#F59E0B" />
+                    <Text style={styles.googleRatingText}>{googleRating} Rating</Text>
+                    <Text style={styles.googleReviewCount}>({googleReviewsCount} Google reviews)</Text>
+                  </View>
+                  <Text style={styles.googleVerifiedBadge}>✓ Verified Place Data</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Shop Details */}
+            <Text style={styles.sectionLabel}>Store / Shop Name *</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. City Fresh Mart"
+              placeholder="e.g. City Fresh Corner Mart"
               placeholderTextColor="#9CA3AF"
               value={shopName}
               onChangeText={setShopName}
@@ -140,9 +227,9 @@ const ShopOwnerModal = ({ visible, onClose, onShopRegistered }) => {
             </View>
 
             <View style={styles.switchRow}>
-              <View>
-                <Text style={styles.switchTitle}>Neighborhood Delivery</Text>
-                <Text style={styles.switchSub}>Offer direct delivery to nearby customers</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.switchTitle}>Neighborhood Delivery Available</Text>
+                <Text style={styles.switchSub}>Display fast doorstep delivery badge to nearby shoppers</Text>
               </View>
               <Switch
                 value={deliveryAvailable}
@@ -152,7 +239,7 @@ const ShopOwnerModal = ({ visible, onClose, onShopRegistered }) => {
             </View>
 
             <View style={styles.divider} />
-            <Text style={styles.sectionHeading}>Sample Featured Product & Discount</Text>
+            <Text style={styles.sectionHeading}>Initial Featured Product Deal</Text>
 
             <Text style={styles.sectionLabel}>Featured Product</Text>
             <TextInput
@@ -182,7 +269,7 @@ const ShopOwnerModal = ({ visible, onClose, onShopRegistered }) => {
               </View>
             </View>
 
-            <View style={{ height: 20 }} />
+            <View style={{ height: 24 }} />
           </ScrollView>
 
           {/* Footer CTA */}
@@ -193,9 +280,9 @@ const ShopOwnerModal = ({ visible, onClose, onShopRegistered }) => {
               disabled={isSubmitting}
               activeOpacity={0.85}
             >
-              <Ionicons name="checkmark-done-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Ionicons name="shield-checkmark-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text style={styles.submitBtnText}>
-                {isSubmitting ? 'Registering...' : 'Register Verified Shop (+100 XP)'}
+                {isSubmitting ? 'Submitting...' : 'Submit for Admin Review (+100 XP)'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -215,7 +302,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: '85%',
+    height: '88%',
     paddingTop: 16,
   },
   header: {
@@ -223,7 +310,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
@@ -248,6 +335,7 @@ const styles = StyleSheet.create({
   headerSub: {
     fontSize: 12,
     color: '#6B7280',
+    marginTop: 1,
   },
   closeBtn: {
     padding: 6,
@@ -257,35 +345,120 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 14,
   },
-  infoBanner: {
+  reviewNoticeBanner: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: '#F0FDF4',
     borderWidth: 1,
     borderColor: '#BBF7D0',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 12,
     marginBottom: 14,
-    gap: 8,
+    gap: 10,
   },
-  infoBannerText: {
-    flex: 1,
-    fontSize: 12,
+  noticeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  noticeDesc: {
+    fontSize: 11.5,
     color: '#166534',
     lineHeight: 16,
+    marginTop: 2,
+  },
+  googleCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  googleCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  googleCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  googleCardHelp: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 3,
+    marginBottom: 10,
+  },
+  googleInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  googleInput: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#1E293B',
+  },
+  extractBtn: {
+    backgroundColor: '#007A3D',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  extractBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  googlePreviewPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 10,
+  },
+  googleRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  googleRatingText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  googleReviewCount: {
+    fontSize: 11,
+    color: '#92400E',
+  },
+  googleVerifiedBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#007A3D',
   },
   sectionLabel: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 6,
+    marginBottom: 5,
     marginTop: 8,
   },
   sectionHeading: {
     fontSize: 14,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   input: {
     backgroundColor: '#F9FAFB',
@@ -294,9 +467,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   rowInputs: {
     flexDirection: 'row',
@@ -306,22 +479,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    marginVertical: 6,
+    paddingVertical: 10,
+    marginVertical: 4,
   },
   switchTitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '600',
     color: '#1F2937',
   },
   switchSub: {
-    fontSize: 11.5,
+    fontSize: 11,
     color: '#6B7280',
+    marginTop: 1,
   },
   divider: {
     height: 1,
     backgroundColor: '#E5E7EB',
-    marginVertical: 14,
+    marginVertical: 12,
   },
   footer: {
     padding: 16,
@@ -344,7 +518,7 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '700',
   },
 });

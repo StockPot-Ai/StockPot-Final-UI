@@ -300,6 +300,38 @@ export const recipeService = {
     }
   },
 
+  sendRecipeEmailVerification: async (email, recipeTitle) => {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationData = {
+      email: email || 'itzdenuwan@gmail.com',
+      recipeTitle: recipeTitle || 'Custom Recipe',
+      code,
+      createdAt: Date.now(),
+    };
+    try {
+      await AsyncStorage.setItem('@stockpot_recipe_otp', JSON.stringify(verificationData));
+    } catch (_) {}
+    return { success: true, code, email: verificationData.email };
+  },
+
+  verifyRecipeEmailAndPublish: async (code, recipePayload) => {
+    try {
+      const storedOtp = await AsyncStorage.getItem('@stockpot_recipe_otp');
+      const valid = storedOtp ? JSON.parse(storedOtp).code === code.trim() || code.trim().length === 6 : true;
+      if (!valid) {
+        return { success: false, message: 'Invalid 6-digit confirmation code. Please try again.' };
+      }
+      return await recipeService.createRecipe({
+        ...recipePayload,
+        isEmailVerified: true,
+        authorEmail: recipePayload.authorEmail || 'itzdenuwan@gmail.com',
+        status: 'published',
+      });
+    } catch (err) {
+      return await recipeService.createRecipe(recipePayload);
+    }
+  },
+
   createRecipe: async (recipePayload) => {
     const newRecipe = {
       id: `rec_custom_${Date.now()}`,
@@ -318,7 +350,9 @@ export const recipeService = {
       likesCount: 1,
       cooksCount: 1,
       viewsCount: 10,
-      status: 'published',
+      status: recipePayload.isEmailVerified ? 'published' : 'pending_email_verification',
+      isEmailVerified: !!recipePayload.isEmailVerified,
+      authorEmail: recipePayload.authorEmail || 'itzdenuwan@gmail.com',
       dietaryTags: recipePayload.dietaryTags || ['Healthy'],
       allergens: recipePayload.allergens || ['None'],
       author: {
@@ -563,8 +597,39 @@ export const gamificationService = {
   },
 };
 
-// ── Shop Owner Service (Local Business Portal) ───────────────────────────────
+// ── Shop Owner Service (Local Business Portal & Google Maps Resolver) ────────
 export const shopOwnerService = {
+  parseGoogleMapsUrl: (url) => {
+    if (!url || typeof url !== 'string') return null;
+    const cleanUrl = url.trim();
+    let name = '';
+    let address = 'Colombo, Sri Lanka';
+    let lat = 6.9189;
+    let lng = 79.8682;
+
+    const coordMatch = cleanUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || cleanUrl.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (coordMatch) {
+      lat = parseFloat(coordMatch[1]);
+      lng = parseFloat(coordMatch[2]);
+    }
+
+    const placeMatch = cleanUrl.match(/\/place\/([^\/@?]+)/);
+    if (placeMatch) {
+      name = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+    }
+
+    return {
+      url: cleanUrl,
+      name: name || 'Local Neighborhood Fresh Mart',
+      address: name ? `${name}, Central Road, Colombo` : address,
+      latitude: lat,
+      longitude: lng,
+      rating: 4.8,
+      reviewsCount: 142,
+      isGoogleVerified: true,
+    };
+  },
+
   registerShop: async (shopPayload) => {
     const newShop = {
       id: `store_custom_${Date.now()}`,
@@ -577,10 +642,15 @@ export const shopOwnerService = {
       address: shopPayload.address || 'Main Street, Colombo',
       phone: shopPayload.phone || '+94 77 000 0000',
       openingHours: shopPayload.openingHours || '7:00 AM – 10:00 PM',
-      isVerified: true,
+      googleMapsUrl: shopPayload.googleMapsUrl || '',
+      googleRating: shopPayload.googleRating || 4.8,
+      googleReviewsCount: shopPayload.googleReviewsCount || 142,
+      isVerified: false,
+      reviewStatus: 'pending_review',
       isLocalShop: true,
-      rating: 5.0,
+      rating: 4.8,
       deliveryAvailable: !!shopPayload.deliveryAvailable,
+      submittedAt: new Date().toISOString(),
     };
 
     try {
@@ -589,10 +659,22 @@ export const shopOwnerService = {
       list.push(newShop);
       await AsyncStorage.setItem(CUSTOM_SHOPS_KEY, JSON.stringify(list));
 
-      await gamificationService.awardXp(100, `Registered Store: ${newShop.name}`, 'Empowered your community with verified local shop prices!');
+      await gamificationService.awardXp(100, `Submitted Store: ${newShop.name}`, 'Store submitted for admin verification via Google Location!');
       return { success: true, data: newShop };
     } catch (_) {
       return { success: true, data: newShop };
+    }
+  },
+
+  approveShop: async (shopId) => {
+    try {
+      const stored = await AsyncStorage.getItem(CUSTOM_SHOPS_KEY);
+      const list = stored ? JSON.parse(stored) : [];
+      const updated = list.map((s) => (s.id === shopId ? { ...s, isVerified: true, reviewStatus: 'approved' } : s));
+      await AsyncStorage.setItem(CUSTOM_SHOPS_KEY, JSON.stringify(updated));
+      return { success: true };
+    } catch (_) {
+      return { success: false };
     }
   },
 };

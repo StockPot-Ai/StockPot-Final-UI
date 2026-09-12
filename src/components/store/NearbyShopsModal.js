@@ -104,12 +104,16 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
                     <View style={{ flex: 1 }}>
                       <View style={styles.titleRow}>
                         <Text style={styles.storeName}>{store.name}</Text>
-                        {store.isVerified && (
+                        {store.isVerified ? (
                           <View style={styles.verifiedBadge}>
                             <Ionicons name="checkmark-circle" size={13} color="#166534" />
                             <Text style={styles.verifiedText}>Verified</Text>
                           </View>
-                        )}
+                        ) : store.reviewStatus === 'pending_review' ? (
+                          <View style={styles.pendingBadge}>
+                            <Text style={styles.pendingText}>Pending Review ⏳</Text>
+                          </View>
+                        ) : null}
                       </View>
                       <Text style={styles.storeAddress}>{store.address}</Text>
                     </View>
@@ -125,7 +129,9 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
                     </View>
                     <View style={styles.metaItem}>
                       <Ionicons name="star" size={13} color="#F59E0B" />
-                      <Text style={styles.metaLabel}>{store.rating} Rating</Text>
+                      <Text style={styles.metaLabel}>
+                        {store.googleRating || store.rating || '4.8'} ({store.googleReviewsCount || '120+'})
+                      </Text>
                     </View>
                     {store.deliveryAvailable && (
                       <View style={styles.deliveryTag}>
@@ -294,6 +300,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#166534',
+  },
+  pendingBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  pendingText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#92400E',
   },
   storeAddress: {
     fontSize: 12,

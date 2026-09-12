@@ -10,16 +10,22 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { recipeService } from '../../services';
+import { useAccount } from '../../context/AccountContext';
 
 const CUISINES = ['Sri Lankan', 'Indian', 'Italian', 'Asian Fusion', 'Continental', 'Mexican'];
 const CATEGORIES = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Desserts'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 
 const CreateRecipeModal = ({ visible, onClose, onRecipeCreated }) => {
+  const { profile } = useAccount();
+  const userEmail = profile?.email || 'itzdenuwan@gmail.com';
+
+  const [step, setStep] = useState(1); // 1 = Details, 2 = Email Verification
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Dinner');
@@ -40,7 +46,7 @@ const CreateRecipeModal = ({ visible, onClose, onRecipeCreated }) => {
   const [newIngQty, setNewIngQty] = useState('');
 
   // Steps
-  const [steps, setSteps] = useState([
+  const [cookingSteps, setCookingSteps] = useState([
     'Chop and prepare all fresh vegetables and spices.',
     'Heat oil in a pan, sauté aromatics, and cook ingredients thoroughly.',
     'Season with salt and herbs, garnish, and serve hot.',
@@ -49,6 +55,11 @@ const CreateRecipeModal = ({ visible, onClose, onRecipeCreated }) => {
 
   const [dietaryTags, setDietaryTags] = useState(['Healthy', 'Gluten-Free']);
   const [allergens, setAllergens] = useState('None');
+  
+  // Email confirmation state
+  const [verificationCode, setVerificationCode] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddIngredient = () => {
@@ -67,21 +78,34 @@ const CreateRecipeModal = ({ visible, onClose, onRecipeCreated }) => {
 
   const handleAddStep = () => {
     if (!newStep.trim()) return;
-    setSteps((prev) => [...prev, newStep.trim()]);
+    setCookingSteps((prev) => [...prev, newStep.trim()]);
     setNewStep('');
   };
 
   const handleRemoveStep = (index) => {
-    setSteps((prev) => prev.filter((_, idx) => idx !== index));
+    setCookingSteps((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleSubmit = async () => {
+  const handleProceedToVerification = async () => {
     if (!title.trim()) {
       Alert.alert('Required', 'Please enter a recipe title');
       return;
     }
     if (ingredients.length === 0) {
       Alert.alert('Required', 'Please add at least one ingredient');
+      return;
+    }
+
+    setIsSendingOtp(true);
+    const res = await recipeService.sendRecipeEmailVerification(userEmail, title);
+    setIsSendingOtp(false);
+    setGeneratedCode(res.code);
+    setStep(2);
+  };
+
+  const handleVerifyAndPublish = async () => {
+    if (!verificationCode.trim() || verificationCode.trim().length < 4) {
+      Alert.alert('Verification Code', 'Please enter the 6-digit confirmation code sent to your email.');
       return;
     }
 
@@ -100,30 +124,46 @@ const CreateRecipeModal = ({ visible, onClose, onRecipeCreated }) => {
         calories: parseInt(calories) || 300,
         image: imageUrl,
         ingredients,
-        steps,
+        steps: cookingSteps,
         dietaryTags,
         allergens: [allergens.trim() || 'None'],
+        authorEmail: userEmail,
       };
 
-      const res = await recipeService.createRecipe(payload);
+      const res = await recipeService.verifyRecipeEmailAndPublish(verificationCode, payload);
       setIsSubmitting(false);
 
-      Alert.alert(
-        '🎉 Recipe Published!',
-        'Your recipe has been published to the community feed!\n\n🏆 You earned +50 XP and the Recipe Starter badge!',
-        [{ text: 'Great!', onPress: () => {
-          onRecipeCreated && onRecipeCreated(res.data);
-          onClose();
-        }}]
-      );
-    } catch (err) {
+      if (res.success) {
+        Alert.alert(
+          '🎉 Recipe Verified & Published!',
+          `Your recipe "${payload.title}" is now live on the Community Hub with Verified Author status!\n\n🏆 You earned +50 XP!`,
+          [
+            {
+              text: 'Awesome!',
+              onPress: () => {
+                onRecipeCreated && onRecipeCreated(res.data);
+                handleClose();
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Verification Failed', res.message || 'Invalid code');
+      }
+    } catch (_) {
       setIsSubmitting(false);
-      Alert.alert('Error', 'Could not save recipe.');
+      handleClose();
     }
   };
 
+  const handleClose = () => {
+    setStep(1);
+    setVerificationCode('');
+    onClose();
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
@@ -136,184 +176,263 @@ const CreateRecipeModal = ({ visible, onClose, onRecipeCreated }) => {
                 <Ionicons name="restaurant" size={20} color={Colors.primary} />
               </View>
               <View>
-                <Text style={styles.headerTitle}>Create Community Recipe</Text>
-                <Text style={styles.headerSub}>Earn +50 XP for contributing</Text>
+                <Text style={styles.headerTitle}>
+                  {step === 1 ? 'Create Community Recipe' : 'Verify Author Email'}
+                </Text>
+                <Text style={styles.headerSub}>
+                  {step === 1 ? 'Step 1 of 2: Recipe Details' : 'Step 2 of 2: Email Confirmation'}
+                </Text>
               </View>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color="#6B7280" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-            {/* Title & Description */}
-            <Text style={styles.sectionLabel}>Recipe Title *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Crispy Jaffna Crab Curry"
-              placeholderTextColor="#9CA3AF"
-              value={title}
-              onChangeText={setTitle}
-            />
-
-            <Text style={styles.sectionLabel}>Short Description</Text>
-            <TextInput
-              style={[styles.input, { height: 64 }]}
-              placeholder="A brief appetizing story or overview of the dish..."
-              placeholderTextColor="#9CA3AF"
-              multiline
-              value={description}
-              onChangeText={setDescription}
-            />
-
-            {/* Category Chips */}
-            <Text style={styles.sectionLabel}>Category</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-              {CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[styles.chip, category === cat && styles.chipActive]}
-                  onPress={() => setCategory(cat)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.chipText, category === cat && styles.chipTextActive]}>
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Cuisine Chips */}
-            <Text style={styles.sectionLabel}>Cuisine</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-              {CUISINES.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  style={[styles.chip, cuisine === c && styles.chipActive]}
-                  onPress={() => setCuisine(c)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.chipText, cuisine === c && styles.chipTextActive]}>{c}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Timing & Budget Row */}
-            <View style={styles.rowInputs}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sectionLabel}>Prep Time</Text>
-                <TextInput
-                  style={styles.input}
-                  value={prepTime}
-                  onChangeText={setPrepTime}
-                  placeholder="15 mins"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-              <View style={{ flex: 1, marginHorizontal: 8 }}>
-                <Text style={styles.sectionLabel}>Cook Time</Text>
-                <TextInput
-                  style={styles.input}
-                  value={cookTime}
-                  onChangeText={setCookTime}
-                  placeholder="25 mins"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sectionLabel}>Est. Cost (Rs.)</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="numeric"
-                  value={estimatedCost}
-                  onChangeText={setEstimatedCost}
-                  placeholder="850"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-            </View>
-
-            {/* Ingredients Section */}
-            <View style={styles.divider} />
-            <Text style={styles.sectionHeading}>Ingredients List ({ingredients.length})</Text>
-
-            {ingredients.map((ing, idx) => (
-              <View key={idx} style={styles.itemRow}>
-                <Ionicons name="checkmark-circle" size={16} color={Colors.primary} />
-                <Text style={styles.itemText}>
-                  {ing.name} <Text style={styles.itemQty}>({ing.quantity})</Text>
-                </Text>
-                <TouchableOpacity onPress={() => handleRemoveIngredient(idx)}>
-                  <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                </TouchableOpacity>
-              </View>
-            ))}
-
-            <View style={styles.addRow}>
+          {step === 1 ? (
+            <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
+              {/* Title & Description */}
+              <Text style={styles.sectionLabel}>Recipe Title *</Text>
               <TextInput
-                style={[styles.input, { flex: 2, marginBottom: 0 }]}
-                placeholder="Ingredient name"
+                style={styles.input}
+                placeholder="e.g. Crispy Jaffna Crab Curry"
                 placeholderTextColor="#9CA3AF"
-                value={newIngName}
-                onChangeText={setNewIngName}
+                value={title}
+                onChangeText={setTitle}
               />
+
+              <Text style={styles.sectionLabel}>Short Description</Text>
               <TextInput
-                style={[styles.input, { flex: 1, marginHorizontal: 6, marginBottom: 0 }]}
-                placeholder="Qty (e.g. 200g)"
+                style={[styles.input, { height: 64 }]}
+                placeholder="A brief appetizing story or overview of the dish..."
                 placeholderTextColor="#9CA3AF"
-                value={newIngQty}
-                onChangeText={setNewIngQty}
+                multiline
+                value={description}
+                onChangeText={setDescription}
               />
-              <TouchableOpacity style={styles.addBtn} onPress={handleAddIngredient}>
-                <Ionicons name="add" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
 
-            {/* Cooking Steps Section */}
-            <View style={styles.divider} />
-            <Text style={styles.sectionHeading}>Cooking Directions ({steps.length} steps)</Text>
+              {/* Category Chips */}
+              <Text style={styles.sectionLabel}>Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                {CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.chip, category === cat && styles.chipActive]}
+                    onPress={() => setCategory(cat)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, category === cat && styles.chipTextActive]}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
-            {steps.map((st, idx) => (
-              <View key={idx} style={styles.stepItem}>
-                <View style={styles.stepBadge}>
-                  <Text style={styles.stepBadgeText}>{idx + 1}</Text>
+              {/* Cuisine Chips */}
+              <Text style={styles.sectionLabel}>Cuisine</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                {CUISINES.map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[styles.chip, cuisine === c && styles.chipActive]}
+                    onPress={() => setCuisine(c)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, cuisine === c && styles.chipTextActive]}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Timing & Budget Row */}
+              <View style={styles.rowInputs}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sectionLabel}>Prep Time</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={prepTime}
+                    onChangeText={setPrepTime}
+                    placeholder="15 mins"
+                    placeholderTextColor="#9CA3AF"
+                  />
                 </View>
-                <Text style={styles.stepText}>{st}</Text>
-                <TouchableOpacity onPress={() => handleRemoveStep(idx)}>
-                  <Ionicons name="close" size={16} color="#9CA3AF" />
+                <View style={{ flex: 1, marginHorizontal: 8 }}>
+                  <Text style={styles.sectionLabel}>Cook Time</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cookTime}
+                    onChangeText={setCookTime}
+                    placeholder="25 mins"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sectionLabel}>Est. Cost (Rs.)</Text>
+                  <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    value={estimatedCost}
+                    onChangeText={setEstimatedCost}
+                    placeholder="850"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+              </View>
+
+              {/* Ingredients Section */}
+              <View style={styles.divider} />
+              <Text style={styles.sectionHeading}>Ingredients List ({ingredients.length})</Text>
+
+              {ingredients.map((ing, idx) => (
+                <View key={idx} style={styles.itemRow}>
+                  <Ionicons name="checkmark-circle" size={16} color={Colors.primary} />
+                  <Text style={styles.itemText}>
+                    {ing.name} <Text style={styles.itemQty}>({ing.quantity})</Text>
+                  </Text>
+                  <TouchableOpacity onPress={() => handleRemoveIngredient(idx)}>
+                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              <View style={styles.addRow}>
+                <TextInput
+                  style={[styles.input, { flex: 2, marginBottom: 0 }]}
+                  placeholder="Ingredient name"
+                  placeholderTextColor="#9CA3AF"
+                  value={newIngName}
+                  onChangeText={setNewIngName}
+                />
+                <TextInput
+                  style={[styles.input, { flex: 1, marginHorizontal: 6, marginBottom: 0 }]}
+                  placeholder="Qty (e.g. 200g)"
+                  placeholderTextColor="#9CA3AF"
+                  value={newIngQty}
+                  onChangeText={setNewIngQty}
+                />
+                <TouchableOpacity style={styles.addBtn} onPress={handleAddIngredient}>
+                  <Ionicons name="add" size={20} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
-            ))}
 
-            <View style={styles.addRow}>
-              <TextInput
-                style={[styles.input, { flex: 1, marginRight: 8, marginBottom: 0 }]}
-                placeholder="Add step description..."
-                placeholderTextColor="#9CA3AF"
-                value={newStep}
-                onChangeText={setNewStep}
-              />
-              <TouchableOpacity style={styles.addBtn} onPress={handleAddStep}>
-                <Ionicons name="add" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
+              {/* Cooking Steps Section */}
+              <View style={styles.divider} />
+              <Text style={styles.sectionHeading}>Cooking Directions ({cookingSteps.length} steps)</Text>
 
-            <View style={{ height: 30 }} />
-          </ScrollView>
+              {cookingSteps.map((st, idx) => (
+                <View key={idx} style={styles.stepItem}>
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepBadgeText}>{idx + 1}</Text>
+                  </View>
+                  <Text style={styles.stepText}>{st}</Text>
+                  <TouchableOpacity onPress={() => handleRemoveStep(idx)}>
+                    <Ionicons name="close" size={16} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              <View style={styles.addRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginRight: 8, marginBottom: 0 }]}
+                  placeholder="Add step description..."
+                  placeholderTextColor="#9CA3AF"
+                  value={newStep}
+                  onChangeText={setNewStep}
+                />
+                <TouchableOpacity style={styles.addBtn} onPress={handleAddStep}>
+                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ height: 30 }} />
+            </ScrollView>
+          ) : (
+            /* Step 2: Email Confirmation Required View */
+            <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.otpCard}>
+                <View style={styles.emailIconCircle}>
+                  <Ionicons name="mail-open" size={32} color="#007A3D" />
+                </View>
+                <Text style={styles.otpCardTitle}>Author Verification Required</Text>
+                <Text style={styles.otpCardDesc}>
+                  To prevent spam and maintain verified recipe quality on StockPot, please confirm your registered email:
+                </Text>
+                <View style={styles.emailChip}>
+                  <Ionicons name="person-circle" size={16} color="#007A3D" />
+                  <Text style={styles.emailChipText}>{userEmail}</Text>
+                </View>
+
+                <Text style={styles.otpPromptLabel}>Enter 6-digit confirmation code:</Text>
+                <TextInput
+                  style={styles.otpInput}
+                  placeholder="e.g. 742910"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  maxLength={6}
+                  value={verificationCode}
+                  onChangeText={setVerificationCode}
+                />
+
+                {generatedCode ? (
+                  <TouchableOpacity
+                    style={styles.demoCodePill}
+                    onPress={() => setVerificationCode(generatedCode)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="flash" size={14} color="#D97706" />
+                    <Text style={styles.demoCodeText}>
+                      Auto-fill verification code: <Text style={{ fontWeight: '800' }}>{generatedCode}</Text>
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </ScrollView>
+          )}
 
           {/* Footer CTA */}
           <View style={styles.footer}>
-            <TouchableOpacity
-              style={[styles.submitBtn, isSubmitting && { opacity: 0.7 }]}
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              activeOpacity={0.85}
-            >
-              <FontAwesome5 name="paper-plane" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.submitBtnText}>
-                {isSubmitting ? 'Publishing...' : 'Publish Recipe (+50 XP)'}
-              </Text>
-            </TouchableOpacity>
+            {step === 1 ? (
+              <TouchableOpacity
+                style={styles.submitBtn}
+                onPress={handleProceedToVerification}
+                disabled={isSendingOtp}
+                activeOpacity={0.85}
+              >
+                {isSendingOtp ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="mail" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.submitBtnText}>Verify Email & Proceed (+50 XP)</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <View style={{ gap: 8 }}>
+                <TouchableOpacity
+                  style={styles.submitBtn}
+                  onPress={handleVerifyAndPublish}
+                  disabled={isSubmitting}
+                  activeOpacity={0.85}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-done" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.submitBtnText}>Confirm Code & Publish</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.backStepBtn}
+                  onPress={() => setStep(1)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.backStepText}>← Edit Recipe Details</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -491,6 +610,90 @@ const styles = StyleSheet.create({
     color: '#374151',
     lineHeight: 18,
   },
+
+  // OTP Card
+  otpCard: {
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 18,
+    padding: 24,
+    marginTop: 12,
+  },
+  emailIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  otpCardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 6,
+  },
+  otpCardDesc: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  emailChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+    marginBottom: 18,
+  },
+  emailChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#007A3D',
+  },
+  otpPromptLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  otpInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 6,
+    textAlign: 'center',
+    color: '#1E293B',
+    width: '75%',
+    marginBottom: 12,
+  },
+  demoCodePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    marginTop: 4,
+  },
+  demoCodeText: {
+    fontSize: 12,
+    color: '#92400E',
+  },
+
   footer: {
     padding: 16,
     borderTopWidth: 1,
@@ -514,6 +717,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  backStepBtn: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  backStepText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
 });
 

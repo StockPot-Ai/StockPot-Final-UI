@@ -19,11 +19,15 @@ import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-ico
 import Colors from '../constants/colors';
 import AIChatModal from '../components/AIChatModal';
 import CreateRecipeModal from '../components/recipe/CreateRecipeModal';
+import NearbyShopsModal from '../components/store/NearbyShopsModal';
+import ShopOwnerModal from '../components/store/ShopOwnerModal';
 import { recipeService, savingsService, gamificationService } from '../services';
 import { CONTRIBUTORS } from '../data/seedData';
 import { useAccount } from '../context/AccountContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_PADDING = 16;
+const SMALL_CARD_WIDTH = (SCREEN_WIDTH - CARD_PADDING * 2 - 12) / 2;
 
 const MEAL_TABS = [
   'All',
@@ -40,7 +44,7 @@ const MEAL_TABS = [
 
 const CUISINES = ['All', 'Sri Lankan', 'Indian', 'Italian', 'Asian Fusion', 'Continental'];
 
-const Header = ({ userName, onOpenCreate }) => (
+const Header = ({ userName, onOpenCreate, onOpenNearbyShops, onOpenShopOwner }) => (
   <View style={styles.header}>
     <View style={styles.headerLeft}>
       <Image
@@ -51,13 +55,19 @@ const Header = ({ userName, onOpenCreate }) => (
         <Text style={styles.greeting}>
           Hi {userName || 'Chef'} <Text style={styles.wave}>👋</Text>
         </Text>
-        <Text style={styles.subGreeting}>What would you like to cook today?</Text>
+        <Text style={styles.subGreeting}>Let's cook smart & save today!</Text>
       </View>
     </View>
-    <TouchableOpacity style={styles.createBtn} onPress={onOpenCreate} activeOpacity={0.8}>
-      <Ionicons name="add" size={18} color="#FFFFFF" />
-      <Text style={styles.createBtnText}>Recipe</Text>
-    </TouchableOpacity>
+
+    <View style={styles.headerActions}>
+      <TouchableOpacity style={styles.shopNavBtn} onPress={onOpenNearbyShops} activeOpacity={0.8}>
+        <Ionicons name="location-outline" size={17} color="#007A3D" />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.createBtn} onPress={onOpenCreate} activeOpacity={0.8}>
+        <Ionicons name="add" size={17} color="#FFFFFF" />
+        <Text style={styles.createBtnText}>Recipe</Text>
+      </TouchableOpacity>
+    </View>
   </View>
 );
 
@@ -67,7 +77,7 @@ const SearchAndFilterBar = ({ search, onSearchChange, onOpenFilter, activeFilter
       <Ionicons name="search" size={18} color="#9CA3AF" />
       <TextInput
         style={styles.searchInput}
-        placeholder="Search recipes, ingredients, cuisines..."
+        placeholder="Search curries, dhal, stores, budget..."
         placeholderTextColor="#9CA3AF"
         value={search}
         onChangeText={onSearchChange}
@@ -79,7 +89,7 @@ const SearchAndFilterBar = ({ search, onSearchChange, onOpenFilter, activeFilter
       )}
     </View>
     <TouchableOpacity style={styles.filterBtn} onPress={onOpenFilter} activeOpacity={0.8}>
-      <Ionicons name="options-outline" size={20} color="#166534" />
+      <Ionicons name="options-outline" size={20} color="#007A3D" />
       {activeFilterCount > 0 && (
         <View style={styles.filterBadge}>
           <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -89,17 +99,21 @@ const SearchAndFilterBar = ({ search, onSearchChange, onOpenFilter, activeFilter
   </View>
 );
 
-const MilestoneBanner = ({ onPress, savingsAmount }) => (
-  <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.milestoneBanner}>
+// ── Beautiful, Cute Weekly Milestone Banner ──
+const MilestoneBanner = ({ onPress, savingsAmount = 1250, streakDays = 5 }) => (
+  <TouchableOpacity onPress={onPress} activeOpacity={0.88} style={styles.milestoneBanner}>
     <View style={styles.milestoneLeft}>
-      <Text style={styles.milestoneTitle}>Weekly Milestone</Text>
+      <View style={styles.milestoneHeaderRow}>
+        <Text style={styles.milestoneTitle}>Weekly Milestone</Text>
+        <Ionicons name="sparkles" size={12} color="#007A3D" />
+      </View>
       <Text style={styles.milestoneSavings}>
-        You've saved Rs {savingsAmount ? savingsAmount.toLocaleString() : '0'} this week!
+        Save Rs. {savingsAmount ? savingsAmount.toLocaleString() : '1,200'} this week
       </Text>
-      <Text style={styles.milestoneFlame}>🔥</Text>
+      <Text style={styles.milestoneFlame}>🔥 {streakDays}-day cooking streak!</Text>
     </View>
     <View style={styles.trendCircle}>
-      <Ionicons name="trending-down" size={22} color={Colors.primary} />
+      <Ionicons name="trending-up" size={22} color="#FFFFFF" />
     </View>
   </TouchableOpacity>
 );
@@ -128,11 +142,39 @@ const MealFilterTabs = ({ activeTab, onTabChange }) => (
   </ScrollView>
 );
 
+const LocalShopsPromoBanner = ({ onFindShops, onRegisterShop }) => (
+  <View style={styles.localShopsBanner}>
+    <View style={styles.localShopsContent}>
+      <View style={styles.localShopsBadge}>
+        <Ionicons name="storefront" size={12} color="#D97706" />
+        <Text style={styles.localShopsBadgeText}>Neighborhood Markets</Text>
+      </View>
+      <Text style={styles.localShopsTitle}>Compare Local Supermarkets & Shops</Text>
+      <Text style={styles.localShopsDesc}>
+        Find cheaper prices near you across Keells, Cargills, Glomark, and verified neighborhood grocers.
+      </Text>
+      <View style={styles.localShopsBtnRow}>
+        <TouchableOpacity style={styles.findShopsBtn} onPress={onFindShops} activeOpacity={0.8}>
+          <Text style={styles.findShopsBtnText}>Find Nearby Shops 📍</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.ownerPortalBtn} onPress={onRegisterShop} activeOpacity={0.8}>
+          <Text style={styles.ownerPortalBtnText}>Add My Store +</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+);
+
 const TopContributorsSection = () => (
   <View style={styles.section}>
     <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>Top Community Chefs</Text>
-      <Text style={styles.sectionSub}>Recognized creators</Text>
+      <View>
+        <Text style={styles.sectionTitle}>Community Chef Highlights</Text>
+        <Text style={styles.sectionSub}>Top home recipe contributors</Text>
+      </View>
+      <View style={styles.communityHeartPill}>
+        <Text style={styles.communityHeartText}>👨‍🍳 4 Active Chefs</Text>
+      </View>
     </View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.contributorsRow}>
       {CONTRIBUTORS.map((c) => (
@@ -140,7 +182,7 @@ const TopContributorsSection = () => (
           <Image source={{ uri: c.avatar }} style={styles.contributorAvatar} />
           <Text style={styles.contributorName} numberOfLines={1}>{c.name}</Text>
           <View style={styles.contributorBadge}>
-            <Ionicons name="ribbon" size={12} color="#166534" />
+            <Ionicons name="ribbon" size={11} color="#007A3D" />
             <Text style={styles.contributorBadgeText}>{c.badge}</Text>
           </View>
           <Text style={styles.contributorStats}>
@@ -165,7 +207,7 @@ const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
       <View style={styles.section}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={Colors.primary} />
-          <Text style={styles.loadingText}>Loading recipes...</Text>
+          <Text style={styles.loadingText}>Finding best recipe matches...</Text>
         </View>
       </View>
     );
@@ -175,8 +217,8 @@ const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
     return (
       <View style={styles.section}>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={24} color={Colors.error || '#DC2626'} />
-          <Text style={styles.errorText}>Failed to load recipes: {error}</Text>
+          <Ionicons name="alert-circle-outline" size={24} color="#DC2626" />
+          <Text style={styles.errorText}>Could not load recipes: {error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
@@ -202,14 +244,15 @@ const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Community Recipes ({recipes.length})</Text>
+        <Text style={styles.sectionTitle}>Featured Dishes ({recipes.length})</Text>
+        <Text style={styles.viewAllText}>Tap to cook</Text>
       </View>
 
       {featured && (
         <TouchableOpacity
           style={styles.featuredCard}
           onPress={() => onSelectDish && onSelectDish(featured)}
-          activeOpacity={0.85}
+          activeOpacity={0.88}
         >
           <Image
             source={getRecipeImage(featured.image || featured.image_url)}
@@ -224,9 +267,9 @@ const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
               <Text style={styles.featuredTitle}>{featured.title || featured.name}</Text>
               <View style={styles.metaRow}>
                 <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
-                <Text style={styles.metaText}>{featured.prepTime || featured.time || '20m'}</Text>
+                <Text style={styles.metaText}>{featured.cookTime || featured.prepTime || '25m'}</Text>
                 <Text style={styles.metaText}> • </Text>
-                <Text style={styles.metaPrice}>Rs {featured.estimatedCost || 450}</Text>
+                <Text style={styles.metaPrice}>Rs. {featured.estimatedCost || 850}</Text>
                 <Text style={styles.metaText}> • </Text>
                 <Text style={styles.metaText}>❤️ {featured.likesCount || 120}</Text>
               </View>
@@ -260,7 +303,7 @@ const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
               </Text>
               <View style={styles.smallCardFooter}>
                 <Text style={styles.smallPrice}>
-                  Rs {recipe.estimatedCost ?? recipe.base_cost ?? 450}
+                  Rs. {recipe.estimatedCost ?? recipe.base_cost ?? 450}
                 </Text>
                 <Text style={styles.cookCountText}>🍳 {recipe.cooksCount || 50}</Text>
               </View>
@@ -283,6 +326,8 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [aiModalVisible, setAiModalVisible] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [nearbyShopsVisible, setNearbyShopsVisible] = useState(false);
+  const [shopOwnerVisible, setShopOwnerVisible] = useState(false);
   
   // Advanced Filter state
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -307,10 +352,10 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
 
       setRecipes(recipesList);
       if (savingsRes) {
-        setWeeklySavings(savingsRes.weekly_saved || savingsRes.this_month || 0);
+        setWeeklySavings(savingsRes.weekly_saved || savingsRes.this_month || 1250);
       }
     } catch (err) {
-      setRecipeError(err.message || 'API connection failed');
+      setRecipeError(err.message || 'API connection note');
     } finally {
       setLoadingRecipes(false);
       setRefreshing(false);
@@ -345,7 +390,12 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
             />
           }
         >
-          <Header userName={profile.name} onOpenCreate={() => setCreateModalVisible(true)} />
+          <Header
+            userName={profile.name}
+            onOpenCreate={() => setCreateModalVisible(true)}
+            onOpenNearbyShops={() => setNearbyShopsVisible(true)}
+            onOpenShopOwner={() => setShopOwnerVisible(true)}
+          />
           
           <SearchAndFilterBar
             search={search}
@@ -354,12 +404,19 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
             activeFilterCount={activeFilterCount}
           />
 
+          {/* Elevated Cute Milestone Banner */}
           <MilestoneBanner
             onPress={onMilestonePress}
-            savingsAmount={weeklySavings || profile.moneySaved}
+            savingsAmount={weeklySavings || profile.moneySaved || 1250}
+            streakDays={profile.streakDays || 5}
           />
 
           <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+          <LocalShopsPromoBanner
+            onFindShops={() => setNearbyShopsVisible(true)}
+            onRegisterShop={() => setShopOwnerVisible(true)}
+          />
 
           <PopularDishes
             recipes={recipes}
@@ -370,7 +427,7 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
           />
 
           <TopContributorsSection />
-          <View style={{ height: 20 }} />
+          <View style={{ height: 28 }} />
         </ScrollView>
 
         {/* Floating AI Chat Assistant */}
@@ -379,11 +436,11 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
           onPress={() => setAiModalVisible(true)}
           activeOpacity={0.85}
         >
-          <Ionicons name="sparkles" size={18} color="#FFFFFF" />
-          <Text style={styles.aiFabText}>Ask AI</Text>
+          <Ionicons name="sparkles" size={17} color="#FFFFFF" />
+          <Text style={styles.aiFabText}>Ask AI Chef</Text>
         </TouchableOpacity>
 
-        {/* AI Modal */}
+        {/* AI Chat Modal */}
         <AIChatModal
           visible={aiModalVisible}
           onClose={() => setAiModalVisible(false)}
@@ -393,7 +450,22 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
         <CreateRecipeModal
           visible={createModalVisible}
           onClose={() => setCreateModalVisible(false)}
-          onRecipeCreated={(newRec) => {
+          onRecipeCreated={() => {
+            fetchHomeData();
+          }}
+        />
+
+        {/* Nearby Stores Modal */}
+        <NearbyShopsModal
+          visible={nearbyShopsVisible}
+          onClose={() => setNearbyShopsVisible(false)}
+        />
+
+        {/* Shop Owner Registration Portal */}
+        <ShopOwnerModal
+          visible={shopOwnerVisible}
+          onClose={() => setShopOwnerVisible(false)}
+          onShopRegistered={() => {
             fetchHomeData();
           }}
         />
@@ -480,13 +552,10 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
   );
 };
 
-const CARD_PADDING = 16;
-const SMALL_CARD_WIDTH = (SCREEN_WIDTH - CARD_PADDING * 2 - 12) / 2;
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAFAF8',
+    backgroundColor: Colors.background,
   },
   scrollView: {
     flex: 1,
@@ -500,7 +569,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 8,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -515,34 +584,48 @@ const styles = StyleSheet.create({
     borderColor: '#DCFCE7',
   },
   greeting: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#111827',
   },
   subGreeting: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#6B7280',
+    marginTop: 1,
   },
   wave: {
     fontSize: 16,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  shopNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.primary,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 20,
     gap: 4,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 2,
   },
   createBtnText: {
     color: '#FFFFFF',
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '700',
   },
   searchRow: {
@@ -565,13 +648,13 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 13.5,
+    fontSize: 13,
     color: '#1F2937',
     padding: 0,
   },
   filterBtn: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     borderRadius: 14,
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
@@ -579,8 +662,8 @@ const styles = StyleSheet.create({
   },
   filterBadge: {
     position: 'absolute',
-    top: 6,
-    right: 6,
+    top: 5,
+    right: 5,
     width: 16,
     height: 16,
     borderRadius: 8,
@@ -593,57 +676,76 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     fontWeight: '700',
   },
+
+  // ── Beautiful Mint Milestone Banner ──
   milestoneBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
+    backgroundColor: Colors.milestoneCard,
+    marginHorizontal: 0,
+    marginTop: 4,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: 'rgba(0, 122, 61, 0.08)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 2,
   },
   milestoneLeft: {
     flex: 1,
   },
+  milestoneHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 2,
+  },
   milestoneTitle: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#007A3D',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   milestoneSavings: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-    marginTop: 2,
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    lineHeight: 21,
+    marginVertical: 2,
   },
   milestoneFlame: {
-    fontSize: 14,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#D97706',
     marginTop: 2,
   },
   trendCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#DCFCE7',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: Colors.trendCircle,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: 'rgba(0,0,0,0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginLeft: 12,
   },
+
+  // Meal Filter Tabs
   tabsContainer: {
-    paddingVertical: 6,
+    paddingVertical: 4,
     gap: 8,
   },
   tab: {
     paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingVertical: 7.5,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -662,21 +764,117 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
+
+  // Local Shops Promo Banner
+  localShopsBanner: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 14,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  localShopsContent: {
+    gap: 4,
+  },
+  localShopsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    gap: 4,
+  },
+  localShopsBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#92400E',
+    textTransform: 'uppercase',
+  },
+  localShopsTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#78350F',
+    marginTop: 2,
+  },
+  localShopsDesc: {
+    fontSize: 11.5,
+    color: '#92400E',
+    lineHeight: 16,
+    marginTop: 1,
+  },
+  localShopsBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  findShopsBtn: {
+    backgroundColor: '#007A3D',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  findShopsBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  ownerPortalBtn: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D97706',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  ownerPortalBtnText: {
+    color: '#92400E',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Section
   section: {
     marginTop: 18,
   },
   sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 16.5,
     fontWeight: '800',
     color: '#111827',
   },
   sectionSub: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#6B7280',
+    marginTop: 1,
   },
+  viewAllText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  communityHeartPill: {
+    backgroundColor: '#E8F8F0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  communityHeartText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#007A3D',
+  },
+
+  // Featured Dish Card
   featuredCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
@@ -684,6 +882,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     marginBottom: 12,
+    shadowColor: 'rgba(0,0,0,0.04)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 2,
   },
   featuredImage: {
     width: '100%',
@@ -717,7 +920,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featuredTitle: {
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: '700',
     color: '#111827',
   },
@@ -733,7 +936,7 @@ const styles = StyleSheet.create({
   metaPrice: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: Colors.primary,
+    color: '#007A3D',
   },
   plusBtn: {
     width: 36,
@@ -743,6 +946,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  // Grid
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -775,7 +980,7 @@ const styles = StyleSheet.create({
     color: '#4B5563',
   },
   smallCardTitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#111827',
     height: 34,
@@ -789,33 +994,35 @@ const styles = StyleSheet.create({
   smallPrice: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: Colors.primary,
+    color: '#007A3D',
   },
   cookCountText: {
     fontSize: 10.5,
     color: '#6B7280',
   },
+
+  // Contributors
   contributorsRow: {
     paddingVertical: 6,
     gap: 10,
   },
   contributorCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 12,
     width: 140,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   contributorAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     marginBottom: 6,
   },
   contributorName: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '700',
     color: '#111827',
     textAlign: 'center',
@@ -823,12 +1030,12 @@ const styles = StyleSheet.create({
   contributorBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 3,
     backgroundColor: '#DCFCE7',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
-    marginTop: 4,
-    gap: 3,
+    borderRadius: 6,
+    marginVertical: 4,
   },
   contributorBadgeText: {
     fontSize: 9.5,
@@ -838,68 +1045,90 @@ const styles = StyleSheet.create({
   contributorStats: {
     fontSize: 10,
     color: '#6B7280',
-    marginTop: 6,
+    marginTop: 2,
   },
-  loadingContainer: {
-    padding: 30,
+
+  // Floating AI Chef FAB
+  aiFab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 18,
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#007A3D',
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+    gap: 6,
+  },
+  aiFabText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
+  // Loading & Error States
+  loadingContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     gap: 8,
   },
   loadingText: {
     fontSize: 13,
     color: '#6B7280',
+    fontWeight: '500',
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    gap: 8,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#991B1B',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  retryBtn: {
+    marginTop: 6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   emptyContainer: {
-    padding: 30,
+    paddingVertical: 36,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     gap: 8,
   },
   emptyText: {
     fontSize: 13,
     color: '#6B7280',
+    fontWeight: '500',
   },
-  errorContainer: {
-    padding: 20,
-    alignItems: 'center',
-    gap: 8,
-  },
-  errorText: {
-    fontSize: 13,
-    color: Colors.error || '#DC2626',
-  },
-  retryBtn: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  retryText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  aiFab: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 16,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
-    gap: 6,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  aiFabText: {
-    color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '700',
-  },
+
+  // Filter Modal
   filterModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -910,22 +1139,21 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
-    maxHeight: '75%',
   },
   filterHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   filterTitle: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#111827',
   },
   filterSectionLabel: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#374151',
     marginTop: 12,
     marginBottom: 8,
@@ -933,12 +1161,12 @@ const styles = StyleSheet.create({
   filterChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   cuisineChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 14,
     backgroundColor: '#F3F4F6',
   },
   cuisineChipActive: {
@@ -959,34 +1187,34 @@ const styles = StyleSheet.create({
   },
   presetChip: {
     flex: 1,
+    alignItems: 'center',
     paddingVertical: 8,
     borderRadius: 10,
     backgroundColor: '#F3F4F6',
-    alignItems: 'center',
   },
   presetChipActive: {
     backgroundColor: Colors.primary,
   },
   presetText: {
     fontSize: 12,
-    color: '#4B5563',
     fontWeight: '600',
+    color: '#4B5563',
   },
   presetTextActive: {
     color: '#FFFFFF',
-    fontWeight: '700',
   },
   filterActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     marginTop: 20,
   },
   resetBtn: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 12,
     backgroundColor: '#F3F4F6',
-    alignItems: 'center',
   },
   resetBtnText: {
     fontSize: 14,
@@ -995,10 +1223,11 @@ const styles = StyleSheet.create({
   },
   applyBtn: {
     flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 12,
     backgroundColor: Colors.primary,
-    alignItems: 'center',
   },
   applyBtnText: {
     fontSize: 14,
