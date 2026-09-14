@@ -98,7 +98,13 @@ function AppContent() {
       return <AccountScreen onBack={goHome} onNavigateHome={goHome} />;
     }
     if (currentScreen === 'mealplan') {
-      return <MealPlanScreen onNavigateHome={goHome} />;
+      return (
+        <MealPlanScreen
+          onNavigateHome={goHome}
+          onSelectMeal={openRecipe}
+          onOpenRetail={openRetail}
+        />
+      );
     }
     if (currentScreen === 'savings') {
       return <SavingsDashboard onBack={goHome} />;
@@ -140,6 +146,7 @@ function AppContent() {
         recipe={selectedRecipe}
         onBack={goHome}
         onCompare={openRetail}
+        onAddToMealPlan={() => setCurrentScreen('mealplan')}
       />
     );
   }
@@ -148,7 +155,13 @@ function AppContent() {
     return (
       <RetailComparingScreen
         items={retailItems}
-        onBack={() => setCurrentScreen('ingredient')}
+        onBack={() => {
+          if (selectedRecipe) {
+            setCurrentScreen('ingredient');
+          } else {
+            goHome();
+          }
+        }}
       />
     );
   }

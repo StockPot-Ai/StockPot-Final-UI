@@ -54,36 +54,67 @@ const StatDetailModal = ({ visible, statType, onClose }) => {
           </>
         );
 
-      case 'waste':
+      case 'recipes':
         return (
           <>
             <View style={styles.topIconBadge}>
               <View style={[styles.largeCircle, { backgroundColor: '#FEE2E2' }]}>
                 <MaterialCommunityIcons
-                  name="delete-outline"
-                  size={32}
+                  name="silverware-fork-knife"
+                  size={30}
                   color="#DC2626"
                 />
               </View>
-              <Text style={styles.statLargeVal}>{profile.wasteAvoided} kg</Text>
-              <Text style={styles.statLargeLabel}>Food Waste Prevented</Text>
+              <Text style={styles.statLargeVal}>{profile.recipesCooked || 34} Meals</Text>
+              <Text style={styles.statLargeLabel}>Home Cooked Meals</Text>
             </View>
 
             <View style={styles.breakdownCard}>
-              <Text style={styles.breakdownHeader}>ENVIRONMENTAL IMPACT</Text>
+              <Text style={styles.breakdownHeader}>RECIPES ACTIVITY</Text>
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownTitle}>Fresh Produce Saved</Text>
-                <Text style={styles.breakdownAmount}>4.8 kg</Text>
+                <Text style={styles.breakdownTitle}>Traditional Sri Lankan Curries</Text>
+                <Text style={styles.breakdownAmount}>18 Dishes</Text>
               </View>
               <View style={styles.divider} />
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownTitle}>Dairy & Bakery Rescued</Text>
-                <Text style={styles.breakdownAmount}>2.1 kg</Text>
+                <Text style={styles.breakdownTitle}>Quick Meals (&lt;20 mins)</Text>
+                <Text style={styles.breakdownAmount}>10 Dishes</Text>
               </View>
               <View style={styles.divider} />
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownTitle}>CO2 Emissions Reduced</Text>
-                <Text style={styles.breakdownAmount}>15.2 kg eq</Text>
+                <Text style={styles.breakdownTitle}>Community Recipes Shared</Text>
+                <Text style={styles.breakdownAmount}>6 Recipes</Text>
+              </View>
+            </View>
+          </>
+        );
+
+      case 'budget':
+        return (
+          <>
+            <View style={styles.topIconBadge}>
+              <View style={[styles.largeCircle, { backgroundColor: '#E0F2FE' }]}>
+                <Feather name="target" size={28} color="#0284C7" />
+              </View>
+              <Text style={styles.statLargeVal}>Rs. 10,000 / wk</Text>
+              <Text style={styles.statLargeLabel}>Weekly Spending Cap</Text>
+            </View>
+
+            <View style={styles.breakdownCard}>
+              <Text style={styles.breakdownHeader}>BUDGET ALLOCATION</Text>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownTitle}>Vegetables & Fresh Produce</Text>
+                <Text style={styles.breakdownAmount}>~Rs. 3,500</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownTitle}>Pantry Grains, Dhal & Spices</Text>
+                <Text style={styles.breakdownAmount}>~Rs. 3,200</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownTitle}>Proteins & Dairy</Text>
+                <Text style={styles.breakdownAmount}>~Rs. 3,300</Text>
               </View>
             </View>
           </>

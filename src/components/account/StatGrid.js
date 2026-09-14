@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { useAccount } from '../../context/AccountContext';
 
-const StatCard = ({ iconComponent, title, value, onPress }) => (
+const StatCard = ({ iconComponent, title, value, subtitle, onPress }) => (
   <TouchableOpacity
     style={styles.card}
     onPress={onPress}
@@ -12,16 +12,19 @@ const StatCard = ({ iconComponent, title, value, onPress }) => (
     accessibilityRole="button"
     accessibilityLabel={`${title}: ${value}`}
   >
-    <View style={styles.iconWrapper}>{iconComponent}</View>
-    <Text style={styles.title}>{title}</Text>
-    <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit>
+    <View style={styles.topRow}>
+      <Text style={styles.title}>{title}</Text>
+      <View style={styles.iconWrapper}>{iconComponent}</View>
+    </View>
+    <Text style={styles.value} numberOfLines={1}>
       {value}
     </Text>
+    {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
   </TouchableOpacity>
 );
 
 const StatGrid = ({ onSelectStat }) => {
-  const { profile } = useAccount();
+  const { profile, budget } = useAccount();
 
   return (
     <View style={styles.gridContainer}>
@@ -30,60 +33,56 @@ const StatGrid = ({ onSelectStat }) => {
         {/* Money Saved */}
         <StatCard
           iconComponent={
-            <View style={[styles.iconCircle, { backgroundColor: Colors.statMintBg }]}>
-              <MaterialCommunityIcons
-                name="piggy-bank-outline"
-                size={18}
-                color={Colors.statMintIcon}
-              />
+            <View style={[styles.iconCircle, { backgroundColor: '#E8F8F0' }]}>
+              <Ionicons name="wallet-outline" size={17} color="#007A3D" />
             </View>
           }
           title="MONEY SAVED"
-          value={`Rs.  ${profile.moneySaved.toLocaleString()}`}
-          onPress={() => onSelectStat('money')}
+          value={`Rs. ${(profile.moneySaved || 18450).toLocaleString()}`}
+          subtitle="Split-basket savings"
+          onPress={() => onSelectStat && onSelectStat('money')}
         />
 
-        {/* Waste Avoided */}
+        {/* Dishes Cooked */}
         <StatCard
           iconComponent={
-            <View style={[styles.iconCircle, { backgroundColor: Colors.statPinkBg }]}>
-              <MaterialCommunityIcons
-                name="delete-outline"
-                size={18}
-                color={Colors.statPinkIcon}
-              />
+            <View style={[styles.iconCircle, { backgroundColor: '#FEE2E2' }]}>
+              <MaterialCommunityIcons name="silverware-fork-knife" size={17} color="#DC2626" />
             </View>
           }
-          title="WASTE AVOIDED"
-          value={`${profile.wasteAvoided} kg`}
-          onPress={() => onSelectStat('waste')}
+          title="DISHES COOKED"
+          value={`${profile.recipesCooked || 34} Meals`}
+          subtitle="3 cooked this week"
+          onPress={() => onSelectStat && onSelectStat('recipes')}
         />
       </View>
 
       {/* Row 2 */}
       <View style={styles.row}>
-        {/* Streak */}
+        {/* Cooking Streak */}
         <StatCard
           iconComponent={
-            <View style={[styles.iconCircle, { backgroundColor: Colors.statRustBg }]}>
-              <Ionicons name="flame" size={17} color={Colors.statRustIcon} />
+            <View style={[styles.iconCircle, { backgroundColor: '#FEF3C7' }]}>
+              <Ionicons name="flame" size={18} color="#D97706" />
             </View>
           }
-          title="STREAK"
-          value={`${profile.streakDays} days`}
-          onPress={() => onSelectStat('streak')}
+          title="COOKING STREAK"
+          value={`${profile.streakDays || 7} Days 🔥`}
+          subtitle="Best streak: 14 days"
+          onPress={() => onSelectStat && onSelectStat('streak')}
         />
 
-        {/* Total XP */}
+        {/* Weekly Budget Target */}
         <StatCard
           iconComponent={
-            <View style={[styles.iconCircle, { backgroundColor: Colors.statAmberBg }]}>
-              <Ionicons name="star" size={16} color={Colors.statAmberIcon} />
+            <View style={[styles.iconCircle, { backgroundColor: '#E0F2FE' }]}>
+              <Feather name="target" size={17} color="#0284C7" />
             </View>
           }
-          title="TOTAL XP"
-          value={profile.currentXp.toLocaleString()}
-          onPress={() => onSelectStat('xp')}
+          title="WEEKLY BUDGET"
+          value={`Rs. ${(budget?.weeklyBudget || 10000).toLocaleString()}`}
+          subtitle="Status: On Track"
+          onPress={() => onSelectStat && onSelectStat('budget')}
         />
       </View>
     </View>
@@ -93,49 +92,57 @@ const StatGrid = ({ onSelectStat }) => {
 const styles = StyleSheet.create({
   gridContainer: {
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 10,
     marginBottom: 20,
   },
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   card: {
     flex: 1,
-    backgroundColor: Colors.accountCardBg,
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
-    borderColor: Colors.accountBorder,
-    shadowColor: 'rgba(0,0,0,0.04)',
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
+    justifyContent: 'space-between',
   },
-  iconWrapper: {
-    marginBottom: 0,
-  },
-  iconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  topRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   title: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.accountSectionHeader,
-    letterSpacing: 0.8,
-    marginBottom: 5,
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#6B7280',
+    letterSpacing: 0.5,
+  },
+  iconWrapper: {},
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   value: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
-    color: Colors.accountTextPrimary,
-    letterSpacing: -0.4,
+    color: '#111827',
+    marginBottom: 2,
+  },
+  subtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#9CA3AF',
   },
 });
 

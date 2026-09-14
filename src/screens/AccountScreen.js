@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Feather,
   Ionicons,
+  FontAwesome5,
   MaterialCommunityIcons,
 } from '@expo/vector-icons';
 import Colors from '../constants/colors';
@@ -28,9 +29,14 @@ import LanguageModal from '../components/account/LanguageModal';
 import HelpSupportModal from '../components/account/HelpSupportModal';
 import StatDetailModal from '../components/account/StatDetailModal';
 import LogoutDialog from '../components/account/LogoutDialog';
-import EcoInfoModal from '../components/account/EcoInfoModal';
+import PremiumUpgradeModal from '../components/account/PremiumUpgradeModal';
+import ShopOwnerModal from '../components/store/ShopOwnerModal';
+import ShopOwnerPortalScreen from './ShopOwnerPortalScreen';
+import { useAccount } from '../context/AccountContext';
 
 const AccountScreen = ({ onBack, onNavigateHome }) => {
+  const { isPremium, customerPlan, isShopOwner, businessPlan } = useAccount();
+
   // ── Modal Visibility States
   const [editProfileVisible, setEditProfileVisible] = useState(false);
   const [householdVisible, setHouseholdVisible] = useState(false);
@@ -40,9 +46,17 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [languageVisible, setLanguageVisible] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
-  const [ecoInfoVisible, setEcoInfoVisible] = useState(false);
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
   const [selectedStat, setSelectedStat] = useState(null);
+
+  // Premium & Shop Owner Modals / Screens
+  const [premiumModalVisible, setPremiumModalVisible] = useState(false);
+  const [shopOwnerRegisterVisible, setShopOwnerRegisterVisible] = useState(false);
+  const [shopOwnerPortalVisible, setShopOwnerPortalVisible] = useState(false);
+
+  if (shopOwnerPortalVisible) {
+    return <ShopOwnerPortalScreen onBack={() => setShopOwnerPortalVisible(false)} />;
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -51,7 +65,7 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
       {/* Header */}
       <AccountHeader
         onBack={onBack || onNavigateHome}
-        onLeafPress={() => setEcoInfoVisible(true)}
+        onSettingsPress={() => setPrivacyVisible(true)}
       />
 
       <ScrollView
@@ -63,11 +77,30 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
         <ProfileCard
           onEditProfile={() => setEditProfileVisible(true)}
           onStreakPress={() => setSelectedStat('streak')}
-          onEcoPress={() => setEcoInfoVisible(true)}
         />
 
         {/* 2x2 Stat Cards */}
         <StatGrid onSelectStat={(type) => setSelectedStat(type)} />
+
+        {/* ── STOCKPOT MEMBERSHIPS & BUSINESS SECTION ── */}
+        <MenuSection title="STOCKPOT ECOSYSTEM & TIERS">
+          <MenuItem
+            icon={<FontAwesome5 name="crown" size={17} color="#D97706" />}
+            label={isPremium ? "StockPot Premium (Active ⭐)" : "Upgrade to StockPot Premium"}
+            onPress={() => setPremiumModalVisible(true)}
+          />
+          <MenuItem
+            icon={<MaterialCommunityIcons name="storefront-outline" size={20} color="#007A3D" />}
+            label="Shop Owner Portal & Catalogue"
+            onPress={() => setShopOwnerPortalVisible(true)}
+          />
+          <MenuItem
+            icon={<Ionicons name="storefront-outline" size={19} color="#292524" />}
+            label="Register a New Local Store"
+            onPress={() => setShopOwnerRegisterVisible(true)}
+            isLast
+          />
+        </MenuSection>
 
         {/* PERSONAL Section */}
         <MenuSection title="PERSONAL">
@@ -110,7 +143,7 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
         <MenuSection title="APP">
           <MenuItem
             icon={<Ionicons name="notifications-outline" size={20} color="#292524" />}
-            label="Notifications"
+            label="Notifications & Deal Alerts"
             onPress={() => setNotificationsVisible(true)}
           />
           <MenuItem
@@ -148,6 +181,17 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
       </ScrollView>
 
       {/* ── Interactive Modals ── */}
+      <PremiumUpgradeModal
+        visible={premiumModalVisible}
+        onClose={() => setPremiumModalVisible(false)}
+      />
+
+      <ShopOwnerModal
+        visible={shopOwnerRegisterVisible}
+        onClose={() => setShopOwnerRegisterVisible(false)}
+        onShopRegistered={() => setShopOwnerPortalVisible(true)}
+      />
+
       <EditProfileModal
         visible={editProfileVisible}
         onClose={() => setEditProfileVisible(false)}
@@ -186,11 +230,6 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
       <HelpSupportModal
         visible={helpVisible}
         onClose={() => setHelpVisible(false)}
-      />
-
-      <EcoInfoModal
-        visible={ecoInfoVisible}
-        onClose={() => setEcoInfoVisible(false)}
       />
 
       <StatDetailModal

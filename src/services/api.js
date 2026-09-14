@@ -1,8 +1,9 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Local IP detected from ipconfig:
-const DEV_LAN_IP = '192.168.1.8';
+const DEV_LAN_IP = '172.22.0.103';
 
 const isIPv4 = (str) => {
   if (!str) return false;
@@ -28,6 +29,8 @@ const getHostIp = () => {
 
 const DEFAULT_HOST = getHostIp();
 
+export const API_URL_STORAGE_KEY = '@stockpot_custom_api_url';
+
 let customBaseUrl = Platform.select({
   web: 'http://localhost:5000/api',
   android: `http://${DEFAULT_HOST}:5000/api`,
@@ -35,9 +38,19 @@ let customBaseUrl = Platform.select({
   default: `http://${DEFAULT_HOST}:5000/api`,
 });
 
+// Immediately load saved custom server URL if previously configured
+AsyncStorage.getItem(API_URL_STORAGE_KEY)
+  .then((saved) => {
+    if (saved && typeof saved === 'string' && saved.startsWith('http')) {
+      customBaseUrl = saved;
+      console.log('[API] Restored saved Base URL:', customBaseUrl);
+    }
+  })
+  .catch(() => {});
+
 export const getApiBaseUrl = () => customBaseUrl;
 
-export const setApiBaseUrl = (newUrl) => {
+export const setApiBaseUrl = async (newUrl) => {
   if (newUrl && typeof newUrl === 'string') {
     let clean = newUrl.trim();
     if (clean.endsWith('/')) {
@@ -47,6 +60,9 @@ export const setApiBaseUrl = (newUrl) => {
       clean = `${clean}/api`;
     }
     customBaseUrl = clean;
+    try {
+      await AsyncStorage.setItem(API_URL_STORAGE_KEY, clean);
+    } catch (_) {}
     console.log('[API] Base URL updated to:', customBaseUrl);
   }
 };
@@ -120,70 +136,128 @@ async function handleResponse(response, url) {
   return data;
 }
 
+const sanitizeHeaders = (rawHeaders = {}) => {
+  const clean = { ...defaultHeaders() };
+  if (rawHeaders && typeof rawHeaders === 'object') {
+    Object.keys(rawHeaders).forEach((k) => {
+      const v = rawHeaders[k];
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+        clean[k] = String(v);
+      }
+    });
+  }
+  return clean;
+};
+
+const buildUrlWithParams = (endpoint, options = {}) => {
+  let params = null;
+  if (options && typeof options === 'object') {
+    if (options.params && typeof options.params === 'object') {
+      params = options.params;
+    }
+  }
+  let base = endpoint.startsWith('http') ? endpoint : `${getApiBaseUrl()}${endpoint}`;
+  if (params && typeof params === 'object') {
+    const queryParts = [];
+    Object.keys(params).forEach((key) => {
+      const val = params[key];
+      if (val !== undefined && val !== null && val !== '') {
+        queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`);
+      }
+    });
+    if (queryParts.length > 0) {
+      const sep = base.includes('?') ? '&' : '?';
+      base += `${sep}${queryParts.join('&')}`;
+    }
+  }
+  return base;
+};
+
+const createNetworkError = (err, url) => {
+  const isNetwork =
+    !err.status &&
+    err.message &&
+    (err.message.includes('fetch failed') ||
+      err.message.includes('Network request failed') ||
+      err.message.includes('ConnectException') ||
+      err.message.includes('ECONNREFUSED') ||
+      err.message.includes('Failed to connect'));
+  if (isNetwork) {
+    const host = url.split('/api')[0];
+    const error = new Error(`Cannot reach server at ${host}. Please check backend connection.`);
+    error.originalError = err;
+    error.url = url;
+    return error;
+  }
+  err.url = url;
+  return err;
+};
+
 export const apiClient = {
-  get: async (endpoint, customHeaders = {}) => {
-    const url = endpoint.startsWith('http') ? endpoint : `${getApiBaseUrl()}${endpoint}`;
+  get: async (endpoint, optionsOrHeaders = {}) => {
+    const url = buildUrlWithParams(endpoint, optionsOrHeaders);
+    const customHeaders = optionsOrHeaders?.headers || optionsOrHeaders || {};
+    const finalHeaders = sanitizeHeaders(customHeaders);
     addLog('request', `GET ${url}`);
     try {
       const response = await fetch(url, {
         method: 'GET',
-        headers: { ...defaultHeaders(), ...customHeaders },
+        headers: finalHeaders,
       });
       return await handleResponse(response, url);
     } catch (err) {
       addLog('error', `GET ${url} failed: ${err.message}`, { url, error: err.toString() });
-      err.url = url;
-      throw err;
+      throw createNetworkError(err, url);
     }
   },
 
   post: async (endpoint, body = {}, customHeaders = {}) => {
     const url = endpoint.startsWith('http') ? endpoint : `${getApiBaseUrl()}${endpoint}`;
+    const finalHeaders = sanitizeHeaders(customHeaders);
     addLog('request', `POST ${url}`, body);
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { ...defaultHeaders(), ...customHeaders },
+        headers: finalHeaders,
         body: JSON.stringify(body),
       });
       return await handleResponse(response, url);
     } catch (err) {
       addLog('error', `POST ${url} failed: ${err.message}`, { url, body, error: err.toString() });
-      err.url = url;
-      throw err;
+      throw createNetworkError(err, url);
     }
   },
 
   patch: async (endpoint, body = {}, customHeaders = {}) => {
     const url = endpoint.startsWith('http') ? endpoint : `${getApiBaseUrl()}${endpoint}`;
+    const finalHeaders = sanitizeHeaders(customHeaders);
     addLog('request', `PATCH ${url}`, body);
     try {
       const response = await fetch(url, {
         method: 'PATCH',
-        headers: { ...defaultHeaders(), ...customHeaders },
+        headers: finalHeaders,
         body: JSON.stringify(body),
       });
       return await handleResponse(response, url);
     } catch (err) {
       addLog('error', `PATCH ${url} failed: ${err.message}`, { url, body, error: err.toString() });
-      err.url = url;
-      throw err;
+      throw createNetworkError(err, url);
     }
   },
 
   delete: async (endpoint, customHeaders = {}) => {
     const url = endpoint.startsWith('http') ? endpoint : `${getApiBaseUrl()}${endpoint}`;
+    const finalHeaders = sanitizeHeaders(customHeaders);
     addLog('request', `DELETE ${url}`);
     try {
       const response = await fetch(url, {
         method: 'DELETE',
-        headers: { ...defaultHeaders(), ...customHeaders },
+        headers: finalHeaders,
       });
       return await handleResponse(response, url);
     } catch (err) {
       addLog('error', `DELETE ${url} failed: ${err.message}`, { url, error: err.toString() });
-      err.url = url;
-      throw err;
+      throw createNetworkError(err, url);
     }
   },
 };

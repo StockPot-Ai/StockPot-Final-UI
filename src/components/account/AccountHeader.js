@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, StatusBar } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 
-const AccountHeader = ({ onBack, onLeafPress }) => {
+const AccountHeader = ({ onBack, onSettingsPress }) => {
   return (
     <View style={styles.header}>
       <TouchableOpacity
@@ -14,20 +14,20 @@ const AccountHeader = ({ onBack, onLeafPress }) => {
         accessibilityLabel="Go back"
         accessibilityRole="button"
       >
-        <Feather name="arrow-left" size={24} color={Colors.accountTextPrimary} />
+        <Feather name="arrow-left" size={22} color="#111827" />
       </TouchableOpacity>
 
-      <Text style={styles.title}>StockPot AI</Text>
+      <Text style={styles.title}>Account & Profile</Text>
 
       <TouchableOpacity
         style={styles.actionBtn}
-        onPress={onLeafPress}
+        onPress={onSettingsPress}
         activeOpacity={0.7}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        accessibilityLabel="Eco info"
+        accessibilityLabel="Settings"
         accessibilityRole="button"
       >
-        <MaterialCommunityIcons name="leaf" size={24} color="#374151" />
+        <Ionicons name="settings-outline" size={21} color="#374151" />
       </TouchableOpacity>
     </View>
   );
@@ -41,7 +41,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 8 : 12,
     paddingBottom: 14,
-    backgroundColor: Colors.accountBg,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   actionBtn: {
     width: 36,
@@ -50,10 +52,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 21,
+    fontSize: 18,
     fontWeight: '800',
-    color: Colors.terracotta,
-    letterSpacing: -0.4,
+    color: '#111827',
+    letterSpacing: -0.3,
   },
 });
 

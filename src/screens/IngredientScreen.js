@@ -232,10 +232,17 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
         )}
 
         {/* Compare prices button */}
-        <TouchableOpacity style={styles.compareBar} onPress={handleCompare} activeOpacity={0.85}>
-          <Ionicons name="cart-outline" size={18} color="#166534" />
-          <Text style={styles.compareText}>Compare Prices Across Supermarkets & Local Stores</Text>
-          <Ionicons name="arrow-forward" size={16} color="#166534" />
+        <TouchableOpacity style={styles.compareBar} onPress={handleCompare} activeOpacity={0.88}>
+          <View style={styles.compareIconCircle}>
+            <Ionicons name="cart" size={18} color="#007A3D" />
+          </View>
+          <View style={styles.compareTextCol}>
+            <Text style={styles.compareTitle}>Compare Grocery Store Prices</Text>
+            <Text style={styles.compareSubtitle}>Find cheapest supermarkets & local shops near you</Text>
+          </View>
+          <View style={styles.compareArrowCircle}>
+            <Ionicons name="arrow-forward" size={16} color="#007A3D" />
+          </View>
         </TouchableOpacity>
       </ScrollView>
 
@@ -420,20 +427,51 @@ const styles = StyleSheet.create({
   compareBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginHorizontal: 20,
-    marginTop: 14,
-    marginBottom: 100,
-    paddingVertical: 14,
-    borderRadius: 14,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 90,
+    padding: 14,
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#86EFAC',
+    borderColor: '#DCFCE7',
     backgroundColor: '#F0FDF4',
+    gap: 12,
+    shadowColor: '#007A3D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  compareText: {
+  compareIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compareTextCol: {
+    flex: 1,
+  },
+  compareTitle: {
     fontSize: 13.5,
-    fontWeight: '700',
-    color: '#166534',
+    fontWeight: '800',
+    color: '#111827',
+  },
+  compareSubtitle: {
+    fontSize: 11,
+    color: '#007A3D',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  compareArrowCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
   },
 });

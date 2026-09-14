@@ -31,15 +31,16 @@ export default function IngredientList({
       </View>
 
       <View style={styles.list}>
-        {ingredients.map((item) => {
+        {ingredients.map((item, index) => {
           // Scale quantity proportionally by servings (base recipe is 2 servings)
           const scaledQuantity = Math.round(((item.baseQuantity * servings) / 2) * 10) / 10;
           const scaledCost = Math.round((item.baseCost * servings) / 2);
-          const isSelected = selectedIds.includes(item.id);
+          const itemId = item.id || item.name || `ing-${index}`;
+          const isSelected = selectedIds.includes(itemId) || selectedIds.includes(item.id);
 
           return (
             <IngredientItem
-              key={item.id}
+              key={itemId}
               name={item.name}
               quantity={scaledQuantity}
               unit={item.unit}
@@ -50,7 +51,7 @@ export default function IngredientList({
               iconBg={item.iconBg}
               iconColor={item.iconColor}
               isSelected={isSelected}
-              onToggle={() => onToggleItem(item.id)}
+              onToggle={() => onToggleItem(itemId)}
             />
           );
         })}

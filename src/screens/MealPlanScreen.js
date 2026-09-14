@@ -5,266 +5,216 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   StatusBar,
-  ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import Colors from '../constants/colors';
-import MealPlanHeader from '../components/mealplan/MealPlanHeader';
-import WeeklyBudgetCard from '../components/mealplan/WeeklyBudgetCard';
-import DaySelector from '../components/mealplan/DaySelector';
-import MealCard from '../components/mealplan/MealCard';
-import UnplannedMealCard from '../components/mealplan/UnplannedMealCard';
+import SelectRecipeModal from '../components/mealplan/SelectRecipeModal';
 import { mealPlanService, recipeService } from '../services';
 import { useAccount } from '../context/AccountContext';
 
-const DEFAULT_DAYS_STRUCTURE = {
-  mon: { dayName: "Monday's Plan", total: 0, meals: [], unplanned: null },
-  tue: { dayName: "Tuesday's Plan", total: 0, meals: [], unplanned: null },
-  wed: { dayName: "Wednesday's Plan", total: 0, meals: [], unplanned: null },
-  thu: { dayName: "Thursday's Plan", total: 0, meals: [], unplanned: null },
-  fri: { dayName: "Friday's Plan", total: 0, meals: [], unplanned: null },
-  sat: { dayName: "Saturday's Plan", total: 0, meals: [], unplanned: null },
-  sun: { dayName: "Sunday's Plan", total: 0, meals: [], unplanned: null },
+const DAYS = [
+  { id: 'mon', label: 'Monday', short: 'Mon' },
+  { id: 'tue', label: 'Tuesday', short: 'Tue' },
+  { id: 'wed', label: 'Wednesday', short: 'Wed' },
+  { id: 'thu', label: 'Thursday', short: 'Thu' },
+  { id: 'fri', label: 'Friday', short: 'Fri' },
+  { id: 'sat', label: 'Saturday', short: 'Sat' },
+  { id: 'sun', label: 'Sunday', short: 'Sun' },
+];
+
+const INITIAL_SCHEDULE = {
+  mon: {
+    breakfast: { id: 'm1', title: 'Sri Lankan Egg Hopper with Lunu Miris', servings: 2, price: 320, time: '15m', ingredients: 'Rice flour, eggs, onions, chili' },
+    lunch: { id: 'm2', title: 'Authentic Dhal Curry & Red Rice', servings: 2, price: 420, time: '25m', ingredients: 'Mysore dhal, coconut milk, red rice' },
+    dinner: { id: 'm3', title: 'Pol Roti with Katta Sambol', servings: 2, price: 380, time: '20m', ingredients: 'Flour, scraped coconut, chili, lime' },
+    snack: null,
+  },
+  tue: {
+    breakfast: { id: 'm4', title: 'String Hoppers with Kiri Hodi', servings: 2, price: 350, time: '20m', ingredients: 'Rice noodles, coconut gravy' },
+    lunch: { id: 'm5', title: 'Creamy Pumpkin Curry & Rice', servings: 2, price: 450, time: '30m', ingredients: 'Yellow pumpkin, spices, rice' },
+    dinner: null,
+    snack: null,
+  },
+  wed: {
+    breakfast: null,
+    lunch: { id: 'm6', title: 'Spicy Chicken Kottu Roti', servings: 2, price: 650, time: '25m', ingredients: 'Godamba roti, chicken breast, leeks, carrots' },
+    dinner: { id: 'm7', title: 'Gotu Kola Sambol & Fish Ambul Thiyal', servings: 2, price: 580, time: '30m', ingredients: 'Fish tuna, goraka, gotu kola, coconut' },
+    snack: null,
+  },
+  thu: {
+    breakfast: { id: 'm8', title: 'Pol Roti with Katta Sambol', servings: 2, price: 380, time: '20m', ingredients: 'Flour, scraped coconut, chili, lime' },
+    lunch: { id: 'm9', title: 'Authentic Dhal Curry & Red Rice', servings: 2, price: 420, time: '25m', ingredients: 'Mysore dhal, coconut milk, red rice' },
+    dinner: null,
+    snack: null,
+  },
+  fri: {
+    breakfast: null,
+    lunch: { id: 'm10', title: 'Creamy Pumpkin Pasta', servings: 2, price: 480, time: '20m', ingredients: 'Pasta, pumpkin puree, garlic, cream' },
+    dinner: { id: 'm11', title: 'Vegetable Fried Rice & Devilled Tofu', servings: 2, price: 540, time: '25m', ingredients: 'Basmati rice, tofu, bell peppers' },
+    snack: null,
+  },
+  sat: {
+    breakfast: { id: 'm12', title: 'Sri Lankan Egg Hopper with Lunu Miris', servings: 4, price: 580, time: '20m', ingredients: 'Rice flour, eggs, chili paste' },
+    lunch: { id: 'm13', title: 'Jaffna Crab Curry with Roast Paan', servings: 4, price: 1250, time: '45m', ingredients: 'Fresh lagoon crab, roasted bread, jaffna curry powder' },
+    dinner: { id: 'm14', title: 'Watalappam (Dessert)', servings: 4, price: 450, time: '35m', ingredients: 'Kithul jaggery, coconut milk, eggs, cardamom' },
+    snack: null,
+  },
+  sun: {
+    breakfast: { id: 'm15', title: 'String Hoppers with Kiri Hodi & Pol Sambol', servings: 4, price: 620, time: '25m', ingredients: 'Rice noodles, coconut sambol' },
+    lunch: { id: 'm16', title: 'Yellow Rice with Chicken Curry & Brinjal Moju', servings: 4, price: 1100, time: '40m', ingredients: 'Samba rice, chicken, eggplant moju' },
+    dinner: null,
+    snack: null,
+  },
 };
 
-const DAY_NAMES = {
-  mon: "Monday's Plan",
-  tue: "Tuesday's Plan",
-  wed: "Wednesday's Plan",
-  thu: "Thursday's Plan",
-  fri: "Friday's Plan",
-  sat: "Saturday's Plan",
-  sun: "Sunday's Plan",
+const MEAL_SLOTS = [
+  { key: 'breakfast', label: 'Breakfast', icon: 'sunny-outline', color: '#D97706' },
+  { key: 'lunch', label: 'Lunch', icon: 'restaurant-outline', color: '#007A3D' },
+  { key: 'dinner', label: 'Dinner', icon: 'moon-outline', color: '#B45309' },
+  { key: 'snack', label: 'Snack / Dessert', icon: 'cafe-outline', color: '#6B7280' },
+];
+
+const getDishImage = (title, img) => {
+  if (img && typeof img === 'string' && (img.startsWith('http') || img.startsWith('data:'))) {
+    return { uri: img };
+  }
+  const lower = (title || '').toLowerCase();
+  if (lower.includes('hopper') || lower.includes('string')) {
+    return { uri: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=300' };
+  }
+  if (lower.includes('kottu') || lower.includes('roti')) {
+    return { uri: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=300' };
+  }
+  if (lower.includes('dhal') || lower.includes('curry') || lower.includes('rice')) {
+    return { uri: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=300' };
+  }
+  if (lower.includes('crab') || lower.includes('fish') || lower.includes('seafood')) {
+    return { uri: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=300' };
+  }
+  if (lower.includes('pasta') || lower.includes('pumpkin')) {
+    return require('../../assets/creamy_pumpkin_pasta.jpg');
+  }
+  return { uri: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300' };
 };
 
 export default function MealPlanScreen({
   onSelectMeal,
-  onNavigateHome,
+  onOpenRetail,
 }) {
   const { budget } = useAccount();
-  const [selectedDayId, setSelectedDayId] = useState('mon');
-  const [daysData, setDaysData] = useState(DEFAULT_DAYS_STRUCTURE);
-  const [planId, setPlanId] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState('mon');
+  const [schedule, setSchedule] = useState(INITIAL_SCHEDULE);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-  const [budgetSpent, setBudgetSpent] = useState(0);
+  const [recipeModalVisible, setRecipeModalVisible] = useState(false);
+  const [activeSlot, setActiveSlot] = useState('lunch');
 
-  const fetchMealPlan = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const plan = await mealPlanService.getCurrentMealPlan();
-      if (plan) {
-        setPlanId(plan.id);
-        const days = {
-          mon: { dayName: "Monday's Plan", total: 0, meals: [] },
-          tue: { dayName: "Tuesday's Plan", total: 0, meals: [] },
-          wed: { dayName: "Wednesday's Plan", total: 0, meals: [] },
-          thu: { dayName: "Thursday's Plan", total: 0, meals: [] },
-          fri: { dayName: "Friday's Plan", total: 0, meals: [] },
-          sat: { dayName: "Saturday's Plan", total: 0, meals: [] },
-          sun: { dayName: "Sunday's Plan", total: 0, meals: [] },
-        };
-
-        const items = plan.items || plan.meals || [];
-        let totalCostAll = 0;
-
-        items.forEach((item) => {
-          const rawDay = (item.day || item.day_of_week || 'mon').toLowerCase().slice(0, 3);
-          const dayKey = days[rawDay] ? rawDay : 'mon';
-          const mealCost = item.cost || item.price || item.estimated_cost || 0;
-          totalCostAll += mealCost;
-
-          days[dayKey].meals.push({
-            id: item.id || Math.random().toString(),
-            type: item.meal_type || item.type || 'LUNCH',
-            title: item.title || item.recipe_name || item.name || 'Planned Meal',
-            image: item.image || item.image_url,
-            badgeType: item.badge_type || 'match',
-            badgeText: item.badge_text || '95% Match',
-            servings: item.servings || 2,
-            price: mealCost,
-            accentColor:
-              (item.meal_type || item.type || '').toUpperCase() === 'BREAKFAST'
-                ? '#F59E0B'
-                : (item.meal_type || item.type || '').toUpperCase() === 'DINNER'
-                ? '#2E7D32'
-                : '#7C2D12',
-          });
-          days[dayKey].total += mealCost;
-        });
-
-        // Set unplanned markers for days with missing dinner
-        Object.keys(days).forEach((dk) => {
-          const hasDinner = days[dk].meals.some((m) => m.type.toUpperCase() === 'DINNER');
-          if (!hasDinner && days[dk].meals.length > 0) {
-            days[dk].unplanned = {
-              type: 'Dinner',
-              title: 'Dinner not planned',
-            };
-          }
-        });
-
-        setDaysData(days);
-        setBudgetSpent(totalCostAll);
-      }
-    } catch (err) {
-      console.log('[MealPlanScreen] Fetch error:', err.message);
-      setError(err.message || 'Could not load meal plan from server');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchMealPlan();
-  }, [fetchMealPlan]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchMealPlan();
+  // Compute stats
+  const calculateStats = () => {
+    let totalCost = 0;
+    let totalMeals = 0;
+    Object.keys(schedule).forEach((d) => {
+      const dayMeals = schedule[d];
+      Object.keys(dayMeals).forEach((slot) => {
+        if (dayMeals[slot]) {
+          totalCost += dayMeals[slot].price || 0;
+          totalMeals += 1;
+        }
+      });
+    });
+    return { totalCost, totalMeals };
   };
 
-  const currentDayData = daysData[selectedDayId] || {
-    dayName: DAY_NAMES[selectedDayId] || "Today's Plan",
-    total: 0,
-    meals: [],
-    unplanned: null,
+  const { totalCost, totalMeals } = calculateStats();
+  const targetBudget = budget?.weeklyBudget || 10000;
+  const remainingBudget = Math.max(0, targetBudget - totalCost);
+  const budgetPercentage = Math.min(100, Math.round((totalCost / targetBudget) * 100));
+
+  const currentMeals = schedule[selectedDay] || schedule.mon;
+  const currentDayInfo = DAYS.find((d) => d.id === selectedDay) || DAYS[0];
+
+  const currentDayCost = Object.values(currentMeals).reduce(
+    (sum, m) => sum + (m ? m.price || 0 : 0),
+    0
+  );
+
+  const handleOpenAdd = (slotKey) => {
+    setActiveSlot(slotKey);
+    setRecipeModalVisible(true);
   };
 
-  const handleMealPress = (meal) => {
-    if (onSelectMeal) {
-      onSelectMeal(meal);
-    } else {
-      Alert.alert(meal.title, `Type: ${meal.type}\nServings: ${meal.servings}\nCost: Rs ${meal.price}`);
-    }
+  const handleRecipeSelected = (recipe) => {
+    const newMeal = {
+      id: `m_${Date.now()}`,
+      title: recipe.title || recipe.name,
+      servings: recipe.servings || 2,
+      price: recipe.estimatedCost || recipe.base_cost || 450,
+      time: recipe.cookTime || recipe.prepTime || '20m',
+      image: recipe.image || recipe.image_url,
+      ingredients: recipe.ingredients?.map((i) => i.name).slice(0, 4).join(', ') || 'Fresh ingredients',
+    };
+
+    setSchedule((prev) => ({
+      ...prev,
+      [selectedDay]: {
+        ...prev[selectedDay],
+        [activeSlot]: newMeal,
+      },
+    }));
   };
 
-  const handleMealOptions = (meal) => {
-    Alert.alert(
-      meal.title,
-      'Choose an option',
-      [
-        {
-          text: 'View Recipe & Ingredients',
-          onPress: () => onSelectMeal && onSelectMeal(meal),
-        },
-        {
-          text: 'Remove from Plan',
-          style: 'destructive',
-          onPress: async () => {
-            if (planId && meal.id) {
-              try {
-                await mealPlanService.deleteItem(planId, meal.id);
-              } catch (e) {
-                console.log('Error deleting meal from API:', e.message);
-              }
-            }
-            setDaysData((prev) => {
-              const updated = { ...prev };
-              if (updated[selectedDayId]) {
-                const filtered = updated[selectedDayId].meals.filter((m) => m.id !== meal.id);
-                updated[selectedDayId] = {
-                  ...updated[selectedDayId],
-                  meals: filtered,
-                  total: Math.max(0, updated[selectedDayId].total - meal.price),
-                };
-              }
-              return updated;
-            });
-            setBudgetSpent((prev) => Math.max(0, prev - meal.price));
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+  const handleRemoveMeal = (slotKey) => {
+    setSchedule((prev) => ({
+      ...prev,
+      [selectedDay]: {
+        ...prev[selectedDay],
+        [slotKey]: null,
+      },
+    }));
   };
 
-  const handleSuggestMeal = () => {
-    Alert.alert(
-      'Suggested Meal',
-      'Based on your pantry ingredients, we suggest Creamy Pumpkin Pasta!',
-      [
-        {
-          text: 'View Recipe',
-          onPress: () => {
-            if (onSelectMeal) {
-              onSelectMeal({
-                title: 'Creamy Pumpkin Pasta',
-                type: 'DINNER',
-                price: 780,
-                servings: 2,
+  const handleCompareAllStores = () => {
+    if (!onOpenRetail) return;
+    const allIngredients = [];
+    Object.values(schedule).forEach((dayMeals) => {
+      Object.values(dayMeals).forEach((m) => {
+        if (m && m.ingredients) {
+          const splitIngs = typeof m.ingredients === 'string' ? m.ingredients.split(',') : [];
+          splitIngs.forEach((ingName) => {
+            const clean = ingName.trim();
+            if (clean && !allIngredients.some((i) => i.name.toLowerCase() === clean.toLowerCase())) {
+              allIngredients.push({
+                id: `ing_plan_${allIngredients.length + 1}`,
+                name: clean,
+                quantity: '250 g',
+                cost: Math.round((m.price || 400) / (splitIngs.length || 1)),
               });
             }
-          },
-        },
-        {
-          text: 'Add to Dinner',
-          onPress: () => {
-            const newMeal = {
-              id: `${selectedDayId}-3`,
-              type: 'DINNER',
-              title: 'Creamy Pumpkin Pasta',
-              image: require('../../assets/creamy_pumpkin_pasta.jpg'),
-              badgeType: 'match',
-              badgeText: '98% Match',
-              servings: 2,
-              price: 780,
-              accentColor: '#2E7D32',
-            };
-
-            setDaysData((prev) => {
-              const day = prev[selectedDayId];
-              return {
-                ...prev,
-                [selectedDayId]: {
-                  ...day,
-                  meals: [...day.meals, newMeal],
-                  total: day.total + 780,
-                  unplanned: null,
-                },
-              };
-            });
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  };
-
-  const handleFabPress = () => {
-    Alert.alert(
-      'Plan a Meal',
-      `Add a meal to ${currentDayData.dayName}`,
-      [
-        {
-          text: 'Add Creamy Pumpkin Pasta',
-          onPress: handleSuggestMeal,
-        },
-        {
-          text: 'Browse Recipes',
-          onPress: () => onNavigateHome && onNavigateHome(),
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+          });
+        }
+      });
+    });
+    onOpenRetail(allIngredients.length > 0 ? allIngredients : undefined);
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Top Header */}
-      <MealPlanHeader
-        title="Meal Plan"
-        onNotificationPress={() => Alert.alert('Notifications', 'No new notifications')}
-      />
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>Weekly Meal Plan</Text>
+          <Text style={styles.headerSub}>Organize dishes & grocery spending</Text>
+        </View>
+
+        <View style={styles.mealCountBadge}>
+          <Text style={styles.mealCountText}>{totalMeals} Planned</Text>
+        </View>
+      </View>
 
       <ScrollView
         style={styles.scrollView}
@@ -273,97 +223,183 @@ export default function MealPlanScreen({
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={() => setRefreshing(false)}
             colors={[Colors.primary]}
-            tintColor={Colors.primary}
           />
         }
       >
-        {/* Weekly Budget Banner */}
-        <WeeklyBudgetCard
-          target={budget?.weeklyBudget || 10000}
-          spent={budgetSpent}
-          status={budgetSpent <= (budget?.weeklyBudget || 10000) ? 'ON TRACK' : 'OVER BUDGET'}
-        />
+        {/* Budget Progress Card */}
+        <View style={styles.budgetCard}>
+          <View style={styles.budgetHeader}>
+            <View>
+              <Text style={styles.budgetLabel}>Weekly Grocery Spending</Text>
+              <Text style={styles.budgetAmount}>
+                Rs. {totalCost.toLocaleString()}{' '}
+                <Text style={styles.budgetTarget}>/ Rs. {targetBudget.toLocaleString()}</Text>
+              </Text>
+            </View>
 
-        {loading && (
-          <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-            <ActivityIndicator size="small" color={Colors.primary} />
-            <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 6 }}>
-              Syncing meal plan from server...
-            </Text>
+            <View style={[styles.statusPill, totalCost <= targetBudget ? styles.statusPillGood : styles.statusPillOver]}>
+              <Ionicons
+                name={totalCost <= targetBudget ? "checkmark-circle" : "alert-circle"}
+                size={13}
+                color={totalCost <= targetBudget ? "#007A3D" : "#DC2626"}
+              />
+              <Text style={[styles.statusPillText, totalCost <= targetBudget ? styles.statusTextGood : styles.statusTextOver]}>
+                {totalCost <= targetBudget ? `Rs. ${remainingBudget.toLocaleString()} Left` : 'Over Budget'}
+              </Text>
+            </View>
           </View>
-        )}
 
-        {/* Day Selector (Mon, Tue, Wed, Thu, Fri, Sat, Sun) */}
-        <DaySelector
-          selectedDayId={selectedDayId}
-          onSelectDay={setSelectedDayId}
-        />
-
-        {/* Day Section Title & Daily Total */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{currentDayData.dayName}</Text>
-          <Text style={styles.sectionTotal}>
-            Total:  Rs  {currentDayData.total.toLocaleString()}
-          </Text>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${budgetPercentage}%`, backgroundColor: budgetPercentage > 95 ? '#DC2626' : Colors.primary },
+              ]}
+            />
+          </View>
         </View>
 
-        {/* Planned Meals */}
-        {currentDayData.meals.map((meal) => (
-          <MealCard
-            key={meal.id}
-            mealType={meal.type}
-            title={meal.title}
-            image={meal.image}
-            badgeType={meal.badgeType}
-            badgeText={meal.badgeText}
-            servings={meal.servings}
-            price={meal.price}
-            accentColor={meal.accentColor}
-            onPress={() => handleMealPress(meal)}
-            onOptionsPress={() => handleMealOptions(meal)}
-          />
-        ))}
+        {/* Day Selector Segmented Bar */}
+        <View style={styles.daySelectorContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daySelectorScroll}>
+            {DAYS.map((d) => {
+              const isSelected = d.id === selectedDay;
+              const dayMeals = schedule[d.id] || {};
+              const count = Object.values(dayMeals).filter(Boolean).length;
 
-        {/* Empty meals placeholder if none planned */}
-        {currentDayData.meals.length === 0 && !loading && (
-          <View style={{ padding: 24, alignItems: 'center', backgroundColor: '#F9FAFB', marginHorizontal: 16, borderRadius: 16, marginBottom: 16 }}>
-            <Ionicons name="calendar-outline" size={32} color="#9CA3AF" />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary, marginTop: 8 }}>
-              No meals planned for {currentDayData.dayName}
-            </Text>
-            <Text style={{ fontSize: 12, color: Colors.textSecondary, textAlign: 'center', marginTop: 4 }}>
-              Tap '+' below or browse recipes to add meals to your schedule.
+              return (
+                <TouchableOpacity
+                  key={d.id}
+                  style={[styles.dayTab, isSelected && styles.dayTabActive]}
+                  onPress={() => setSelectedDay(d.id)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.dayTabLabel, isSelected && styles.dayTabLabelActive]}>
+                    {d.label}
+                  </Text>
+                  <View style={[styles.dayTabDot, count > 0 ? (isSelected ? styles.dotWhite : styles.dotGreen) : styles.dotEmpty]}>
+                    {count > 0 && <Text style={[styles.dotCountText, isSelected && styles.dotCountTextActive]}>{count}</Text>}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Selected Day Header */}
+        <View style={styles.dayHeader}>
+          <Text style={styles.dayTitle}>{currentDayInfo.label}'s Menu</Text>
+          <Text style={styles.dayCost}>Estimated: Rs. {currentDayCost.toLocaleString()}</Text>
+        </View>
+
+        {/* Meal Slots List */}
+        {MEAL_SLOTS.map((slot) => {
+          const meal = currentMeals[slot.key];
+
+          return (
+            <View key={slot.key} style={styles.slotContainer}>
+              <View style={styles.slotHeaderRow}>
+                <View style={styles.slotLabelGroup}>
+                  <Ionicons name={slot.icon} size={15} color={slot.color} />
+                  <Text style={[styles.slotLabel, { color: slot.color }]}>{slot.label.toUpperCase()}</Text>
+                </View>
+                {meal && (
+                  <Text style={styles.slotMealPrice}>Rs. {meal.price.toLocaleString()}</Text>
+                )}
+              </View>
+
+              {meal ? (
+                <TouchableOpacity
+                  style={styles.mealCard}
+                  onPress={() => onSelectMeal && onSelectMeal(meal)}
+                  activeOpacity={0.88}
+                >
+                  <Image
+                    source={getDishImage(meal.title, meal.image)}
+                    style={styles.mealThumb}
+                  />
+                  <View style={styles.mealCardContent}>
+                    <Text style={styles.mealTitle} numberOfLines={2}>{meal.title}</Text>
+                    <Text style={styles.mealIngredients} numberOfLines={1}>
+                      🧺 {meal.ingredients}
+                    </Text>
+                    <View style={styles.mealMetaRow}>
+                      <Text style={styles.mealMetaText}>⏱️ {meal.time}</Text>
+                      <Text style={styles.mealMetaText}>•</Text>
+                      <Text style={styles.mealMetaText}>🍳 {meal.servings} servings</Text>
+                      <Text style={styles.mealMetaText}>•</Text>
+                      <Text style={styles.mealMetaPrice}>~Rs. {Math.round(meal.price / (meal.servings || 1))}/serv</Text>
+                    </View>
+                  </View>
+
+                  {/* Actions */}
+                  <View style={styles.mealCardActions}>
+                    <TouchableOpacity
+                      style={styles.cardActionBtn}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        handleOpenAdd(slot.key);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Feather name="refresh-cw" size={14} color="#4B5563" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.cardActionBtn, styles.deleteBtn]}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        handleRemoveMeal(slot.key);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Feather name="trash-2" size={14} color="#DC2626" />
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.emptySlotBtn}
+                  onPress={() => handleOpenAdd(slot.key)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                  <Text style={styles.emptySlotText}>Add recipe to {slot.label}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })}
+
+        {/* Bottom Grocery List Prompt */}
+        <View style={styles.grocerySummaryCard}>
+          <View style={styles.grocerySummaryLeft}>
+            <Text style={styles.grocerySummaryTitle}>Weekly Grocery Basket</Text>
+            <Text style={styles.grocerySummarySub}>
+              {totalMeals * 3} ingredients needed across {totalMeals} planned dishes
             </Text>
           </View>
-        )}
+          <TouchableOpacity
+            style={styles.compareRetailBtn}
+            onPress={handleCompareAllStores}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="cart" size={15} color="#FFFFFF" />
+            <Text style={styles.compareRetailText}>Compare Stores</Text>
+          </TouchableOpacity>
+        </View>
 
-        {/* Unplanned Meal State (e.g. Dinner not planned) */}
-        {currentDayData.unplanned && (
-          <UnplannedMealCard
-            mealType={currentDayData.unplanned.type}
-            title={currentDayData.unplanned.title}
-            subtitle="You have ingredients left in your pantry."
-            buttonText="Suggest a Meal"
-            onSuggestMeal={handleSuggestMeal}
-          />
-        )}
-
-        {/* Extra scroll padding to clear bottom nav & FAB */}
         <View style={{ height: 90 }} />
       </ScrollView>
 
-      {/* Floating Action Button (+) */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={handleFabPress}
-        activeOpacity={0.88}
-        accessibilityRole="button"
-        accessibilityLabel="Plan a new meal"
-      >
-        <Ionicons name="add" size={32} color="#FFFFFF" />
-      </TouchableOpacity>
+      {/* Select Recipe Modal */}
+      <SelectRecipeModal
+        visible={recipeModalVisible}
+        mealType={activeSlot}
+        onClose={() => setRecipeModalVisible(false)}
+        onSelectRecipe={handleRecipeSelected}
+      />
     </SafeAreaView>
   );
 }
@@ -371,7 +407,38 @@ export default function MealPlanScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  headerSub: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  mealCountBadge: {
+    backgroundColor: '#E8F8F0',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  mealCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#007A3D',
   },
   scrollView: {
     flex: 1,
@@ -379,39 +446,295 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
-  sectionHeader: {
+  budgetCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  budgetHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  budgetLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  budgetAmount: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginTop: 2,
+  },
+  budgetTarget: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  statusPillGood: {
+    backgroundColor: '#E8F8F0',
+  },
+  statusPillOver: {
+    backgroundColor: '#FEE2E2',
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusTextGood: {
+    color: '#007A3D',
+  },
+  statusTextOver: {
+    color: '#DC2626',
+  },
+  progressTrack: {
+    height: 6,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  daySelectorContainer: {
+    marginVertical: 10,
+  },
+  daySelectorScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  dayTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 6,
+  },
+  dayTabActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  dayTabLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  dayTabLabelActive: {
+    color: '#FFFFFF',
+  },
+  dayTabDot: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  dotWhite: {
+    backgroundColor: '#FFFFFF',
+  },
+  dotGreen: {
+    backgroundColor: '#E8F8F0',
+  },
+  dotEmpty: {
+    backgroundColor: 'transparent',
+  },
+  dotCountText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#007A3D',
+  },
+  dotCountTextActive: {
+    color: Colors.primary,
+  },
+  dayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  dayTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  dayCost: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  slotContainer: {
+    marginHorizontal: 16,
     marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 16,
+  slotHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
+  slotLabelGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  slotLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  slotMealPrice: {
+    fontSize: 12,
     fontWeight: '700',
-    color: Colors.textPrimary,
-    letterSpacing: -0.2,
+    color: '#374151',
   },
-  sectionTotal: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textPrimary,
+  mealCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  fab: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.terracottaDeep,
+  mealThumb: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  mealCardContent: {
+    flex: 1,
+  },
+  mealTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 3,
+  },
+  mealIngredients: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginBottom: 6,
+  },
+  mealMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  mealMetaText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  mealMetaPrice: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#007A3D',
+  },
+  mealCardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cardActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.terracottaDeep,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
-    zIndex: 10,
+  },
+  deleteBtn: {
+    backgroundColor: '#FEE2E2',
+  },
+  emptySlotBtn: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  emptySlotText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  grocerySummaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  grocerySummaryLeft: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  grocerySummaryTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  grocerySummarySub: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  compareRetailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 5,
+  },
+  compareRetailText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

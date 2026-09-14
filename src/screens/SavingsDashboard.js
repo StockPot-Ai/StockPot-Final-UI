@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
+  Animated,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
+import PremiumBudgetChallengeModal from '../components/mealplan/PremiumBudgetChallengeModal';
+import PremiumUpgradeModal from '../components/account/PremiumUpgradeModal';
 import { savingsService, gamificationService } from '../services';
 import { useAccount } from '../context/AccountContext';
 
@@ -32,11 +35,11 @@ const DEFAULT_TREND = [
 const CHALLENGES = [
   {
     id: 1,
-    label: 'Zero-Waste Chef',
+    label: 'Budget Master Chef',
     status: '1/3 meals cooked',
-    icon: 'leaf',
-    iconColor: '#2E7D32',
-    iconBg: '#E8F5E9',
+    icon: 'star',
+    iconColor: '#007A3D',
+    iconBg: '#E8F8F0',
     isDone: false,
     reward: '+50 XP',
   },
@@ -219,25 +222,44 @@ const BarChart = ({ data = [] }) => {
   );
 };
 
-// ─── Gamification Cards ──────────────────────────────────────────────────────
+// ─── Gamification Cards with Harmonized Jewel Tones & Micro-Animations ───────
 
 const GamificationLevelHero = ({ gamificationData }) => {
   const { xp, currentLevel, nextLevel, progressPct, streakDays } = gamificationData;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
   return (
     <View style={styles.gamificationHero}>
       <View style={styles.gamHeroTop}>
-        <View style={styles.levelIconCircle}>
-          <FontAwesome5 name={currentLevel.icon || 'crown'} size={24} color="#D97706" />
-        </View>
+        <Animated.View style={[styles.levelIconCircle, { transform: [{ scale: pulseAnim }] }]}>
+          <FontAwesome5 name={currentLevel.icon || 'crown'} size={22} color="#D97706" />
+        </Animated.View>
         <View style={{ flex: 1 }}>
           <View style={styles.levelNameRow}>
             <Text style={styles.gamLevelTitle}>Level {currentLevel.level}: {currentLevel.name}</Text>
             <View style={styles.streakBadge}>
-              <Ionicons name="flame" size={14} color="#EA580C" />
+              <Ionicons name="flame" size={13} color="#FFFFFF" />
               <Text style={styles.streakText}>{streakDays}d Streak</Text>
             </View>
           </View>
-          <Text style={styles.gamXpCount}>{xp} XP Earned</Text>
+          <Text style={styles.gamXpCount}>✨ {xp} Total XP Accumulated</Text>
         </View>
       </View>
 
@@ -254,28 +276,83 @@ const GamificationLevelHero = ({ gamificationData }) => {
   );
 };
 
-const BadgeGridItem = ({ badge }) => (
-  <View style={[styles.badgeItemCard, !badge.unlocked && styles.badgeItemLocked]}>
-    <View style={[styles.badgeIconCircle, badge.unlocked ? styles.badgeIconUnlocked : styles.badgeIconLockedBg]}>
-      <FontAwesome5
-        name={badge.icon || 'medal'}
-        size={20}
-        color={badge.unlocked ? '#D97706' : '#9CA3AF'}
-      />
-    </View>
-    <Text style={[styles.badgeItemName, !badge.unlocked && styles.badgeTextMuted]} numberOfLines={1}>
-      {badge.name}
-    </Text>
-    <Text style={styles.badgeItemDesc} numberOfLines={2}>
-      {badge.description}
-    </Text>
-    <View style={[styles.badgeXpChip, badge.unlocked ? styles.badgeXpUnlocked : styles.badgeXpLocked]}>
-      <Text style={[styles.badgeXpText, badge.unlocked ? styles.badgeXpTextUnlocked : styles.badgeXpTextLocked]}>
-        {badge.unlocked ? '✓ Unlocked' : `+${badge.xpBonus} XP`}
+const getBadgeTheme = (badge) => {
+  if (!badge.unlocked) {
+    return {
+      border: '#E5E7EB',
+      bg: '#F9FAFB',
+      iconBg: '#E5E7EB',
+      iconColor: '#9CA3AF',
+      tagBg: '#F3F4F6',
+      tagColor: '#6B7280',
+    };
+  }
+  const id = badge.id || '';
+  if (id.includes('saver') || id.includes('budget') || id.includes('deal')) {
+    return {
+      border: '#A7F3D0',
+      bg: '#FFFFFF',
+      iconBg: '#DCFCE7',
+      iconColor: '#059669',
+      tagBg: '#ECFDF5',
+      tagColor: '#047857',
+    };
+  }
+  if (id.includes('streak') || id.includes('cook')) {
+    return {
+      border: '#FED7AA',
+      bg: '#FFFFFF',
+      iconBg: '#FFEDD5',
+      iconColor: '#EA580C',
+      tagBg: '#FFF7ED',
+      tagColor: '#C2410C',
+    };
+  }
+  if (id.includes('community') || id.includes('creator') || id.includes('share')) {
+    return {
+      border: '#BFDBFE',
+      bg: '#FFFFFF',
+      iconBg: '#DBEAFE',
+      iconColor: '#2563EB',
+      tagBg: '#EFF6FF',
+      tagColor: '#1D4ED8',
+    };
+  }
+  return {
+    border: '#FDE68A',
+    bg: '#FFFFFF',
+    iconBg: '#FEF3C7',
+    iconColor: '#D97706',
+    tagBg: '#FFFBEB',
+    tagColor: '#B45309',
+  };
+};
+
+const BadgeGridItem = ({ badge }) => {
+  const theme = getBadgeTheme(badge);
+  return (
+    <View style={[styles.badgeItemCard, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+      <View style={[styles.badgeIconCircle, { backgroundColor: theme.iconBg }]}>
+        <FontAwesome5
+          name={badge.icon || 'medal'}
+          size={20}
+          color={theme.iconColor}
+        />
+      </View>
+      <Text style={[styles.badgeItemName, !badge.unlocked && styles.badgeTextMuted]} numberOfLines={1}>
+        {badge.name}
       </Text>
+      <Text style={styles.badgeItemDesc} numberOfLines={2}>
+        {badge.description}
+      </Text>
+      <View style={[styles.badgeXpChip, { backgroundColor: theme.tagBg }]}>
+        <Text style={[styles.badgeXpText, { color: theme.tagColor }]}>
+          {badge.unlocked ? '✓ Unlocked' : `+${badge.xpBonus} XP`}
+        </Text>
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const ActivityLogItem = ({ item, isLast }) => (
   <View>
@@ -327,16 +404,18 @@ const ContributorLeaderboardItem = ({ item, rank }) => (
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function SavingsDashboard({ onBack }) {
-  const { budget, profile } = useAccount();
+  const { budget, profile, isPremium } = useAccount();
   const [activeTab, setActiveTab] = useState('financial');
+  const [challengeModalVisible, setChallengeModalVisible] = useState(false);
+  const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [stats, setStats] = useState({
-    totalSaved: profile.moneySaved || 3450,
+    totalSaved: profile.moneySaved || 5450,
     goal: budget.savingsGoal || 20000,
-    thisMonth: 3450,
-    weeklyAvg: 850,
-    foodWasteAvoided: profile.wasteAvoided || 4.2,
-    mealsPlanned: 18,
-    avgTripSaving: 420,
+    thisMonth: 5450,
+    weeklyAvg: 1450,
+    foodWasteAvoided: profile.wasteAvoided || 4.8,
+    mealsPlanned: 24,
+    avgTripSaving: 460,
     weeklySpend: 3850,
     weeklyBudget: budget.weeklyBudget || 10000,
   });
@@ -454,16 +533,16 @@ export default function SavingsDashboard({ onBack }) {
                 bgColor="#E3F2FD"
               />
               <StatCard
-                value={`${stats.foodWasteAvoided} kg`}
-                label="Waste Avoided"
-                icon="leaf-outline"
-                color="#E53935"
-                bgColor="#FFEBEE"
+                value={stats.mealsPlanned || 24}
+                label="Meals Planned"
+                icon="restaurant-outline"
+                color="#007A3D"
+                bgColor="#E8F8F0"
               />
               <StatCard
-                value={stats.mealsPlanned}
-                label="Meals Cooked"
-                icon="restaurant-outline"
+                value={`Rs. 4,550`}
+                label="Split-Basket ROI"
+                icon="git-merge-outline"
                 color="#D97706"
                 bgColor="#FEF3C7"
               />
@@ -475,10 +554,58 @@ export default function SavingsDashboard({ onBack }) {
               <BarChart data={trend} />
             </View>
 
+            {/* Interactive Premium Budget Challenge Hero */}
+            <View style={styles.section}>
+              <View style={styles.challengeHeroBanner}>
+                <View style={styles.challengeHeroLeft}>
+                  <View style={styles.challengeHeroBadge}>
+                    <FontAwesome5 name="trophy" size={12} color="#D97706" />
+                    <Text style={styles.challengeHeroBadgeText}>PREMIUM CHALLENGE</Text>
+                  </View>
+                  <Text style={styles.challengeHeroTitle}>Feed 4 for 7 days under Rs. 7,500</Text>
+                  <Text style={styles.challengeHeroDesc}>
+                    AI calculates ingredients, finds cheapest store prices & optimizes remaining surplus.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.challengeLaunchBtn}
+                  onPress={() => setChallengeModalVisible(true)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.challengeLaunchBtnText}>Launch 🚀</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Store Performance Benchmark */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Store Performance & Savings Breakdown</Text>
+              <View style={styles.storeBenchmarkCard}>
+                {[
+                  { name: 'Softlogic GLOMARK', saved: 'Rs. 1,840 saved', pct: '38%', color: '#E65100', highlight: 'Best for Meats & Deals' },
+                  { name: 'ABC Neighborhood Grocery', saved: 'Rs. 1,420 saved', pct: '29%', color: '#0288D1', highlight: 'Cheapest Fresh Veggies & Eggs' },
+                  { name: 'Keells Super', saved: 'Rs. 1,180 saved', pct: '24%', color: '#007A3D', highlight: 'Nexus Member Discounts' },
+                  { name: 'Cargills Food City', saved: 'Rs. 440 saved', pct: '9%', color: '#D32F2F', highlight: 'Essential Dhal & Grains' },
+                ].map((st, i) => (
+                  <View key={i} style={styles.benchmarkRow}>
+                    <View style={[styles.benchmarkDot, { backgroundColor: st.color }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.benchmarkStoreName}>{st.name}</Text>
+                      <Text style={styles.benchmarkHighlight}>{st.highlight}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.benchmarkSaved}>{st.saved}</Text>
+                      <Text style={styles.benchmarkPct}>{st.pct} of trips</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+
             {/* Weekly Challenges */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Zero-Waste & Budget Missions</Text>
+                <Text style={styles.sectionTitle}>Weekly Savings & Cooking Missions</Text>
                 <View style={styles.rewardPoolBadge}>
                   <Text style={styles.rewardPoolText}>+180 XP Available</Text>
                 </View>
@@ -571,6 +698,21 @@ export default function SavingsDashboard({ onBack }) {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Premium Budget Challenge Modal */}
+      <PremiumBudgetChallengeModal
+        visible={challengeModalVisible}
+        onClose={() => setChallengeModalVisible(false)}
+        onChallengeAccepted={() => {
+          fetchDashboardData();
+        }}
+      />
+
+      {/* Customer Premium Upgrade Modal */}
+      <PremiumUpgradeModal
+        visible={premiumModalVisible}
+        onClose={() => setPremiumModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -581,6 +723,102 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  challengeHeroBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    gap: 12,
+    marginBottom: 4,
+  },
+  challengeHeroLeft: {
+    flex: 1,
+  },
+  challengeHeroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 4,
+    marginBottom: 4,
+  },
+  challengeHeroBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  challengeHeroTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#78350F',
+  },
+  challengeHeroDesc: {
+    fontSize: 11.5,
+    color: '#92400E',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  challengeLaunchBtn: {
+    backgroundColor: '#D97706',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  challengeLaunchBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  storeBenchmarkCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  benchmarkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 10,
+  },
+  benchmarkDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  benchmarkStoreName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  benchmarkHighlight: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  benchmarkSaved: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#007A3D',
+  },
+  benchmarkPct: {
+    fontSize: 10.5,
+    color: '#9CA3AF',
   },
   scrollView: {
     flex: 1,
@@ -1042,16 +1280,21 @@ const styles = StyleSheet.create({
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(234, 88, 12, 0.2)',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    gap: 3,
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 4,
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 2,
   },
   streakText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#FB923C',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   gamXpCount: {
     fontSize: 13,

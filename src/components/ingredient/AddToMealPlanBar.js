@@ -23,13 +23,15 @@ export default function AddToMealPlanBar({
         accessibilityLabel={`Add to Meal Plan, total Rs ${cost}`}
       >
         <Ionicons
-          name="calendar-outline"
-          size={21}
+          name="calendar"
+          size={18}
           color="#FFFFFF"
           style={styles.calendarIcon}
         />
         <Text style={styles.buttonText}>Add to Meal Plan</Text>
-        <Text style={styles.costText}>(Rs {cost})</Text>
+        <View style={styles.costBadge}>
+          <Text style={styles.costBadgeText}>Rs. {cost.toLocaleString()}</Text>
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -44,26 +46,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 26 : 14,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 10,
   },
   button: {
-    backgroundColor: Colors.terracotta,
-    height: 56,
-    borderRadius: 28,
+    backgroundColor: '#007A3D',
+    height: 52,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    shadowColor: Colors.terracotta,
+    paddingHorizontal: 18,
+    shadowColor: '#007A3D',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -72,15 +74,21 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
-  costText: {
+  costBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginLeft: 10,
+  },
+  costBadgeText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    marginLeft: 8,
-    letterSpacing: -0.2,
+    fontSize: 13.5,
+    fontWeight: '800',
   },
 });
+

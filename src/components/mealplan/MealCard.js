@@ -9,177 +9,205 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 
+const getMealImage = (img) => {
+  if (img && typeof img === 'string' && (img.startsWith('http') || img.startsWith('data:'))) {
+    return { uri: img };
+  }
+  return require('../../../assets/creamy_pumpkin_pasta.jpg');
+};
+
 export default function MealCard({
-  mealType = 'BREAKFAST',
-  title = 'Meal Item',
-  image = require('../../../assets/creamy_pumpkin_pasta.jpg'),
-  badgeType = 'match', // 'match' or 'tag'
-  badgeText = '95% Match',
+  mealType = 'LUNCH',
+  title = 'Planned Dish',
+  image,
   servings = 2,
-  price = 850,
-  accentColor = '#F59E0B',
+  price = 450,
+  calories = 420,
+  protein = '18g',
+  cookTime = '25m',
+  accentColor = '#007A3D',
   onPress,
-  onOptionsPress,
+  onSwap,
+  onRemove,
+  onServingsChange,
 }) {
   return (
-    <TouchableOpacity
-      style={[styles.card, { borderLeftColor: accentColor }]}
-      onPress={onPress}
-      activeOpacity={0.88}
-      accessibilityRole="button"
-      accessibilityLabel={`${mealType}: ${title}, ${servings} Servings, Rs ${price}`}
-    >
-      {/* Top Header: Meal Type & 3-dots Menu */}
-      <View style={styles.topRow}>
-        <Text style={styles.mealType}>{mealType.toUpperCase()}</Text>
-        <TouchableOpacity
-          style={styles.menuBtn}
-          onPress={onOptionsPress}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="ellipsis-vertical" size={17} color={Colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Dish Title */}
-      <Text style={styles.title} numberOfLines={1}>
-        {title}
-      </Text>
-
-      {/* Bottom Content Row */}
-      <View style={styles.contentRow}>
+    <View style={styles.cardContainer}>
+      <TouchableOpacity
+        style={styles.cardMain}
+        onPress={onPress}
+        activeOpacity={0.88}
+      >
         <Image
-          source={
-            typeof image === 'string' && (image.startsWith('http') || image.startsWith('data:'))
-              ? { uri: image }
-              : image || require('../../../assets/creamy_pumpkin_pasta.jpg')
-          }
-          style={styles.thumbnail}
+          source={getMealImage(image)}
+          style={styles.image}
         />
 
-        <View style={styles.middleInfo}>
-          {badgeType === 'match' ? (
-            <View style={styles.matchBadge}>
-              <Ionicons name="shield-checkmark-outline" size={12} color={Colors.matchGreen} />
-              <Text style={styles.matchText}>{badgeText}</Text>
+        <View style={styles.details}>
+          <View style={styles.topRow}>
+            <View style={[styles.typeBadge, { backgroundColor: `${accentColor}18` }]}>
+              <Text style={[styles.typeText, { color: accentColor }]}>
+                {mealType.toUpperCase()}
+              </Text>
             </View>
-          ) : (
-            <View style={styles.tagBadge}>
-              <Text style={styles.tagText}>{badgeText}</Text>
+            <Text style={styles.timeText}>⏱️ {cookTime}</Text>
+          </View>
+
+          <Text style={styles.title} numberOfLines={2}>
+            {title}
+          </Text>
+
+          {/* Macros & Servings */}
+          <View style={styles.metaRow}>
+            <View style={styles.macroPill}>
+              <Text style={styles.macroText}>{calories} kcal</Text>
             </View>
-          )}
+            <View style={styles.macroPill}>
+              <Text style={styles.macroText}>{protein} protein</Text>
+            </View>
+          </View>
 
-          <Text style={styles.servingsText}>{servings} Servings</Text>
-        </View>
+          {/* Pricing Row */}
+          <View style={styles.priceRow}>
+            <View>
+              <Text style={styles.priceTotal}>Rs. {price.toLocaleString()}</Text>
+              <Text style={styles.pricePerServing}>
+                ~Rs. {servings > 0 ? Math.round(price / servings) : price}/serving
+              </Text>
+            </View>
 
-        <View style={styles.priceContainer}>
-          <Text style={styles.price}>Rs  {price.toLocaleString()}</Text>
+            {/* Quick Actions */}
+            <View style={styles.actionIconsRow}>
+              {onSwap && (
+                <TouchableOpacity
+                  style={styles.actionIconBtn}
+                  onPress={onSwap}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="swap-horizontal" size={16} color="#4B5563" />
+                </TouchableOpacity>
+              )}
+              {onRemove && (
+                <TouchableOpacity
+                  style={[styles.actionIconBtn, styles.deleteBtn]}
+                  onPress={onRemove}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="trash-outline" size={15} color="#DC2626" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+  cardContainer: {
     marginHorizontal: 16,
-    marginBottom: 14,
-    padding: 14,
-    borderLeftWidth: 4.5,
+    marginBottom: 12,
+  },
+  cardMain: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    flexDirection: 'row',
+    padding: 12,
     borderWidth: 1,
     borderColor: '#F3F4F6',
-    shadowColor: 'rgba(0, 0, 0, 0.05)',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
+    gap: 12,
+  },
+  image: {
+    width: 96,
+    height: 96,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+  },
+  details: {
+    flex: 1,
+    justifyContent: 'space-between',
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
   },
-  mealType: {
-    fontSize: 11,
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  typeText: {
+    fontSize: 10,
     fontWeight: '800',
-    color: '#4B5563',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
   },
-  menuBtn: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+  timeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    letterSpacing: -0.2,
-    marginBottom: 10,
-  },
-  contentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  thumbnail: {
-    width: 68,
-    height: 68,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  middleInfo: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: 'center',
-  },
-  matchBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.matchGreenBg,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  matchText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.matchGreen,
-  },
-  tagBadge: {
-    backgroundColor: '#FFF8F5',
-    borderWidth: 1,
-    borderColor: '#FEE8DC',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  tagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  servingsText: {
-    fontSize: 13.5,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-    marginTop: 8,
-  },
-  priceContainer: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  price: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: '#1F2937',
+    marginVertical: 4,
+    lineHeight: 18,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  macroPill: {
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  macroText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 2,
+  },
+  priceTotal: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
+  pricePerServing: {
+    fontSize: 10,
+    color: '#9CA3AF',
+  },
+  actionIconsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionIconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteBtn: {
+    backgroundColor: '#FEF2F2',
   },
 });

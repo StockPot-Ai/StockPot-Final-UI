@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -25,11 +25,21 @@ const BADGE_OPTIONS = [
 const EditProfileModal = ({ visible, onClose }) => {
   const { profile, updateProfile } = useAccount();
 
-  const [name, setName] = useState(profile.name);
-  const [email, setEmail] = useState(profile.email);
-  const [phone, setPhone] = useState(profile.phone);
-  const [bio, setBio] = useState(profile.bio);
-  const [ecoTitle, setEcoTitle] = useState(profile.ecoTitle);
+  const [name, setName] = useState(profile.name || '');
+  const [email, setEmail] = useState(profile.email || '');
+  const [phone, setPhone] = useState(profile.phone || '');
+  const [bio, setBio] = useState(profile.bio || '');
+  const [ecoTitle, setEcoTitle] = useState(profile.ecoTitle || 'Eco Saver');
+
+  useEffect(() => {
+    if (visible) {
+      setName(profile.name || '');
+      setEmail(profile.email || '');
+      setPhone(profile.phone || '');
+      setBio(profile.bio || '');
+      setEcoTitle(profile.ecoTitle || 'Eco Saver');
+    }
+  }, [visible, profile]);
 
   const handleSave = () => {
     if (!name.trim()) {

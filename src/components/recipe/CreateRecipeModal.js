@@ -23,7 +23,7 @@ const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 
 const CreateRecipeModal = ({ visible, onClose, onRecipeCreated }) => {
   const { profile } = useAccount();
-  const userEmail = profile?.email || 'itzdenuwan@gmail.com';
+  const userEmail = profile?.email || '';
 
   const [step, setStep] = useState(1); // 1 = Details, 2 = Email Verification
   const [title, setTitle] = useState('');
