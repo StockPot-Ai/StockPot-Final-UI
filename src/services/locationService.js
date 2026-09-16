@@ -3,29 +3,31 @@ import AsyncStorage from '../utils/safeStorage';
 
 const LOCATION_STORAGE_KEY = '@stockpot_last_location';
 
-const DEFAULT_LOCATION = {
-  latitude: 6.8436,
-  longitude: 80.2604,
-  city: 'Eheliyagoda',
-  region: 'Sabaragamuwa',
+// No default/mock location — when unavailable, say so honestly
+const UNAVAILABLE_LOCATION = {
+  latitude: null,
+  longitude: null,
+  city: null,
+  region: null,
   country: 'Sri Lanka',
-  formatted: 'Eheliyagoda, LK',
+  formatted: 'Location Unavailable',
   isGps: false,
+  isUnavailable: true,
 };
 
-let cachedLocation = { ...DEFAULT_LOCATION };
+let cachedLocation = null; // null = not yet resolved
 
-// Load persisted location on module initialization
+// Load persisted location on module initialization (only if it was a real GPS/IP fix)
 (async () => {
   try {
     const saved = await AsyncStorage.getItem(LOCATION_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed && parsed.latitude && parsed.longitude) {
-        cachedLocation = { ...DEFAULT_LOCATION, ...parsed };
+      if (parsed && parsed.latitude && parsed.longitude && !parsed.isUnavailable) {
+        cachedLocation = parsed;
       }
     }
-  } catch (_) { }
+  } catch (_) {}
 })();
 
 // Helper to race a promise against a timeout
@@ -37,7 +39,6 @@ const withTimeout = (promise, ms, fallbackValue = null) => {
 };
 
 export const locationService = {
-  // Check whether location permissions are already granted
   hasPermission: async () => {
     try {
       const res = await Location.getForegroundPermissionsAsync();
@@ -47,7 +48,6 @@ export const locationService = {
     }
   },
 
-  // Request location permission explicitly (used during Onboarding or Settings)
   requestPermission: async () => {
     try {
       const res = await Location.requestForegroundPermissionsAsync();
@@ -75,20 +75,20 @@ export const locationService = {
           if (last && last.coords) {
             coords = last.coords;
           }
-        } catch (_) { }
+        } catch (_) {}
 
-        // If no last known position, try active position with Low accuracy (fast lock)
+        // If no last known position, try active GPS with Low accuracy
         if (!coords) {
           try {
             const current = await withTimeout(
               Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
-              3500,
+              4000,
               null
             );
             if (current && current.coords) {
               coords = current.coords;
             }
-          } catch (_) { }
+          } catch (_) {}
         }
       }
 
@@ -117,7 +117,7 @@ export const locationService = {
               formatted = `${region}, ${countryCode}`;
             }
           }
-        } catch (_) { }
+        } catch (_) {}
 
         // Fallback reverse geocode via OpenStreetMap Nominatim
         if (!formatted) {
@@ -141,33 +141,31 @@ export const locationService = {
                 formatted = `${city}, ${countryCode}`;
               }
             }
-          } catch (_) { }
+          } catch (_) {}
         }
 
-        // If city still couldn't be resolved by name, check proximity to known Sri Lankan hubs
+        // If still no city name, use coordinate-based label
         if (!formatted) {
-          // Check distance to Eheliyagoda center
-          const dEheli = Math.hypot(latitude - 6.8436, longitude - 80.2604);
-          const dColombo = Math.hypot(latitude - 6.9271, longitude - 79.8612);
-          city = dEheli < 0.25 ? 'Eheliyagoda' : dColombo < 0.2 ? 'Colombo' : 'Sri Lanka';
-          formatted = `${city}, LK`;
+          formatted = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+          city = `${latitude.toFixed(2)}°N`;
         }
 
         cachedLocation = {
           latitude,
           longitude,
-          city: city || DEFAULT_LOCATION.city,
-          region: region || 'LK',
+          city: city || null,
+          region: region || null,
           country: 'Sri Lanka',
-          formatted: formatted || `${city || DEFAULT_LOCATION.city}, LK`,
+          formatted,
           isGps: true,
+          isUnavailable: false,
         };
 
-        AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => { });
+        AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
         return cachedLocation;
       }
 
-      // If GPS permission was denied or GPS was off, check IP Geolocation with 2.5s timeout
+      // GPS permission denied or GPS off — try IP Geolocation
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 2500);
@@ -175,84 +173,77 @@ export const locationService = {
         clearTimeout(timer);
         if (ipRes.ok) {
           const ipData = await ipRes.json();
-          if (ipData && ipData.success && ipData.country_code === 'LK') {
+          if (ipData && ipData.success && ipData.latitude && ipData.longitude) {
             cachedLocation = {
-              latitude: ipData.latitude || DEFAULT_LOCATION.latitude,
-              longitude: ipData.longitude || DEFAULT_LOCATION.longitude,
-              city: ipData.city || DEFAULT_LOCATION.city,
-              region: ipData.region || DEFAULT_LOCATION.region,
-              country: 'Sri Lanka',
-              formatted: `${ipData.city || DEFAULT_LOCATION.city}, LK`,
+              latitude: ipData.latitude,
+              longitude: ipData.longitude,
+              city: ipData.city || null,
+              region: ipData.region || null,
+              country: ipData.country || 'Sri Lanka',
+              formatted: ipData.city ? `${ipData.city}, ${(ipData.country_code || 'LK')}` : 'IP Location',
               isGps: false,
+              isUnavailable: false,
             };
-            AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => { });
+            AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
             return cachedLocation;
           }
         }
-      } catch (_) { }
+      } catch (_) {}
 
-      // Return default location if all else fails (never returns null)
-      return cachedLocation || DEFAULT_LOCATION;
+      // All location methods failed — return unavailable (never lie)
+      return UNAVAILABLE_LOCATION;
     } catch (err) {
-      console.log('[LocationService] Location detection note:', err.message);
-      return cachedLocation || DEFAULT_LOCATION;
+      console.log('[LocationService] Error:', err.message);
+      return cachedLocation || UNAVAILABLE_LOCATION;
     }
   },
 
-  getCachedLocation: () => cachedLocation || DEFAULT_LOCATION,
+  getCachedLocation: () => cachedLocation || UNAVAILABLE_LOCATION,
 
   getCoordinates: async () => {
-    // Check if cached location is a real GPS/IP fix or still the hardcoded default
-    const isDefaultFallback =
-      !cachedLocation.isGps &&
-      Math.abs(cachedLocation.latitude - DEFAULT_LOCATION.latitude) < 0.001 &&
-      Math.abs(cachedLocation.longitude - DEFAULT_LOCATION.longitude) < 0.001;
-
-    if (cachedLocation && cachedLocation.latitude && cachedLocation.longitude && !isDefaultFallback) {
-      // Real cached location — trigger background refresh while returning cache
+    // If we have a real cached location (GPS or IP), return it and refresh in background
+    if (cachedLocation && cachedLocation.latitude && cachedLocation.longitude && !cachedLocation.isUnavailable) {
       locationService.getCurrentLocation().catch(() => {});
       return {
         latitude: cachedLocation.latitude,
         longitude: cachedLocation.longitude,
-        city: cachedLocation.city || DEFAULT_LOCATION.city,
-        formatted: cachedLocation.formatted || DEFAULT_LOCATION.formatted,
+        city: cachedLocation.city,
+        formatted: cachedLocation.formatted,
         isGps: !!cachedLocation.isGps,
+        isUnavailable: false,
       };
     }
 
-    // Default still loaded or nothing yet — get the real location now
+    // No real cache — actually fetch now
     const loc = await locationService.getCurrentLocation();
-    if (loc && loc.latitude && loc.longitude) {
+    if (loc && loc.latitude && loc.longitude && !loc.isUnavailable) {
       return {
         latitude: loc.latitude,
         longitude: loc.longitude,
-        city: loc.city || DEFAULT_LOCATION.city,
-        formatted: loc.formatted || DEFAULT_LOCATION.formatted,
+        city: loc.city,
+        formatted: loc.formatted,
         isGps: !!loc.isGps,
+        isUnavailable: false,
       };
     }
 
-    return {
-      latitude: DEFAULT_LOCATION.latitude,
-      longitude: DEFAULT_LOCATION.longitude,
-      city: DEFAULT_LOCATION.city,
-      formatted: DEFAULT_LOCATION.formatted,
-      isGps: false,
-    };
+    return UNAVAILABLE_LOCATION;
   },
 
-  // Allow user to manually pick or change city
-  setManualLocation: async (cityName, lat = 6.8436, lng = 80.2604) => {
+  // Allow user to manually pick a city
+  setManualLocation: async (cityName, lat, lng) => {
+    if (!cityName || !lat || !lng) return UNAVAILABLE_LOCATION;
     cachedLocation = {
       latitude: lat,
       longitude: lng,
       city: cityName,
-      region: 'LK',
+      region: null,
       country: 'Sri Lanka',
       formatted: `${cityName}, LK`,
       isGps: false,
+      isUnavailable: false,
     };
-    await AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => { });
+    await AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
     return cachedLocation;
   },
 };

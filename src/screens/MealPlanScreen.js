@@ -27,50 +27,17 @@ const DAYS = [
   { id: 'sun', label: 'Sunday', short: 'Sun' },
 ];
 
+const EMPTY_SLOT = { breakfast: null, lunch: null, dinner: null, snack: null };
 const INITIAL_SCHEDULE = {
-  mon: {
-    breakfast: { id: 'm1', title: 'Sri Lankan Egg Hopper with Lunu Miris', servings: 2, price: 320, time: '15m', ingredients: 'Rice flour, eggs, onions, chili' },
-    lunch: { id: 'm2', title: 'Authentic Dhal Curry & Red Rice', servings: 2, price: 420, time: '25m', ingredients: 'Mysore dhal, coconut milk, red rice' },
-    dinner: { id: 'm3', title: 'Pol Roti with Katta Sambol', servings: 2, price: 380, time: '20m', ingredients: 'Flour, scraped coconut, chili, lime' },
-    snack: null,
-  },
-  tue: {
-    breakfast: { id: 'm4', title: 'String Hoppers with Kiri Hodi', servings: 2, price: 350, time: '20m', ingredients: 'Rice noodles, coconut gravy' },
-    lunch: { id: 'm5', title: 'Creamy Pumpkin Curry & Rice', servings: 2, price: 450, time: '30m', ingredients: 'Yellow pumpkin, spices, rice' },
-    dinner: null,
-    snack: null,
-  },
-  wed: {
-    breakfast: null,
-    lunch: { id: 'm6', title: 'Spicy Chicken Kottu Roti', servings: 2, price: 650, time: '25m', ingredients: 'Godamba roti, chicken breast, leeks, carrots' },
-    dinner: { id: 'm7', title: 'Gotu Kola Sambol & Fish Ambul Thiyal', servings: 2, price: 580, time: '30m', ingredients: 'Fish tuna, goraka, gotu kola, coconut' },
-    snack: null,
-  },
-  thu: {
-    breakfast: { id: 'm8', title: 'Pol Roti with Katta Sambol', servings: 2, price: 380, time: '20m', ingredients: 'Flour, scraped coconut, chili, lime' },
-    lunch: { id: 'm9', title: 'Authentic Dhal Curry & Red Rice', servings: 2, price: 420, time: '25m', ingredients: 'Mysore dhal, coconut milk, red rice' },
-    dinner: null,
-    snack: null,
-  },
-  fri: {
-    breakfast: null,
-    lunch: { id: 'm10', title: 'Creamy Pumpkin Pasta', servings: 2, price: 480, time: '20m', ingredients: 'Pasta, pumpkin puree, garlic, cream' },
-    dinner: { id: 'm11', title: 'Vegetable Fried Rice & Devilled Tofu', servings: 2, price: 540, time: '25m', ingredients: 'Basmati rice, tofu, bell peppers' },
-    snack: null,
-  },
-  sat: {
-    breakfast: { id: 'm12', title: 'Sri Lankan Egg Hopper with Lunu Miris', servings: 4, price: 580, time: '20m', ingredients: 'Rice flour, eggs, chili paste' },
-    lunch: { id: 'm13', title: 'Jaffna Crab Curry with Roast Paan', servings: 4, price: 1250, time: '45m', ingredients: 'Fresh lagoon crab, roasted bread, jaffna curry powder' },
-    dinner: { id: 'm14', title: 'Watalappam (Dessert)', servings: 4, price: 450, time: '35m', ingredients: 'Kithul jaggery, coconut milk, eggs, cardamom' },
-    snack: null,
-  },
-  sun: {
-    breakfast: { id: 'm15', title: 'String Hoppers with Kiri Hodi & Pol Sambol', servings: 4, price: 620, time: '25m', ingredients: 'Rice noodles, coconut sambol' },
-    lunch: { id: 'm16', title: 'Yellow Rice with Chicken Curry & Brinjal Moju', servings: 4, price: 1100, time: '40m', ingredients: 'Samba rice, chicken, eggplant moju' },
-    dinner: null,
-    snack: null,
-  },
+  mon: { ...EMPTY_SLOT },
+  tue: { ...EMPTY_SLOT },
+  wed: { ...EMPTY_SLOT },
+  thu: { ...EMPTY_SLOT },
+  fri: { ...EMPTY_SLOT },
+  sat: { ...EMPTY_SLOT },
+  sun: { ...EMPTY_SLOT },
 };
+
 
 const MEAL_SLOTS = [
   { key: 'breakfast', label: 'Breakfast', icon: 'sunny-outline', color: '#D97706' },

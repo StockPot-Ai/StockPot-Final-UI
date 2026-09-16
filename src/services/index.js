@@ -196,9 +196,7 @@ export const recipeService = {
       }
     } catch (_) { }
 
-    if (combined.length === 0) {
-      combined = [...RECIPES];
-    }
+    // API returned no recipes — show empty, don't lie with mock data
 
     // Load custom community recipes from local storage
     try {
@@ -409,7 +407,7 @@ export const recipeService = {
 
 // ── Supermarkets & Local Stores Service (Shop Discovery) ──────────────────────
 export const generateLocalStores = (userLat = 6.8436, userLng = 80.2604, cityName = 'Eheliyagoda') => {
-  const city = cityName || 'Eheliyagoda';
+  const city = cityName || 'Nearby';
   return [
     {
       id: `local_cargills_${city.toLowerCase()}`,
@@ -597,8 +595,8 @@ export const storeService = {
           name: s.name,
           address: s.address || `${s.name} Supermarket, Sri Lanka`,
           category: s.category || 'Supermarket',
-          latitude: s.latitude || 6.8436,
-          longitude: s.longitude || 80.2604,
+          latitude: s.latitude || null,
+          longitude: s.longitude || null,
           logo: s.logo || s.logo_url,
           logo_url: s.logo_url || s.logo,
           distanceKm: s.distanceKm || 0.8,
@@ -607,9 +605,7 @@ export const storeService = {
       }
     } catch (_) { }
 
-    if (allStores.length === 0) {
-      allStores = [...STORES];
-    }
+    // API returned no stores — show empty, don't use mock STORES
 
     try {
       const customShops = await AsyncStorage.getItem(CUSTOM_SHOPS_KEY);
@@ -620,9 +616,10 @@ export const storeService = {
     return allStores;
   },
 
-  getNearbyStores: async (userLat = 6.8436, userLng = 80.2604, params = {}) => {
-    const cityName = params.city || 'Eheliyagoda';
-    const localDefaults = generateLocalStores(userLat, userLng, cityName);
+  getNearbyStores: async (userLat = null, userLng = null, params = {}) => {
+    const cityName = params.city || '';
+    // Only generate location-relative stores if we have real coordinates
+    const localDefaults = (userLat && userLng) ? generateLocalStores(userLat, userLng, cityName) : [];
     let liveShops = [];
 
     try {
@@ -739,7 +736,8 @@ export const storeService = {
       }
     } catch (_) { }
 
-    let list = apiDiscounts.length > 0 ? apiDiscounts : [...DISCOUNTS];
+    // Only use real API discounts — no hardcoded fallback
+    let list = [...apiDiscounts];
     try {
       const customDiscounts = await AsyncStorage.getItem(SHOP_DISCOUNTS_KEY);
       if (customDiscounts) {
@@ -907,11 +905,11 @@ export const smartBasketService = {
 // ── Gamification & XP Service ────────────────────────────────────────────────
 export const gamificationService = {
   getProfile: async () => {
-    let xp = 650;
+    let xp = 0;
     try {
       const storedXp = await AsyncStorage.getItem(USER_XP_KEY);
-      if (storedXp) xp = parseInt(storedXp);
-    } catch (_) { }
+      if (storedXp) xp = parseInt(storedXp) || 0;
+    } catch (_) {}
 
     const currentLevel =
       GAMIFICATION_LEVELS.find((l) => xp >= l.minXp && xp < l.maxXp) ||
@@ -927,7 +925,7 @@ export const gamificationService = {
         100,
         Math.round(((xp - currentLevel.minXp) / (currentLevel.maxXp - currentLevel.minXp)) * 100)
       ),
-      streakDays: 7,
+      streakDays: 0,
       badges: BADGES,
     };
   },
@@ -1276,16 +1274,9 @@ export const mealPlanService = {
   getCurrentMealPlan: async () => {
     try {
       const res = await apiClient.get('/meal-plans/current');
-      return res.data;
+      return res.data || null;
     } catch (_) {
-      return {
-        id: 'mp_current',
-        days: [
-          { day: 'Monday', meals: [{ id: 'rec_pol_roti', title: 'Coconut Pol Roti', type: 'Breakfast' }, { id: 'rec_dhal_curry', title: 'Creamy Parippu & Rice', type: 'Lunch' }, { id: 'rec_chicken_curry', title: 'Sri Lankan Chicken Curry', type: 'Dinner' }] },
-          { day: 'Tuesday', meals: [{ id: 'rec_avocado_toast', title: 'Avocado Toast', type: 'Breakfast' }, { id: 'rec_fried_rice', title: 'Egg Fried Rice', type: 'Lunch' }, { id: 'rec_chicken_koththu', title: 'Chicken Koththu', type: 'Dinner' }] },
-          { day: 'Wednesday', meals: [{ id: 'rec_string_hoppers', title: 'String Hoppers & Kiri Hodi', type: 'Breakfast' }, { id: 'rec_dhal_curry', title: 'Dhal Curry', type: 'Lunch' }, { id: 'rec_pumpkin_soup', title: 'Pumpkin Soup', type: 'Dinner' }] },
-        ],
-      };
+      return null; // No API data — return null, don't show fake plans
     }
   },
 

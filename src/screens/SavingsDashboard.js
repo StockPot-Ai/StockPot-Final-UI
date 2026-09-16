@@ -32,38 +32,9 @@ const DEFAULT_TREND = [
   { month: 'Sep', amount: 0 },
 ];
 
-const CHALLENGES = [
-  {
-    id: 1,
-    label: 'Budget Master Chef',
-    status: '1/3 meals cooked',
-    icon: 'star',
-    iconColor: '#007A3D',
-    iconBg: '#E8F8F0',
-    isDone: false,
-    reward: '+50 XP',
-  },
-  {
-    id: 2,
-    label: 'Smart Split-Basket',
-    status: 'Rs 1,250 saved',
-    icon: 'shopping-cart',
-    iconColor: '#007A3D',
-    iconBg: '#E8F8F0',
-    isDone: true,
-    reward: '+80 XP',
-  },
-  {
-    id: 3,
-    label: 'Community Contributor',
-    status: '1 recipe shared',
-    icon: 'star',
-    iconColor: '#D97706',
-    iconBg: '#FEF3C7',
-    isDone: true,
-    reward: '+50 XP',
-  },
-];
+// Challenges come from API/gamification service only
+const CHALLENGES = [];
+
 
 const formatCurrency = (n) => (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
@@ -124,10 +95,6 @@ const TotalSavingsCard = ({ total = 0, goal = 20000 }) => {
     <View style={styles.heroCard}>
       <View style={styles.heroTopRow}>
         <Text style={styles.heroLabel}>Total Smart Savings</Text>
-        <View style={styles.heroTag}>
-          <Ionicons name="trending-up" size={13} color="#FFFFFF" />
-          <Text style={styles.heroTagText}>+24% vs Last Month</Text>
-        </View>
       </View>
       <Text style={styles.heroAmount}>Rs. {formatCurrency(total)}</Text>
       <View style={styles.progressRow}>
