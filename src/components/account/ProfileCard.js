@@ -3,30 +3,53 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { useAccount } from '../../context/AccountContext';
+import { GAMIFICATION_LEVELS } from '../../data/seedData';
 
 const ProfileCard = ({ onEditProfile, onStreakPress, onEcoPress }) => {
   const { profile } = useAccount();
 
-  const xpPercent = Math.min(
+  const userXp = profile.currentXp || 650;
+  const currentLevel =
+    GAMIFICATION_LEVELS.find((l) => userXp >= l.minXp && userXp < l.maxXp) ||
+    (userXp >= 2000 ? GAMIFICATION_LEVELS[4] : GAMIFICATION_LEVELS[0]);
+
+  const levelProgress = Math.min(
     100,
-    Math.max(0, Math.round((profile.currentXp / profile.maxXp) * 100))
+    Math.max(
+      8,
+      Math.round(
+        ((userXp - currentLevel.minXp) / (currentLevel.maxXp - currentLevel.minXp)) * 100
+      )
+    )
   );
+  const initial = (profile.name || profile.full_name || 'Chef').charAt(0).toUpperCase();
 
   return (
     <View style={styles.card}>
-      {/* Avatar */}
-      <Image
-        source={
-          profile.avatarUrl || profile.avatar_url
-            ? { uri: profile.avatarUrl || profile.avatar_url }
-            : require('../../../assets/user_avatar.jpg')
-        }
-        style={styles.avatar}
-      />
+      {/* Avatar - matches Homepage profile icon */}
+      {profile.avatarUrl || profile.avatar_url ? (
+        <Image
+          source={{ uri: profile.avatarUrl || profile.avatar_url }}
+          style={styles.avatar}
+        />
+      ) : (
+        <View style={styles.initialsAvatar}>
+          <Text style={styles.initialsText}>{initial}</Text>
+        </View>
+      )}
 
       {/* Name & Email */}
-      <Text style={styles.name}>{profile.name}</Text>
-      <Text style={styles.email}>{profile.email}</Text>
+      <Text style={styles.name}>{profile.name || 'StockPot Chef'}</Text>
+      <Text style={styles.email}>{profile.email || 'chef@stockpot.ai'}</Text>
+
+      {/* Account Bio */}
+      <View style={styles.bioContainer}>
+        <Text style={styles.bioText} numberOfLines={3}>
+          {profile.bio?.trim()
+            ? profile.bio.trim()
+            : 'Passionate home cook exploring delicious zero-waste recipes & smart grocery savings 🍲'}
+        </Text>
+      </View>
 
       {/* Edit Profile Pill Button */}
       <TouchableOpacity
@@ -39,7 +62,7 @@ const ProfileCard = ({ onEditProfile, onStreakPress, onEcoPress }) => {
         <Text style={styles.editBtnText}>Edit Profile</Text>
       </TouchableOpacity>
 
-      {/* Eco Saver & Streak Row */}
+      {/* Eco Badge & Streak Row */}
       <View style={styles.badgeRow}>
         <TouchableOpacity
           style={styles.ecoBadge}
@@ -48,10 +71,10 @@ const ProfileCard = ({ onEditProfile, onStreakPress, onEcoPress }) => {
         >
           <MaterialCommunityIcons
             name="flower-outline"
-            size={19}
+            size={18}
             color={Colors.forestGreen}
           />
-          <Text style={styles.ecoText}>{profile.ecoTitle}</Text>
+          <Text style={styles.ecoText}>{profile.ecoTitle || 'Eco Saver 🌱'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -59,23 +82,32 @@ const ProfileCard = ({ onEditProfile, onStreakPress, onEcoPress }) => {
           onPress={onStreakPress}
           activeOpacity={0.7}
         >
-          <Text style={styles.streakText}>{profile.streakDays} days</Text>
+          <Text style={styles.streakText}>{profile.streakDays || 7} days</Text>
           <Ionicons name="flame" size={18} color={Colors.terracotta} />
         </TouchableOpacity>
       </View>
 
-      {/* XP Progress Section */}
+      {/* Level & XP Progress Section */}
       <View style={styles.xpSection}>
         <View style={styles.xpLabelRow}>
-          <Text style={styles.xpTitle}>XP PROGRESS</Text>
+          <View style={styles.levelBadgeChip}>
+            <MaterialCommunityIcons
+              name="chef-hat"
+              size={14}
+              color="#994122"
+            />
+            <Text style={styles.xpTitle}>
+              LEVEL {currentLevel.level}: {currentLevel.name.toUpperCase()}
+            </Text>
+          </View>
           <Text style={styles.xpNumbers}>
-            {profile.currentXp.toLocaleString()} / {profile.maxXp.toLocaleString()} XP
+            {userXp.toLocaleString()} / {currentLevel.maxXp.toLocaleString()} XP
           </Text>
         </View>
 
         {/* Progress Bar */}
         <View style={styles.progressBarTrack}>
-          <View style={[styles.progressBarFill, { width: `${xpPercent}%` }]} />
+          <View style={[styles.progressBarFill, { width: `${levelProgress}%` }]} />
         </View>
       </View>
     </View>
@@ -108,6 +140,28 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#FFFFFF',
   },
+  initialsAvatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#007A3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#007A3D',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  initialsText: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
   name: {
     fontSize: 21,
     fontWeight: '800',
@@ -120,8 +174,26 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '400',
     color: Colors.accountTextSecondary,
-    marginBottom: 16,
+    marginBottom: 6,
     textAlign: 'center',
+  },
+  bioContainer: {
+    backgroundColor: '#FAF8F5',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 6,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#EFEAE4',
+    maxWidth: '94%',
+  },
+  bioText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#6E615A',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   editBtn: {
     borderWidth: 1.5,
@@ -187,11 +259,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  levelBadgeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   xpTitle: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.accountSectionHeader,
-    letterSpacing: 0.8,
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#994122',
+    letterSpacing: 0.6,
   },
   xpNumbers: {
     fontSize: 11.5,

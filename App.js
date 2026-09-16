@@ -17,15 +17,36 @@ import SavingsDashboard from './src/screens/SavingsDashboard';
 import RetailComparingScreen from './src/screens/RetailComparingScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import BottomNav from './src/components/BottomNav';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import AsyncStorage from './src/utils/safeStorage';
 import { AccountProvider, useAccount } from './src/context/AccountContext';
+import { NotificationProvider } from './src/context/NotificationContext';
+import InAppNotificationBanner from './src/components/notification/InAppNotificationBanner';
+import NotificationCenterModal from './src/components/notification/NotificationCenterModal';
 
 function AppContent() {
   const { isLoggedIn } = useAccount();
   const [isSplashing, setIsSplashing] = React.useState(true);
+  const [hasOnboarded, setHasOnboarded] = React.useState(null);
   const [authView, setAuthView] = React.useState('login');
   const [currentScreen, setCurrentScreen] = React.useState('home');
   const [selectedRecipe, setSelectedRecipe] = React.useState(null);
   const [retailItems, setRetailItems] = React.useState([]);
+
+  React.useEffect(() => {
+    AsyncStorage.getItem('@stockpot_has_onboarded')
+      .then((val) => {
+        setHasOnboarded(val === 'true');
+      })
+      .catch(() => setHasOnboarded(true));
+  }, []);
+
+  const handleOnboardingComplete = React.useCallback(async () => {
+    try {
+      await AsyncStorage.setItem('@stockpot_has_onboarded', 'true');
+    } catch (_) {}
+    setHasOnboarded(true);
+  }, []);
 
   const goHome = React.useCallback(() => {
     setCurrentScreen('home');
@@ -116,12 +137,17 @@ function AppContent() {
       <HomeScreen
         onSelectRecipe={openRecipe}
         onMilestonePress={() => setCurrentScreen('savings')}
+        onOpenProfile={() => setCurrentScreen('account')}
       />
     );
   };
 
-  if (isSplashing) {
+  if (isSplashing || hasOnboarded === null) {
     return <SplashScreen onFinish={() => setIsSplashing(false)} />;
+  }
+
+  if (hasOnboarded === false) {
+    return <OnboardingScreen onComplete={handleOnboardingComplete} />;
   }
 
   if (!isLoggedIn) {
@@ -140,36 +166,46 @@ function AppContent() {
     );
   }
 
-  if (currentScreen === 'ingredient' && selectedRecipe) {
-    return (
-      <IngredientScreen
-        recipe={selectedRecipe}
-        onBack={goHome}
-        onCompare={openRetail}
-        onAddToMealPlan={() => setCurrentScreen('mealplan')}
-      />
-    );
-  }
+  const renderScreenContent = () => {
+    if (currentScreen === 'ingredient' && selectedRecipe) {
+      return (
+        <IngredientScreen
+          recipe={selectedRecipe}
+          onBack={goHome}
+          onCompare={openRetail}
+          onAddToMealPlan={() => setCurrentScreen('mealplan')}
+        />
+      );
+    }
 
-  if (currentScreen === 'retail') {
+    if (currentScreen === 'retail') {
+      return (
+        <RetailComparingScreen
+          items={retailItems}
+          onBack={() => {
+            if (selectedRecipe) {
+              setCurrentScreen('ingredient');
+            } else {
+              goHome();
+            }
+          }}
+        />
+      );
+    }
+
     return (
-      <RetailComparingScreen
-        items={retailItems}
-        onBack={() => {
-          if (selectedRecipe) {
-            setCurrentScreen('ingredient');
-          } else {
-            goHome();
-          }
-        }}
-      />
+      <>
+        {renderMainScreen()}
+        <BottomNav activeNav={renderActiveNav()} onNavChange={handleNavChange} />
+      </>
     );
-  }
+  };
 
   return (
     <View style={styles.shell}>
-      {renderMainScreen()}
-      <BottomNav activeNav={renderActiveNav()} onNavChange={handleNavChange} />
+      {renderScreenContent()}
+      <InAppNotificationBanner />
+      <NotificationCenterModal />
     </View>
   );
 }
@@ -178,10 +214,12 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AccountProvider>
-        <View style={styles.root}>
-          <StatusBar barStyle="dark-content" />
-          <AppContent />
-        </View>
+        <NotificationProvider>
+          <View style={styles.root}>
+            <StatusBar barStyle="dark-content" />
+            <AppContent />
+          </View>
+        </NotificationProvider>
       </AccountProvider>
     </SafeAreaProvider>
   );

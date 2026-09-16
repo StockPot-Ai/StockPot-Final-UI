@@ -18,6 +18,8 @@ import Colors from '../constants/colors';
 import ShopDiscoveryModal from '../components/store/ShopDiscoveryModal';
 import ShopOwnerModal from '../components/store/ShopOwnerModal';
 import ShopProfileModal from '../components/store/ShopProfileModal';
+import PremiumUpgradeModal from '../components/account/PremiumUpgradeModal';
+import { useAccount } from '../context/AccountContext';
 import { smartBasketService, storeService, savingsService, gamificationService } from '../services';
 
 const formatPrice = (value) => {
@@ -26,6 +28,7 @@ const formatPrice = (value) => {
 };
 
 export default function RetailComparingScreen({ items = [], onBack }) {
+  const { isPremium, isPro } = useAccount();
   const [activeStrategy, setActiveStrategy] = useState('single'); // 'single' | 'split'
   const [storeFilter, setStoreFilter] = useState('all'); // 'all' | 'supermarkets' | 'local'
   const [basketItems, setBasketItems] = useState([]);
@@ -38,6 +41,7 @@ export default function RetailComparingScreen({ items = [], onBack }) {
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [selectedShopProfile, setSelectedShopProfile] = useState(null);
   const [shopProfileVisible, setShopProfileVisible] = useState(false);
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
 
   // Settings
   const [maxStores, setMaxStores] = useState(3);
@@ -126,12 +130,12 @@ export default function RetailComparingScreen({ items = [], onBack }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FAFAF8" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FAF8F5" />
 
       {/* Top App Bar */}
       <View style={styles.appBar}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={22} color="#111827" />
+          <Ionicons name="arrow-back" size={22} color="#2B2420" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.appBarTitle}>Price Comparison Engine</Text>
@@ -142,7 +146,7 @@ export default function RetailComparingScreen({ items = [], onBack }) {
           onPress={() => setNearbyModalVisible(true)}
           activeOpacity={0.8}
         >
-          <Ionicons name="location" size={16} color="#166534" />
+          <Ionicons name="location" size={16} color="#3A6847" />
           <Text style={styles.nearbyBtnText}>Shops</Text>
         </TouchableOpacity>
       </View>
@@ -158,7 +162,7 @@ export default function RetailComparingScreen({ items = [], onBack }) {
             <Ionicons
               name="storefront-outline"
               size={17}
-              color={activeStrategy === 'single' ? '#166534' : '#6B7280'}
+              color={activeStrategy === 'single' ? '#3A6847' : '#968880'}
             />
             <Text
               style={[
@@ -178,7 +182,7 @@ export default function RetailComparingScreen({ items = [], onBack }) {
             <Ionicons
               name="git-merge-outline"
               size={17}
-              color={activeStrategy === 'split' ? '#166534' : '#6B7280'}
+              color={activeStrategy === 'split' ? '#3A6847' : '#968880'}
             />
             <Text
               style={[
@@ -188,11 +192,16 @@ export default function RetailComparingScreen({ items = [], onBack }) {
             >
               Split-Basket Optimizer
             </Text>
-            {splitStrategy?.potentialSavings > 0 && (
+            {!isPremium ? (
+              <View style={styles.lockPill}>
+                <Ionicons name="lock-closed" size={9} color="#FFFFFF" />
+                <Text style={styles.lockPillText}>Smart</Text>
+              </View>
+            ) : splitStrategy?.potentialSavings > 0 ? (
               <View style={styles.savePill}>
                 <Text style={styles.savePillText}>-Rs.{splitStrategy.potentialSavings}</Text>
               </View>
-            )}
+            ) : null}
           </TouchableOpacity>
         </View>
 
@@ -365,6 +374,58 @@ export default function RetailComparingScreen({ items = [], onBack }) {
               );
             })}
           </View>
+        ) : !isPremium ? (
+          /* ─── Strategy B: Locked Paywall for Free Users ────────────────── */
+          <View style={styles.contentSection}>
+            <View style={styles.lockedCard}>
+              <View style={styles.lockedIconCircle}>
+                <Ionicons name="git-merge" size={30} color="#994122" />
+              </View>
+              <View style={styles.lockedPlanTag}>
+                <Ionicons name="lock-closed" size={12} color="#994122" />
+                <Text style={styles.lockedPlanTagText}>SMART PLAN FEATURE</Text>
+              </View>
+              <Text style={styles.lockedCardTitle}>Multi-Store Split-Basket Optimizer</Text>
+              <Text style={styles.lockedCardSubtitle}>
+                Instead of buying everything at one store, StockPot scans 5+ local supermarkets and corner grocers in real time, routing each item to the lowest-price shop.
+              </Text>
+
+              <View style={styles.lockedTeaserBox}>
+                <View style={styles.lockedTeaserRow}>
+                  <View>
+                    <Text style={styles.lockedTeaserLabel}>Potential Basket Savings</Text>
+                    <Text style={styles.lockedTeaserValue}>
+                      Save {formatPrice(splitStrategy?.potentialSavings || 380)}
+                    </Text>
+                  </View>
+                  <View style={styles.lockedStoresPill}>
+                    <Ionicons name="storefront" size={13} color="#3A6847" />
+                    <Text style={styles.lockedStoresText}>
+                      {splitStrategy?.storesInvolved?.length || 3} Stores
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.lockedTeaserHint}>
+                  Members save an average of Rs. 3,200/month by optimizing grocery split-trips.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.lockedUpgradeBtn}
+                onPress={() => setUpgradeModalVisible(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="sparkles" size={17} color="#FFFFFF" />
+                <Text style={styles.lockedUpgradeBtnText}>
+                  Unlock Smart Plan • Rs. 499 / mo
+                </Text>
+              </TouchableOpacity>
+
+              <Text style={styles.lockedFooterHint}>
+                Instant activation • Also included in Pro Plan (Rs. 999/mo)
+              </Text>
+            </View>
+          </View>
         ) : (
           /* ─── Strategy B: Smart Split-Basket Optimizer ──────────────────── */
           <View style={styles.contentSection}>
@@ -528,6 +589,12 @@ export default function RetailComparingScreen({ items = [], onBack }) {
           </View>
         </View>
       </Modal>
+
+      {/* Customer Premium Upgrade Modal */}
+      <PremiumUpgradeModal
+        visible={upgradeModalVisible}
+        onClose={() => setUpgradeModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -535,7 +602,7 @@ export default function RetailComparingScreen({ items = [], onBack }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAFAF8',
+    backgroundColor: '#FAF8F5',
   },
   appBar: {
     flexDirection: 'row',
@@ -544,7 +611,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E8DFD8',
     gap: 12,
   },
   backBtn: {
@@ -553,16 +620,16 @@ const styles = StyleSheet.create({
   appBarTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
   },
   appBarSub: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#968880',
   },
   nearbyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#EAF3EC',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 16,
@@ -571,7 +638,7 @@ const styles = StyleSheet.create({
   nearbyBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#166534',
+    color: '#3A6847',
   },
   container: {
     flex: 1,
@@ -580,7 +647,7 @@ const styles = StyleSheet.create({
   },
   strategyTabs: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F5EFEB',
     borderRadius: 14,
     padding: 4,
     marginBottom: 14,
@@ -598,7 +665,7 @@ const styles = StyleSheet.create({
   },
   strategyTabActive: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
+    shadowColor: '#2B2420',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
@@ -607,14 +674,29 @@ const styles = StyleSheet.create({
   strategyTabText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#968880',
   },
   strategyTabTextActive: {
-    color: '#007A3D',
+    color: '#3A6847',
     fontWeight: '800',
   },
+  lockPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#994122',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 3,
+    gap: 3,
+  },
+  lockPillText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
   savePill: {
-    backgroundColor: '#007A3D',
+    backgroundColor: '#3A6847',
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 6,
@@ -642,11 +724,11 @@ const styles = StyleSheet.create({
   discountSectionTitle: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
   },
   discountSubTitle: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: '#968880',
   },
   discountScroll: {
     gap: 10,
@@ -658,8 +740,8 @@ const styles = StyleSheet.create({
     padding: 12,
     width: 175,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000000',
+    borderColor: '#E8DFD8',
+    shadowColor: '#2B2420',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -667,7 +749,7 @@ const styles = StyleSheet.create({
   },
   dealBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FCECE8',
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 6,
@@ -676,16 +758,16 @@ const styles = StyleSheet.create({
   dealBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#DC2626',
+    color: '#994122',
   },
   dealName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
+    color: '#2B2420',
   },
   dealStore: {
     fontSize: 11,
-    color: '#6B7280',
+    color: '#968880',
     marginTop: 2,
   },
   dealPriceRow: {
@@ -697,18 +779,18 @@ const styles = StyleSheet.create({
   dealCurrentPrice: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#007A3D',
+    color: '#3A6847',
   },
   dealOriginalPrice: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: '#968880',
     textDecorationLine: 'line-through',
   },
   dealValid: {
     fontSize: 10,
-    color: '#D97706',
+    color: '#E8A93F',
     marginTop: 4,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   contentSection: {
     marginBottom: 16,
@@ -724,15 +806,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E8DFD8',
   },
   typeChipActive: {
-    backgroundColor: '#007A3D',
-    borderColor: '#007A3D',
+    backgroundColor: '#3A6847',
+    borderColor: '#3A6847',
   },
   typeChipText: {
     fontSize: 11.5,
-    color: '#4B5563',
+    color: '#6B5E57',
     fontWeight: '500',
   },
   typeChipTextActive: {
@@ -744,9 +826,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     borderWidth: 1.5,
-    borderColor: '#DCFCE7',
+    borderColor: '#EAF3EC',
     marginBottom: 14,
-    shadowColor: '#007A3D',
+    shadowColor: '#3A6847',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 10,
@@ -761,7 +843,7 @@ const styles = StyleSheet.create({
   heroBestBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FEF6EB',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
@@ -770,12 +852,12 @@ const styles = StyleSheet.create({
   heroBestText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#C6851C',
   },
   heroPrice: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#007A3D',
+    color: '#3A6847',
   },
   heroIdentityRow: {
     flexDirection: 'row',
@@ -789,7 +871,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E8DFD8',
     backgroundColor: '#FFFFFF',
   },
   heroStoreLogoFallback: {
@@ -802,24 +884,24 @@ const styles = StyleSheet.create({
   heroStoreName: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
   },
   heroStoreAddress: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#968880',
     marginTop: 2,
   },
   heroActionFooter: {
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: '#F5EFEB',
     alignItems: 'flex-end',
   },
   heroActionPrompt: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#007A3D',
+    color: '#3A6847',
   },
   heroDetails: {
     flexDirection: 'row',
@@ -827,7 +909,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: '#F5EFEB',
   },
   heroDetailItem: {
     flexDirection: 'row',
@@ -836,13 +918,13 @@ const styles = StyleSheet.create({
   },
   heroDetailText: {
     fontSize: 12,
-    color: '#374151',
+    color: '#6B5E57',
     fontWeight: '500',
   },
   rankedTitle: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
     marginBottom: 8,
   },
   storeComparisonCard: {
@@ -853,8 +935,8 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000000',
+    borderColor: '#E8DFD8',
+    shadowColor: '#2B2420',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 4,
@@ -864,7 +946,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F5EFEB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -872,7 +954,7 @@ const styles = StyleSheet.create({
   rankNum: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#4B5563',
+    color: '#6B5E57',
   },
   storeCardLogo: {
     width: 36,
@@ -880,7 +962,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E8DFD8',
     backgroundColor: '#FFFFFF',
   },
   storeIconWrap: {
@@ -899,13 +981,13 @@ const styles = StyleSheet.create({
   storeTitle: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#111827',
+    color: '#2B2420',
     flexShrink: 1,
   },
   verifiedMiniBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#EAF3EC',
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 6,
@@ -914,11 +996,11 @@ const styles = StyleSheet.create({
   verifiedMiniText: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#007A3D',
+    color: '#3A6847',
   },
   storeCatText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: '#968880',
     marginTop: 2,
   },
   storePriceCol: {
@@ -929,26 +1011,152 @@ const styles = StyleSheet.create({
   storeTotalText: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
   },
   storeDiffText: {
     fontSize: 11,
-    color: '#DC2626',
+    color: '#994122',
     fontWeight: '600',
     marginTop: 1,
   },
   cheapestLabel: {
     fontSize: 10,
-    color: '#007A3D',
+    color: '#3A6847',
     fontWeight: '800',
     marginTop: 1,
   },
+  // Locked Strategy Paywall
+  lockedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E8DFD8',
+    shadowColor: '#2B2420',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+    marginVertical: 4,
+  },
+  lockedIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FCECE8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  lockedPlanTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FCECE8',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 5,
+    marginBottom: 10,
+  },
+  lockedPlanTagText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#994122',
+    letterSpacing: 0.5,
+  },
+  lockedCardTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#2B2420',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  lockedCardSubtitle: {
+    fontSize: 13,
+    color: '#6B5E57',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  lockedTeaserBox: {
+    width: '100%',
+    backgroundColor: '#FAF8F5',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E8DFD8',
+    marginBottom: 18,
+  },
+  lockedTeaserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  lockedTeaserLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B5E57',
+  },
+  lockedTeaserValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#3A6847',
+  },
+  lockedStoresPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EAF3EC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  lockedStoresText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#3A6847',
+  },
+  lockedTeaserHint: {
+    fontSize: 11,
+    color: '#968880',
+    lineHeight: 15,
+  },
+  lockedUpgradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#994122',
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+    shadowColor: '#994122',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  lockedUpgradeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  lockedFooterHint: {
+    fontSize: 11.5,
+    color: '#968880',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  // Split Basket Optimizer Active
   splitHeroCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1.5,
-    borderColor: '#FDBA74',
+    borderColor: '#E8A93F',
     marginBottom: 14,
   },
   splitHeaderRow: {
@@ -959,7 +1167,7 @@ const styles = StyleSheet.create({
   splitTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFEDD5',
+    backgroundColor: '#FEF6EB',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
@@ -968,7 +1176,7 @@ const styles = StyleSheet.create({
   splitTagText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#9A3412',
+    color: '#C6851C',
   },
   splitComparisonRow: {
     flexDirection: 'row',
@@ -978,15 +1186,15 @@ const styles = StyleSheet.create({
   },
   splitLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#968880',
   },
   splitTotalAmount: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
   },
   splitSavingsBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#EAF3EC',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -994,17 +1202,17 @@ const styles = StyleSheet.create({
   },
   splitSavingsLabel: {
     fontSize: 10,
-    color: '#166534',
+    color: '#3A6847',
     fontWeight: '600',
   },
   splitSavingsValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#166534',
+    color: '#3A6847',
   },
   splitStoresNotice: {
     fontSize: 12,
-    color: '#4B5563',
+    color: '#6B5E57',
     marginTop: 10,
     lineHeight: 16,
   },
@@ -1012,8 +1220,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    paddingVertical: 10,
+    backgroundColor: '#3A6847',
+    paddingVertical: 11,
     borderRadius: 12,
     marginTop: 12,
     gap: 6,
@@ -1032,7 +1240,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E8DFD8',
   },
   splitItemLeft: {
     flex: 1,
@@ -1040,11 +1248,11 @@ const styles = StyleSheet.create({
   splitItemName: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#111827',
+    color: '#2B2420',
   },
   splitItemQty: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: '#968880',
     marginTop: 1,
   },
   storePill: {
@@ -1067,20 +1275,20 @@ const styles = StyleSheet.create({
   splitItemPrice: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: '#2B2420',
   },
   splitDiscountLabel: {
     fontSize: 10,
-    color: '#C2410C',
+    color: '#994122',
     fontWeight: '700',
     marginTop: 2,
   },
   shopOwnerBanner: {
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#FAF8F5',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#99F6E4',
+    borderColor: '#E8DFD8',
     marginTop: 10,
   },
   shopOwnerLeft: {
@@ -1091,16 +1299,16 @@ const styles = StyleSheet.create({
   shopOwnerTitle: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#115E59',
+    color: '#2B2420',
   },
   shopOwnerSub: {
     fontSize: 11.5,
-    color: '#0F766E',
+    color: '#6B5E57',
     marginTop: 2,
   },
   shopOwnerBtn: {
     alignSelf: 'flex-end',
-    backgroundColor: '#0F766E',
+    backgroundColor: '#994122',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
@@ -1118,7 +1326,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#968880',
   },
   settingsOverlay: {
     flex: 1,
@@ -1137,13 +1345,13 @@ const styles = StyleSheet.create({
   settingsTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
     marginBottom: 12,
   },
   settingsLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: '#6B5E57',
     marginTop: 10,
     marginBottom: 6,
   },
@@ -1155,23 +1363,23 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F5EFEB',
     alignItems: 'center',
   },
   numBtnActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#3A6847',
   },
   numBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#4B5563',
+    color: '#6B5E57',
   },
   numBtnTextActive: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
   closeSettingsBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#3A6847',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',

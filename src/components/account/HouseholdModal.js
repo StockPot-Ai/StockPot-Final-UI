@@ -11,13 +11,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { useAccount } from '../../context/AccountContext';
+import PremiumUpgradeModal from './PremiumUpgradeModal';
 
 const SKILLS = ['Beginner', 'Intermediate', 'Advanced'];
 const PREP_TIMES = ['15 mins', '30 mins', '45 mins', '60+ mins'];
 const MEALS = [1, 2, 3, 4];
 
 const HouseholdModal = ({ visible, onClose }) => {
-  const { household, updateHousehold } = useAccount();
+  const { household, updateHousehold, isPro } = useAccount();
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
 
   const [householdSize, setHouseholdSize] = useState(household.householdSize);
   const [cookingSkill, setCookingSkill] = useState(household.cookingSkill);
@@ -38,7 +40,7 @@ const HouseholdModal = ({ visible, onClose }) => {
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.sheetContainer}>
-          {/* Apple Grabber Bar */}
+          {/* Grabber Bar */}
           <View style={styles.grabberWrap}>
             <View style={styles.grabber} />
           </View>
@@ -47,7 +49,7 @@ const HouseholdModal = ({ visible, onClose }) => {
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Household & Servings</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <Ionicons name="close" size={18} color="#6B7280" />
+              <Ionicons name="close" size={18} color="#968880" />
             </TouchableOpacity>
           </View>
 
@@ -70,7 +72,7 @@ const HouseholdModal = ({ visible, onClose }) => {
                   disabled={householdSize <= 1}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="remove" size={20} color={householdSize <= 1 ? '#D1D5DB' : '#111827'} />
+                  <Ionicons name="remove" size={20} color={householdSize <= 1 ? '#D1D5DB' : '#2B2420'} />
                 </TouchableOpacity>
                 <View style={styles.stepValueWrap}>
                   <Text style={styles.stepValue}>{householdSize}</Text>
@@ -81,9 +83,41 @@ const HouseholdModal = ({ visible, onClose }) => {
                   onPress={() => setHouseholdSize((prev) => Math.min(12, prev + 1))}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="add" size={20} color="#111827" />
+                  <Ionicons name="add" size={20} color="#2B2420" />
                 </TouchableOpacity>
               </View>
+            </View>
+
+            {/* Live Household Family Sync (Pro Feature) */}
+            <View style={styles.syncCard}>
+              <View style={styles.syncHeaderRow}>
+                <View style={styles.syncLeft}>
+                  <Ionicons name="people" size={18} color="#3A6847" />
+                  <Text style={styles.syncTitle}>Live Household Sync</Text>
+                </View>
+                <View style={styles.proPill}>
+                  <Ionicons name="sparkles" size={10} color="#C6851C" />
+                  <Text style={styles.proPillText}>PRO</Text>
+                </View>
+              </View>
+              <Text style={styles.syncDesc}>
+                Sync saved ingredients, shared split grocery baskets, and weekly meal schedules in real time across family devices.
+              </Text>
+              {!isPro ? (
+                <TouchableOpacity
+                  style={styles.syncUnlockBtn}
+                  onPress={() => setUpgradeModalVisible(true)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="lock-closed" size={13} color="#994122" />
+                  <Text style={styles.syncUnlockBtnText}>Unlock Family Sync • Rs. 999 / mo</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.syncActiveRow}>
+                  <Ionicons name="checkmark-circle" size={16} color="#3A6847" />
+                  <Text style={styles.syncActiveText}>Active • Family Cloud Sync Enabled</Text>
+                </View>
+              )}
             </View>
 
             {/* Cooking Skill */}
@@ -167,6 +201,12 @@ const HouseholdModal = ({ visible, onClose }) => {
           </View>
         </View>
       </View>
+
+      {/* Customer Premium Upgrade Modal */}
+      <PremiumUpgradeModal
+        visible={upgradeModalVisible}
+        onClose={() => setUpgradeModalVisible(false)}
+      />
     </Modal>
   );
 };
@@ -174,16 +214,16 @@ const HouseholdModal = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.42)',
+    backgroundColor: 'rgba(43, 36, 32, 0.45)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FAF8F5',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '90%',
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    shadowColor: '#000',
+    shadowColor: '#2B2420',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.12,
     shadowRadius: 18,
@@ -198,7 +238,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: '#E8DFD8',
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -211,14 +251,14 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
     letterSpacing: -0.4,
   },
   closeBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#F5EFEB',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -232,11 +272,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 20,
-    shadowColor: 'rgba(0,0,0,0.03)',
+    borderColor: '#E8DFD8',
+    marginBottom: 14,
+    shadowColor: '#2B2420',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 1,
   },
@@ -246,18 +286,18 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#2B2420',
     marginBottom: 2,
   },
   cardSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#968880',
   },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F5EFEB',
     borderRadius: 14,
     padding: 6,
   },
@@ -268,14 +308,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(0,0,0,0.06)',
+    shadowColor: '#2B2420',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.06,
     shadowRadius: 3,
     elevation: 1,
   },
   stepBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   stepValueWrap: {
     alignItems: 'center',
@@ -283,18 +323,95 @@ const styles = StyleSheet.create({
   stepValue: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
   },
   stepUnit: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#968880',
     marginTop: 1,
+  },
+  syncCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E8DFD8',
+    marginBottom: 20,
+    shadowColor: '#2B2420',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  syncHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  syncLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  syncTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2B2420',
+  },
+  proPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF6EB',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 3,
+  },
+  proPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#C6851C',
+  },
+  syncDesc: {
+    fontSize: 12,
+    color: '#6B5E57',
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  syncUnlockBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FCECE8',
+    paddingVertical: 9,
+    borderRadius: 10,
+    gap: 6,
+  },
+  syncUnlockBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#994122',
+  },
+  syncActiveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EAF3EC',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  syncActiveText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#3A6847',
   },
   sectionHeader: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6B7280',
+    color: '#968880',
     letterSpacing: 0.6,
     marginBottom: 10,
     marginLeft: 4,
@@ -312,17 +429,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E8DFD8',
     backgroundColor: '#FFFFFF',
   },
   pillSelected: {
-    backgroundColor: '#166534',
-    borderColor: '#166534',
+    backgroundColor: '#3A6847',
+    borderColor: '#3A6847',
   },
   pillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#4B5563',
+    color: '#6B5E57',
   },
   pillTextSelected: {
     color: '#FFFFFF',
@@ -339,7 +456,7 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E8DFD8',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -347,16 +464,16 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#6B7280',
+    color: '#968880',
   },
   saveBtn: {
     flex: 2,
     paddingVertical: 13,
     borderRadius: 14,
-    backgroundColor: '#166534',
+    backgroundColor: '#3A6847',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#166534',
+    shadowColor: '#3A6847',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,

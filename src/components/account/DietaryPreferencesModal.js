@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -37,16 +37,22 @@ const ALLERGIES_OPTIONS = [
 ];
 
 const DietaryPreferencesModal = ({ visible, onClose }) => {
-  const { dietary, toggleDietaryPreference } = useAccount();
+  const { dietary, updateDietaryPreferences } = useAccount();
 
-  const [selectedDiet, setSelectedDiet] = useState(dietary.selected || []);
-  const [selectedAllergies, setSelectedAllergies] = useState(dietary.allergies || []);
+  const [selectedDiet, setSelectedDiet] = useState(dietary?.selected || []);
+  const [selectedAllergies, setSelectedAllergies] = useState(dietary?.allergies || []);
+
+  useEffect(() => {
+    if (visible) {
+      setSelectedDiet(dietary?.selected || []);
+      setSelectedAllergies(dietary?.allergies || []);
+    }
+  }, [visible, dietary]);
 
   const toggleDiet = (id) => {
     setSelectedDiet((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
-    toggleDietaryPreference(id);
   };
 
   const toggleAllergy = (allergy) => {
@@ -58,6 +64,12 @@ const DietaryPreferencesModal = ({ visible, onClose }) => {
   };
 
   const handleSave = () => {
+    if (updateDietaryPreferences) {
+      updateDietaryPreferences({
+        selected: selectedDiet,
+        allergies: selectedAllergies,
+      });
+    }
     onClose();
   };
 
@@ -237,12 +249,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tagItemSelected: {
-    backgroundColor: '#166534',
-    borderColor: '#166534',
+    backgroundColor: '#3A6847',
+    borderColor: '#3A6847',
   },
   tagItemAllergy: {
-    backgroundColor: '#DC2626',
-    borderColor: '#DC2626',
+    backgroundColor: '#994122',
+    borderColor: '#994122',
   },
   tagText: {
     fontSize: 13,
@@ -260,10 +272,10 @@ const styles = StyleSheet.create({
   saveBtn: {
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: '#166534',
+    backgroundColor: '#3A6847',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#166534',
+    shadowColor: '#3A6847',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,

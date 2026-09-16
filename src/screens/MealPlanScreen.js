@@ -10,9 +10,10 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import SelectRecipeModal from '../components/mealplan/SelectRecipeModal';
+import PremiumUpgradeModal from '../components/account/PremiumUpgradeModal';
 import { mealPlanService, recipeService } from '../services';
 import { useAccount } from '../context/AccountContext';
 
@@ -105,12 +106,18 @@ export default function MealPlanScreen({
   onSelectMeal,
   onOpenRetail,
 }) {
-  const { budget } = useAccount();
+  const { budget, isPremium, isPro } = useAccount();
   const [selectedDay, setSelectedDay] = useState('mon');
   const [schedule, setSchedule] = useState(INITIAL_SCHEDULE);
   const [refreshing, setRefreshing] = useState(false);
   const [recipeModalVisible, setRecipeModalVisible] = useState(false);
   const [activeSlot, setActiveSlot] = useState('lunch');
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+
+  const isDayPlanLocked = (dayId) => {
+    if (isPremium || isPro) return false;
+    return dayId === 'thu' || dayId === 'fri' || dayId === 'sat' || dayId === 'sun';
+  };
 
   // Compute stats
   const calculateStats = () => {
@@ -268,17 +275,32 @@ export default function MealPlanScreen({
               const isSelected = d.id === selectedDay;
               const dayMeals = schedule[d.id] || {};
               const count = Object.values(dayMeals).filter(Boolean).length;
+              const isLocked = isDayPlanLocked(d.id);
 
               return (
                 <TouchableOpacity
                   key={d.id}
-                  style={[styles.dayTab, isSelected && styles.dayTabActive]}
+                  style={[
+                    styles.dayTab,
+                    isSelected && styles.dayTabActive,
+                    isLocked && styles.dayTabLocked,
+                  ]}
                   onPress={() => setSelectedDay(d.id)}
                   activeOpacity={0.75}
                 >
-                  <Text style={[styles.dayTabLabel, isSelected && styles.dayTabLabelActive]}>
-                    {d.label}
-                  </Text>
+                  <View style={styles.dayTabLabelRow}>
+                    <Text style={[styles.dayTabLabel, isSelected && styles.dayTabLabelActive]}>
+                      {d.label}
+                    </Text>
+                    {isLocked && (
+                      <Ionicons
+                        name="lock-closed"
+                        size={10}
+                        color={isSelected ? '#FFFFFF' : '#994122'}
+                        style={{ marginLeft: 3 }}
+                      />
+                    )}
+                  </View>
                   <View style={[styles.dayTabDot, count > 0 ? (isSelected ? styles.dotWhite : styles.dotGreen) : styles.dotEmpty]}>
                     {count > 0 && <Text style={[styles.dotCountText, isSelected && styles.dotCountTextActive]}>{count}</Text>}
                   </View>
@@ -291,86 +313,109 @@ export default function MealPlanScreen({
         {/* Selected Day Header */}
         <View style={styles.dayHeader}>
           <Text style={styles.dayTitle}>{currentDayInfo.label}'s Menu</Text>
-          <Text style={styles.dayCost}>Estimated: Rs. {currentDayCost.toLocaleString()}</Text>
+          {!isDayPlanLocked(selectedDay) && (
+            <Text style={styles.dayCost}>Estimated: Rs. {currentDayCost.toLocaleString()}</Text>
+          )}
         </View>
 
-        {/* Meal Slots List */}
-        {MEAL_SLOTS.map((slot) => {
-          const meal = currentMeals[slot.key];
+        {/* Paywall Card if selected day is locked for Free users */}
+        {isDayPlanLocked(selectedDay) ? (
+          <View style={styles.lockedDayCard}>
+            <View style={styles.lockIconCircle}>
+              <Ionicons name="lock-closed" size={28} color="#994122" />
+            </View>
+            <Text style={styles.lockedTitle}>7-Day Planning is a Smart Feature</Text>
+            <Text style={styles.lockedSub}>
+              Free Starter includes 3 days of meal organization (Mon – Wed). Upgrade to StockPot Smart (Rs. 499/mo) or Pro to unlock the full 7-day week, save Rs. 4,500+ monthly, and auto-sync your grocery basket!
+            </Text>
+            <TouchableOpacity
+              style={styles.lockedUpgradeBtn}
+              onPress={() => setUpgradeModalVisible(true)}
+              activeOpacity={0.88}
+            >
+              <FontAwesome5 name="bolt" size={13} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.lockedUpgradeBtnText}>Unlock 7-Day Planning — Rs. 499/mo</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          /* Meal Slots List */
+          MEAL_SLOTS.map((slot) => {
+            const meal = currentMeals[slot.key];
 
-          return (
-            <View key={slot.key} style={styles.slotContainer}>
-              <View style={styles.slotHeaderRow}>
-                <View style={styles.slotLabelGroup}>
-                  <Ionicons name={slot.icon} size={15} color={slot.color} />
-                  <Text style={[styles.slotLabel, { color: slot.color }]}>{slot.label.toUpperCase()}</Text>
+            return (
+              <View key={slot.key} style={styles.slotContainer}>
+                <View style={styles.slotHeaderRow}>
+                  <View style={styles.slotLabelGroup}>
+                    <Ionicons name={slot.icon} size={15} color={slot.color} />
+                    <Text style={[styles.slotLabel, { color: slot.color }]}>{slot.label.toUpperCase()}</Text>
+                  </View>
+                  {meal && (
+                    <Text style={styles.slotMealPrice}>Rs. {meal.price.toLocaleString()}</Text>
+                  )}
                 </View>
-                {meal && (
-                  <Text style={styles.slotMealPrice}>Rs. {meal.price.toLocaleString()}</Text>
+
+                {meal ? (
+                  <TouchableOpacity
+                    style={styles.mealCard}
+                    onPress={() => onSelectMeal && onSelectMeal(meal)}
+                    activeOpacity={0.88}
+                  >
+                    <Image
+                      source={getDishImage(meal.title, meal.image)}
+                      style={styles.mealThumb}
+                    />
+                    <View style={styles.mealCardContent}>
+                      <Text style={styles.mealTitle} numberOfLines={2}>{meal.title}</Text>
+                      <Text style={styles.mealIngredients} numberOfLines={1}>
+                        🧺 {meal.ingredients}
+                      </Text>
+                      <View style={styles.mealMetaRow}>
+                        <Text style={styles.mealMetaText}>⏱️ {meal.time}</Text>
+                        <Text style={styles.mealMetaText}>•</Text>
+                        <Text style={styles.mealMetaText}>🍳 {meal.servings} servings</Text>
+                        <Text style={styles.mealMetaText}>•</Text>
+                        <Text style={styles.mealMetaPrice}>~Rs. {Math.round(meal.price / (meal.servings || 1))}/serv</Text>
+                      </View>
+                    </View>
+
+                    {/* Actions */}
+                    <View style={styles.mealCardActions}>
+                      <TouchableOpacity
+                        style={styles.cardActionBtn}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          handleOpenAdd(slot.key);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Feather name="refresh-cw" size={14} color="#4B5563" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.cardActionBtn, styles.deleteBtn]}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          handleRemoveMeal(slot.key);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Feather name="trash-2" size={14} color="#994122" />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.emptySlotBtn}
+                    onPress={() => handleOpenAdd(slot.key)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="add-circle-outline" size={18} color="#3A6847" />
+                    <Text style={styles.emptySlotText}>Add recipe to {slot.label}</Text>
+                  </TouchableOpacity>
                 )}
               </View>
-
-              {meal ? (
-                <TouchableOpacity
-                  style={styles.mealCard}
-                  onPress={() => onSelectMeal && onSelectMeal(meal)}
-                  activeOpacity={0.88}
-                >
-                  <Image
-                    source={getDishImage(meal.title, meal.image)}
-                    style={styles.mealThumb}
-                  />
-                  <View style={styles.mealCardContent}>
-                    <Text style={styles.mealTitle} numberOfLines={2}>{meal.title}</Text>
-                    <Text style={styles.mealIngredients} numberOfLines={1}>
-                      🧺 {meal.ingredients}
-                    </Text>
-                    <View style={styles.mealMetaRow}>
-                      <Text style={styles.mealMetaText}>⏱️ {meal.time}</Text>
-                      <Text style={styles.mealMetaText}>•</Text>
-                      <Text style={styles.mealMetaText}>🍳 {meal.servings} servings</Text>
-                      <Text style={styles.mealMetaText}>•</Text>
-                      <Text style={styles.mealMetaPrice}>~Rs. {Math.round(meal.price / (meal.servings || 1))}/serv</Text>
-                    </View>
-                  </View>
-
-                  {/* Actions */}
-                  <View style={styles.mealCardActions}>
-                    <TouchableOpacity
-                      style={styles.cardActionBtn}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        handleOpenAdd(slot.key);
-                      }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Feather name="refresh-cw" size={14} color="#4B5563" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.cardActionBtn, styles.deleteBtn]}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        handleRemoveMeal(slot.key);
-                      }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Feather name="trash-2" size={14} color="#DC2626" />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.emptySlotBtn}
-                  onPress={() => handleOpenAdd(slot.key)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
-                  <Text style={styles.emptySlotText}>Add recipe to {slot.label}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          );
-        })}
+            );
+          })
+        )}
 
         {/* Bottom Grocery List Prompt */}
         <View style={styles.grocerySummaryCard}>
@@ -399,6 +444,12 @@ export default function MealPlanScreen({
         mealType={activeSlot}
         onClose={() => setRecipeModalVisible(false)}
         onSelectRecipe={handleRecipeSelected}
+      />
+
+      {/* Premium & Smart Upgrade Modal */}
+      <PremiumUpgradeModal
+        visible={upgradeModalVisible}
+        onClose={() => setUpgradeModalVisible(false)}
       />
     </SafeAreaView>
   );
@@ -543,6 +594,15 @@ const styles = StyleSheet.create({
   },
   dayTabLabelActive: {
     color: '#FFFFFF',
+  },
+  dayTabLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dayTabLocked: {
+    borderColor: '#F5D0C7',
+    backgroundColor: '#FDFBF9',
   },
   dayTabDot: {
     minWidth: 18,
@@ -736,5 +796,65 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  lockedDayCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F5D0C7',
+    shadowColor: 'rgba(43, 36, 32, 0.08)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 3,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  lockIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FCECE8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  lockedTitle: {
+    fontSize: 16.5,
+    fontWeight: '800',
+    color: '#2B2420',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  lockedSub: {
+    fontSize: 12.5,
+    color: '#6B5E57',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 18,
+    paddingHorizontal: 8,
+  },
+  lockedUpgradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#994122',
+    paddingVertical: 13,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    shadowColor: '#994122',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+    width: '100%',
+  },
+  lockedUpgradeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '800',
   },
 });

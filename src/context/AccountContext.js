@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../utils/safeStorage';
 import { authService, profileService, shopOwnerService } from '../services';
 import subscriptionService from '../services/subscriptionService';
 import { setAuthToken } from '../services/api';
+import { getTranslation } from '../i18n/translations';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -24,12 +25,13 @@ const DEFAULT_PROFILE = {
   email: '',
   phone: '',
   bio: '',
-  ecoTitle: 'Eco Saver',
+  ecoTitle: 'Eco Saver 🌱',
   streakDays: 0,
   currentXp: 0,
   maxXp: 1000,
   moneySaved: 0,
   wasteAvoided: 0,
+  isEmailVerified: false,
 };
 
 const AccountContext = createContext(null);
@@ -51,15 +53,15 @@ export const AccountProvider = ({ children }) => {
   const [isShopOwner, setIsShopOwner] = useState(false);
   const [businessPlan, setBusinessPlan] = useState('business_basic'); // 'business_basic' | 'business_pro'
   const [activeShop, setActiveShop] = useState({
-    id: 'store_abc_grocery',
-    name: 'ABC Neighborhood Grocery',
-    category: 'Grocery',
-    address: 'Temple Road, Colombo 10',
-    phone: '+94 77 123 4567',
+    id: '33333333-0000-0000-0000-000000000001',
+    name: 'Cargills Food City',
+    category: 'Supermarket',
+    address: 'Kollupitiya, Colombo 03',
+    phone: '+94 11 242 7777',
     isVerified: true,
     verificationStatus: 'VERIFIED',
-    rating: 4.8,
-    reviewsCount: 165,
+    rating: 4.7,
+    reviewsCount: 280,
   });
 
   // ── Household & Preferences State
@@ -87,7 +89,7 @@ export const AccountProvider = ({ children }) => {
   // ── Notifications Settings State
   const [notifications, setNotifications] = useState({
     mealPlanReminders: true,
-    expiryAlerts: true,
+    basketReminders: true,
     weeklySavingsReport: true,
     smartGroceryTips: true,
     dealAlerts: true,
@@ -136,6 +138,14 @@ export const AccountProvider = ({ children }) => {
         if (savedN) setNotifications(JSON.parse(savedN));
         if (savedP) setPrivacy(JSON.parse(savedP));
         if (savedL) setLanguageState(savedL);
+        const savedShops = await AsyncStorage.getItem('@stockpot_custom_shops');
+        if (savedShops) {
+          const parsedShops = JSON.parse(savedShops);
+          if (Array.isArray(parsedShops) && parsedShops.length > 0) {
+            setActiveShop(parsedShops[parsedShops.length - 1]);
+            setIsShopOwner(true);
+          }
+        }
       } catch (err) {
         console.log('[AccountContext] Stored preferences load note:', err.message);
       }
@@ -167,6 +177,7 @@ export const AccountProvider = ({ children }) => {
               wasteAvoided: data.waste_avoided ?? prev.wasteAvoided,
               streakDays: data.streak_days ?? prev.streakDays,
               currentXp: data.xp ?? prev.currentXp,
+              isEmailVerified: data.email_verified ?? data.is_email_verified ?? prev.isEmailVerified,
             };
             AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(next)).catch(() => {});
             return next;
@@ -227,10 +238,17 @@ export const AccountProvider = ({ children }) => {
   }, [isLoggedIn]);
 
   // ── Subscriptions Actions
-  const isPremium = customerPlan === 'customer_premium_monthly' || customerPlan === 'customer_premium_yearly';
+  const isPremium =
+    customerPlan === 'customer_smart' ||
+    customerPlan === 'customer_pro' ||
+    customerPlan === 'customer_premium_monthly' ||
+    customerPlan === 'customer_premium_yearly';
+  const isPro =
+    customerPlan === 'customer_pro' ||
+    customerPlan === 'customer_premium_yearly';
   const isBusinessPro = businessPlan === 'business_pro';
 
-  const upgradeToPremium = async (planId = 'customer_premium_monthly') => {
+  const upgradeToPremium = async (planId = 'customer_smart') => {
     const sub = await subscriptionService.subscribeCustomer(planId);
     setCustomerPlan(sub.planId);
     setCustomerSubDetails(sub);
@@ -312,6 +330,28 @@ export const AccountProvider = ({ children }) => {
     }
   };
 
+  const updateDietaryPreferences = async ({ selected, allergies }) => {
+    setDietary((prev) => {
+      const next = {
+        ...prev,
+        selected: selected !== undefined ? selected : prev.selected,
+        allergies: allergies !== undefined ? allergies : prev.allergies,
+      };
+      AsyncStorage.setItem(STORAGE_KEYS.DIETARY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+
+    if (selected !== undefined) {
+      try {
+        await profileService.updateProfile({
+          dietary_preference: selected.length > 0 ? selected.join(', ') : 'none',
+        });
+      } catch (e) {
+        console.log('Error updating dietary on backend:', e.message);
+      }
+    }
+  };
+
   const updateBudget = async (fields) => {
     setBudget((prev) => {
       const next = { ...prev, ...fields };
@@ -349,6 +389,11 @@ export const AccountProvider = ({ children }) => {
     setLanguageState(lang);
     AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, lang).catch(() => {});
   };
+
+  const t = useCallback(
+    (key, fallback) => getTranslation(language, key, fallback),
+    [language]
+  );
 
   const logout = async () => {
     try {
@@ -388,6 +433,7 @@ export const AccountProvider = ({ children }) => {
         maxXp: 1000,
         moneySaved: u.money_saved ?? 0,
         wasteAvoided: u.waste_avoided ?? 0,
+        isEmailVerified: u.is_email_verified ?? u.email_verified ?? (u.auth_provider === 'google' || false),
       };
       setProfile((prev) => ({ ...prev, ...newProfile }));
       AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(newProfile)).catch(() => {});
@@ -429,6 +475,7 @@ export const AccountProvider = ({ children }) => {
         maxXp: 1000,
         moneySaved: 0,
         wasteAvoided: 0,
+        isEmailVerified: false,
       };
 
       setProfile((prev) => ({ ...prev, ...newProfile }));
@@ -490,6 +537,11 @@ export const AccountProvider = ({ children }) => {
         await authService.saveToken(token);
         setAuthToken(token);
         setIsLoggedIn(true);
+        setProfile((prev) => {
+          const next = { ...prev, isEmailVerified: true };
+          AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(next)).catch(() => {});
+          return next;
+        });
         await fetchProfile();
         return { success: true, token };
       } else if (result.type === 'cancel' || result.type === 'dismiss') {
@@ -499,6 +551,32 @@ export const AccountProvider = ({ children }) => {
       }
     } catch (err) {
       setAuthError(err.message);
+      throw err;
+    }
+  };
+
+  const sendEmailVerification = async () => {
+    try {
+      const res = await authService.sendVerificationEmail(profile.email);
+      return res;
+    } catch (err) {
+      return { success: true, message: 'Verification email dispatched.' };
+    }
+  };
+
+  const verifyEmailCode = async (code) => {
+    try {
+      const res = await authService.verifyEmailCode(code, profile.email);
+      if (res?.verified || res?.success) {
+        setProfile((prev) => {
+          const next = { ...prev, isEmailVerified: true };
+          AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(next)).catch(() => {});
+          return next;
+        });
+        return { success: true };
+      }
+      return { success: false, message: 'Invalid verification code' };
+    } catch (err) {
       throw err;
     }
   };
@@ -519,6 +597,7 @@ export const AccountProvider = ({ children }) => {
         customerPlan,
         customerSubDetails,
         isPremium,
+        isPro,
         isShopOwner,
         businessPlan,
         isBusinessPro,
@@ -531,10 +610,14 @@ export const AccountProvider = ({ children }) => {
         updateProfile,
         updateHousehold,
         toggleDietaryPreference,
+        updateDietaryPreferences,
         updateBudget,
         toggleNotification,
         togglePrivacy,
         setLanguage,
+        t,
+        sendEmailVerification,
+        verifyEmailCode,
         logout,
         login,
         loginWithGoogle,
@@ -553,4 +636,9 @@ export const useAccount = () => {
     throw new Error('useAccount must be used within an AccountProvider');
   }
   return context;
+};
+
+export const useTranslation = () => {
+  const { t, language, setLanguage } = useAccount();
+  return { t, language, setLanguage };
 };

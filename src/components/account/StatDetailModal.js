@@ -37,7 +37,7 @@ const StatDetailModal = ({ visible, statType, onClose }) => {
             <View style={styles.breakdownCard}>
               <Text style={styles.breakdownHeader}>SAVINGS BREAKDOWN</Text>
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownTitle}>Pantry Ingredient Reuse</Text>
+                <Text style={styles.breakdownTitle}>Home Ingredient Reuse</Text>
                 <Text style={styles.breakdownAmount}>Rs. 6,800</Text>
               </View>
               <View style={styles.divider} />
@@ -108,7 +108,7 @@ const StatDetailModal = ({ visible, statType, onClose }) => {
               </View>
               <View style={styles.divider} />
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownTitle}>Pantry Grains, Dhal & Spices</Text>
+                <Text style={styles.breakdownTitle}>Dry Grains, Dhal & Spices</Text>
                 <Text style={styles.breakdownAmount}>~Rs. 3,200</Text>
               </View>
               <View style={styles.divider} />

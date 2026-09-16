@@ -13,9 +13,11 @@ import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-ico
 import Colors from '../../constants/colors';
 import { mealPlanService, gamificationService } from '../../services';
 import { useAccount } from '../../context/AccountContext';
+import PremiumUpgradeModal from '../account/PremiumUpgradeModal';
 
 const PremiumBudgetChallengeModal = ({ visible, onClose, onChallengeAccepted }) => {
-  const { isPremium } = useAccount();
+  const { isPremium, isPro } = useAccount();
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
   const [peopleCount, setPeopleCount] = useState(4);
   const [daysCount, setDaysCount] = useState(7);
   const [targetBudget, setTargetBudget] = useState('7500');
@@ -29,6 +31,11 @@ const PremiumBudgetChallengeModal = ({ visible, onClose, onChallengeAccepted }) 
   }, [peopleCount, daysCount, budgetNumber]);
 
   const handleAcceptChallenge = async () => {
+    if (!isPro) {
+      setUpgradeModalVisible(true);
+      return;
+    }
+
     await gamificationService.awardXp(
       100,
       `Accepted ${daysCount}-Day Budget Challenge`,
@@ -58,22 +65,44 @@ const PremiumBudgetChallengeModal = ({ visible, onClose, onChallengeAccepted }) 
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.crownCircle}>
-                <FontAwesome5 name="trophy" size={17} color="#D97706" />
+                <FontAwesome5 name="trophy" size={17} color="#E8A93F" />
               </View>
               <View>
-                <Text style={styles.headerTitle}>Premium Budget Challenge</Text>
-                <Text style={styles.headerSub}>AI Meal Planning & Multi-Store Cost Calculator</Text>
+                <Text style={styles.headerTitle}>Budget Challenge Simulator</Text>
+                <Text style={styles.headerSub}>AI Meal Planning & Store Routing Engine</Text>
               </View>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color="#6B7280" />
+              <Ionicons name="close" size={22} color="#968880" />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {/* Pro Plan Feature Alert if not Pro */}
+            {!isPro && (
+              <View style={styles.proLockBanner}>
+                <View style={styles.proLockBadge}>
+                  <Ionicons name="lock-closed" size={11} color="#994122" />
+                  <Text style={styles.proLockBadgeText}>PRO PLAN EXCLUSIVE</Text>
+                </View>
+                <Text style={styles.proLockTitle}>Automated Budget Challenge is a Pro Feature</Text>
+                <Text style={styles.proLockDesc}>
+                  Simulate and lock in whole-week meal budgets with automated grocery routing across nearby stores. Upgrade to StockPot Pro for Rs. 999/mo to activate.
+                </Text>
+                <TouchableOpacity
+                  style={styles.proUpgradeBannerBtn}
+                  onPress={() => setUpgradeModalVisible(true)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="sparkles" size={14} color="#FFFFFF" />
+                  <Text style={styles.proUpgradeBannerBtnText}>Unlock Pro Plan • Rs. 999 / mo</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Example Preset Banner */}
             <View style={styles.presetBanner}>
-              <Ionicons name="sparkles" size={18} color="#007A3D" />
+              <Ionicons name="sparkles" size={18} color="#3A6847" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.presetTitle}>Challenge Target</Text>
                 <Text style={styles.presetDesc}>
@@ -122,7 +151,7 @@ const PremiumBudgetChallengeModal = ({ visible, onClose, onChallengeAccepted }) 
               value={targetBudget}
               onChangeText={setTargetBudget}
               placeholder="e.g. 7500"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#968880"
             />
 
             {/* Output Calculation Breakdown Card */}
@@ -144,21 +173,21 @@ const PremiumBudgetChallengeModal = ({ visible, onClose, onChallengeAccepted }) 
                 <View style={styles.metricDivider} />
                 <View style={styles.metricCol}>
                   <Text style={styles.metricLabel}>Optimized Cost</Text>
-                  <Text style={[styles.metricValue, { color: '#007A3D' }]}>
+                  <Text style={[styles.metricValue, { color: '#3A6847' }]}>
                     Rs. {challengeResult.estimatedCost.toLocaleString()}
                   </Text>
                 </View>
                 <View style={styles.metricDivider} />
                 <View style={styles.metricCol}>
                   <Text style={styles.metricLabel}>Remaining Surplus</Text>
-                  <Text style={[styles.metricValue, { color: '#D97706' }]}>
+                  <Text style={[styles.metricValue, { color: '#E8A93F' }]}>
                     Rs. {challengeResult.remainingBudget.toLocaleString()}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.savingsCallout}>
-                <Ionicons name="cart" size={16} color="#166534" />
+                <Ionicons name="cart" size={16} color="#3A6847" />
                 <Text style={styles.savingsCalloutText}>
                   Prices calculated using cheapest available items across Keells, Cargills & ABC Neighborhood Grocery.
                 </Text>
@@ -184,17 +213,34 @@ const PremiumBudgetChallengeModal = ({ visible, onClose, onChallengeAccepted }) 
 
           {/* Footer CTA */}
           <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.acceptBtn}
-              onPress={handleAcceptChallenge}
-              activeOpacity={0.88}
-            >
-              <FontAwesome5 name="check-circle" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.acceptBtnText}>Accept Challenge & Log (+100 XP)</Text>
-            </TouchableOpacity>
+            {!isPro ? (
+              <TouchableOpacity
+                style={[styles.acceptBtn, styles.lockedProBtn]}
+                onPress={() => setUpgradeModalVisible(true)}
+                activeOpacity={0.88}
+              >
+                <Ionicons name="sparkles" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.acceptBtnText}>Unlock Pro to Accept Challenge (Rs. 999/mo)</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.acceptBtn}
+                onPress={handleAcceptChallenge}
+                activeOpacity={0.88}
+              >
+                <FontAwesome5 name="check-circle" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.acceptBtnText}>Accept Challenge & Log (+100 XP)</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
+
+      {/* Customer Premium Upgrade Modal */}
+      <PremiumUpgradeModal
+        visible={upgradeModalVisible}
+        onClose={() => setUpgradeModalVisible(false)}
+      />
     </Modal>
   );
 };
@@ -202,7 +248,7 @@ const PremiumBudgetChallengeModal = ({ visible, onClose, onChallengeAccepted }) 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(43, 36, 32, 0.65)',
     justifyContent: 'flex-end',
   },
   content: {
@@ -219,7 +265,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#E8DFD8',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -230,18 +276,18 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FEF6EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
   },
   headerSub: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: '#968880',
     marginTop: 1,
   },
   closeBtn: {
@@ -252,33 +298,84 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 14,
   },
+  proLockBanner: {
+    backgroundColor: '#FAF8F5',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#E8DFD8',
+    marginBottom: 14,
+  },
+  proLockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#FCECE8',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+    marginBottom: 6,
+  },
+  proLockBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#994122',
+    letterSpacing: 0.5,
+  },
+  proLockTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2B2420',
+    marginBottom: 4,
+  },
+  proLockDesc: {
+    fontSize: 12,
+    color: '#6B5E57',
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  proUpgradeBannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#994122',
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  proUpgradeBannerBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
   presetBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#FAF8F5',
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#E8DFD8',
     borderRadius: 14,
     padding: 12,
     gap: 10,
     marginBottom: 14,
   },
   presetTitle: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#166534',
+    color: '#3A6847',
     textTransform: 'uppercase',
   },
   presetDesc: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800',
-    color: '#166534',
+    color: '#2B2420',
     marginTop: 1,
   },
   configLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#374151',
+    color: '#2B2420',
     marginTop: 10,
     marginBottom: 6,
   },
@@ -291,31 +388,31 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 9,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F5EFEB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: '#007A3D',
+    backgroundColor: '#3A6847',
   },
   chipText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: '#4B5563',
+    color: '#6B5E57',
   },
   chipTextActive: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
   budgetInput: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FAF8F5',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E8DFD8',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#111827',
+    color: '#2B2420',
     fontWeight: '700',
     marginBottom: 14,
   },
@@ -324,11 +421,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     borderWidth: 1.5,
-    borderColor: '#86EFAC',
+    borderColor: '#E8DFD8',
     marginBottom: 16,
-    shadowColor: '#007A3D',
+    shadowColor: '#2B2420',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
   },
@@ -341,7 +438,7 @@ const styles = StyleSheet.create({
   calcTitle: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: '#111827',
+    color: '#2B2420',
     flex: 1,
   },
   statusBadge: {
@@ -350,20 +447,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   statusSuccess: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#EAF3EC',
   },
   statusWarning: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FEF6EB',
   },
   statusText: {
     fontSize: 11,
     fontWeight: '700',
   },
   statusTextSuccess: {
-    color: '#166534',
+    color: '#3A6847',
   },
   statusTextWarning: {
-    color: '#92400E',
+    color: '#C6851C',
   },
   metricsRow: {
     flexDirection: 'row',
@@ -378,47 +475,49 @@ const styles = StyleSheet.create({
   metricDivider: {
     width: 1,
     height: 30,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#E8DFD8',
   },
   metricLabel: {
     fontSize: 10.5,
-    color: '#6B7280',
+    color: '#968880',
     fontWeight: '600',
   },
   metricValue: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
     marginTop: 2,
   },
   savingsCallout: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#FAF8F5',
     padding: 10,
     borderRadius: 10,
     marginTop: 10,
     gap: 8,
+    borderWidth: 1,
+    borderColor: '#E8DFD8',
   },
   savingsCalloutText: {
     fontSize: 11,
-    color: '#166534',
+    color: '#3A6847',
     flex: 1,
     lineHeight: 15,
   },
   scheduleTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
     marginBottom: 10,
   },
   dayCard: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FAF8F5',
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E8DFD8',
   },
   dayHeader: {
     flexDirection: 'row',
@@ -426,46 +525,50 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E8DFD8',
     paddingBottom: 4,
   },
   dayName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
+    color: '#2B2420',
   },
   dayCost: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#007A3D',
+    color: '#3A6847',
   },
   mealLine: {
     fontSize: 12,
-    color: '#4B5563',
+    color: '#6B5E57',
     marginTop: 3,
   },
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#E8DFD8',
     backgroundColor: '#FFFFFF',
   },
   acceptBtn: {
-    backgroundColor: '#007A3D',
+    backgroundColor: '#3A6847',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 14,
-    shadowColor: '#007A3D',
+    shadowColor: '#3A6847',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 3,
   },
+  lockedProBtn: {
+    backgroundColor: '#994122',
+    shadowColor: '#994122',
+  },
   acceptBtnText: {
     color: '#FFFFFF',
-    fontSize: 14.5,
+    fontSize: 14,
     fontWeight: '800',
   },
 });

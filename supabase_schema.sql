@@ -377,20 +377,26 @@ CREATE POLICY "Public can view active shop products" ON shop_products
 CREATE POLICY "Public can view active discounts" ON discounts
     FOR SELECT USING (is_active = TRUE AND end_date >= NOW());
 
--- Shop Owners can manage ONLY their own shop and products
-CREATE POLICY "Shop owners can manage their shops" ON shops
-    FOR ALL USING (owner_id IN (SELECT id FROM shop_owners WHERE user_id = auth.uid()));
+-- ----------------------------------------------------------------------------
+-- 15. USER NOTIFICATIONS
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_notifications (
+    id VARCHAR(100) PRIMARY KEY,
+    user_id UUID, -- references auth.users(id) or profiles(id)
+    title VARCHAR(200) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'SYSTEM',
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    action VARCHAR(100),
+    data JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
-CREATE POLICY "Shop owners can manage their products" ON shop_products
-    FOR ALL USING (shop_id IN (
-        SELECT s.id FROM shops s 
-        JOIN shop_owners so ON s.owner_id = so.id 
-        WHERE so.user_id = auth.uid()
-    ));
+CREATE INDEX IF NOT EXISTS idx_user_notifications_user_id ON user_notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_notifications_is_read ON user_notifications(is_read);
 
-CREATE POLICY "Shop owners can manage their discounts" ON discounts
-    FOR ALL USING (shop_id IN (
-        SELECT s.id FROM shops s 
-        JOIN shop_owners so ON s.owner_id = so.id 
-        WHERE so.user_id = auth.uid()
-    ));
+ALTER TABLE user_notifications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own notifications" ON user_notifications
+    FOR ALL USING (user_id IS NULL OR user_id = auth.uid());
+

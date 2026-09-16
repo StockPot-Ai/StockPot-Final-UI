@@ -12,15 +12,7 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { useAccount } from '../../context/AccountContext';
 
-const LANGUAGES = [
-  { code: 'en', label: 'English', native: 'English' },
-  { code: 'ur', label: 'Urdu', native: 'اردو' },
-  { code: 'es', label: 'Spanish', native: 'Español' },
-  { code: 'fr', label: 'French', native: 'Français' },
-  { code: 'de', label: 'German', native: 'Deutsch' },
-  { code: 'ar', label: 'Arabic', native: 'العربية' },
-  { code: 'it', label: 'Italian', native: 'Italiano' },
-];
+import { LANGUAGES, getTranslation } from '../../i18n/translations';
 
 const LanguageModal = ({ visible, onClose }) => {
   const { language, setLanguage } = useAccount();
@@ -40,8 +32,8 @@ const LanguageModal = ({ visible, onClose }) => {
           {/* Header */}
           <View style={styles.sheetHeader}>
             <View>
-              <Text style={styles.sheetTitle}>Select Language</Text>
-              <Text style={styles.sheetSub}>Choose your preferred display language</Text>
+              <Text style={styles.sheetTitle}>{getTranslation(language, 'select_language', 'Select Language')}</Text>
+              <Text style={styles.sheetSub}>{getTranslation(language, 'choose_language_sub', 'Choose your preferred display language')}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
               <Feather name="x" size={18} color="#4B5563" />
@@ -63,9 +55,12 @@ const LanguageModal = ({ visible, onClose }) => {
                       activeOpacity={0.7}
                     >
                       <View style={styles.textWrap}>
-                        <Text style={[styles.langLabel, isSelected && styles.langLabelSelected]}>
-                          {lang.label}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={{ fontSize: 18 }}>{lang.flag}</Text>
+                          <Text style={[styles.langLabel, isSelected && styles.langLabelSelected]}>
+                            {lang.label}
+                          </Text>
+                        </View>
                         <Text style={styles.langNative}>{lang.native}</Text>
                       </View>
                       {isSelected ? (
@@ -86,7 +81,7 @@ const LanguageModal = ({ visible, onClose }) => {
           {/* Action Row */}
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.doneBtn} onPress={onClose} activeOpacity={0.8}>
-              <Text style={styles.doneBtnText}>Done</Text>
+              <Text style={styles.doneBtnText}>{getTranslation(language, 'done', 'Done')}</Text>
             </TouchableOpacity>
           </View>
         </View>

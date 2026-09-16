@@ -9,27 +9,54 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { useAccount } from '../../context/AccountContext';
+import CustomAlertModal from '../common/CustomAlertModal';
 
 const BADGE_OPTIONS = [
-  'Eco Saver',
-  'Zero Waste Master',
-  'Green Gourmet',
-  'Sustainable Chef',
+  'Eco Saver 🌱',
+  'Zero Waste Master ♻️',
+  'Green Gourmet 🥗',
+  'Sustainable Chef 🌿',
+  'Budget Hero 🛡️',
+  'Smart Shopper 🛒',
 ];
 
 const EditProfileModal = ({ visible, onClose }) => {
-  const { profile, updateProfile } = useAccount();
+  const { profile, updateProfile, sendEmailVerification, verifyEmailCode } = useAccount();
 
   const [name, setName] = useState(profile.name || '');
   const [email, setEmail] = useState(profile.email || '');
   const [phone, setPhone] = useState(profile.phone || '');
   const [bio, setBio] = useState(profile.bio || '');
   const [ecoTitle, setEcoTitle] = useState(profile.ecoTitle || 'Eco Saver');
+
+  // Custom Alert State
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    primaryButton: null,
+    secondaryButton: null,
+  });
+
+  const showAlert = ({ type = 'info', title, message, primaryButton, secondaryButton }) => {
+    setAlertConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      primaryButton: primaryButton || { text: 'OK', onPress: () => setAlertConfig((prev) => ({ ...prev, visible: false })) },
+      secondaryButton: secondaryButton || null,
+    });
+  };
+
+  const closeAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  };
 
   useEffect(() => {
     if (visible) {
@@ -43,11 +70,19 @@ const EditProfileModal = ({ visible, onClose }) => {
 
   const handleSave = () => {
     if (!name.trim()) {
-      Alert.alert('Validation Error', 'Name cannot be empty.');
+      showAlert({
+        type: 'error',
+        title: 'Missing Name',
+        message: 'Your name cannot be empty.',
+      });
       return;
     }
     if (!email.trim() || !email.includes('@')) {
-      Alert.alert('Validation Error', 'Please enter a valid email address.');
+      showAlert({
+        type: 'error',
+        title: 'Invalid Email',
+        message: 'Please enter a valid email address.',
+      });
       return;
     }
 
@@ -113,6 +148,28 @@ const EditProfileModal = ({ visible, onClose }) => {
                   placeholder="chef@stockpot.ai"
                   placeholderTextColor="#9CA3AF"
                 />
+                {profile?.isEmailVerified ? (
+                  <View style={styles.verifiedBadge}>
+                    <Ionicons name="checkmark-circle" size={13} color="#3A6847" />
+                    <Text style={styles.verifiedBadgeText}>Verified</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.unverifiedBadge}
+                    onPress={() => {
+                      sendEmailVerification();
+                      showAlert({
+                        type: 'info',
+                        title: 'Verification Link Sent',
+                        message: `A verification link and test code (123456) has been dispatched to ${email}.`,
+                      });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="alert-circle" size={13} color="#C6851C" />
+                    <Text style={styles.unverifiedBadgeText}>Verify</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               <View style={styles.separator} />
@@ -187,6 +244,17 @@ const EditProfileModal = ({ visible, onClose }) => {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Custom Alert Modal */}
+      <CustomAlertModal
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        primaryButton={alertConfig.primaryButton}
+        secondaryButton={alertConfig.secondaryButton}
+        onClose={closeAlert}
+      />
     </Modal>
   );
 };
@@ -349,10 +417,10 @@ const styles = StyleSheet.create({
     flex: 2,
     paddingVertical: 13,
     borderRadius: 14,
-    backgroundColor: '#166534',
+    backgroundColor: '#3A6847',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#166534',
+    shadowColor: '#3A6847',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
@@ -363,6 +431,38 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.2,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EAF3EC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#C7DEC9',
+  },
+  verifiedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#3A6847',
+  },
+  unverifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF6EB',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F9E2BE',
+  },
+  unverifiedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#C6851C',
   },
 });
 

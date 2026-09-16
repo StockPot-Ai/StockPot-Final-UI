@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   Platform,
   ScrollView,
   Image,
-  Alert,
   Modal,
   ActivityIndicator,
 } from 'react-native';
@@ -17,6 +16,8 @@ import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import { useAccount } from '../context/AccountContext';
 import { authService } from '../services';
+import authSecurity from '../services/authSecurity';
+import CustomAlertModal from '../components/common/CustomAlertModal';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -39,6 +40,90 @@ const LoginScreen = ({ onSignUp }) => {
   const [isSendingForgot, setIsSendingForgot] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
 
+  // Anti-Spam Login Lockout State
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutSecondsLeft, setLockoutSecondsLeft] = useState(0);
+  const lockoutTimerRef = useRef(null);
+
+  // Custom Alert Modal State
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    primaryButton: null,
+    secondaryButton: null,
+    countdown: 0,
+  });
+
+  const showAlert = ({ type = 'info', title, message, primaryButton, secondaryButton, countdown }) => {
+    setAlertConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      primaryButton: primaryButton || { text: 'OK', onPress: () => setAlertConfig((prev) => ({ ...prev, visible: false })) },
+      secondaryButton: secondaryButton || null,
+      countdown,
+    });
+  };
+
+  const closeAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  };
+
+  // Restore persistent security and lockout state upon screen mount/app reopen
+  useEffect(() => {
+    let isMounted = true;
+    const restoreSecurityState = async () => {
+      const state = await authSecurity.getLockoutState();
+      if (!isMounted) return;
+      if (state.isLocked && state.lockoutSecondsLeft > 0) {
+        setFailedAttempts(state.failedAttempts);
+        setLockoutSecondsLeft(state.lockoutSecondsLeft);
+        showAlert({
+          type: 'warning',
+          title: 'Sign-In Temporarily Locked',
+          message: `Too many failed login attempts. For your account security, sign in is locked for ${state.lockoutSecondsLeft} seconds.`,
+          primaryButton: {
+            text: 'Reset Password',
+            onPress: () => {
+              closeAlert();
+              openForgotModal();
+            },
+          },
+          secondaryButton: {
+            text: 'I Will Wait',
+            onPress: closeAlert,
+          },
+          countdown: state.lockoutSecondsLeft,
+        });
+      } else {
+        setFailedAttempts(state.failedAttempts || 0);
+      }
+    };
+    restoreSecurityState();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (lockoutSecondsLeft > 0) {
+      lockoutTimerRef.current = setTimeout(() => {
+        setLockoutSecondsLeft((prev) => {
+          if (prev <= 1) {
+            authSecurity.clearLockoutState().catch(() => {});
+            setFailedAttempts(0);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearTimeout(lockoutTimerRef.current);
+  }, [lockoutSecondsLeft]);
+
   const passwordRef = useRef(null);
 
   const validate = () => {
@@ -57,9 +142,6 @@ const LoginScreen = ({ onSignUp }) => {
     if (!password) {
       setPasswordError('Password is required');
       valid = false;
-    } else if (password.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
-      valid = false;
     } else {
       setPasswordError('');
     }
@@ -68,6 +150,30 @@ const LoginScreen = ({ onSignUp }) => {
   };
 
   const handleLogin = async () => {
+    // Re-check persistent lockout from storage
+    const currentSecState = await authSecurity.getLockoutState();
+    if (currentSecState.isLocked && currentSecState.lockoutSecondsLeft > 0) {
+      setLockoutSecondsLeft(currentSecState.lockoutSecondsLeft);
+      showAlert({
+        type: 'warning',
+        title: 'Sign-In Temporarily Locked',
+        message: `Too many failed login attempts. For security, sign in is locked for ${currentSecState.lockoutSecondsLeft} seconds. You can reset your password if you forgot it.`,
+        primaryButton: {
+          text: 'Reset Password',
+          onPress: () => {
+            closeAlert();
+            openForgotModal();
+          },
+        },
+        secondaryButton: {
+          text: 'Wait',
+          onPress: closeAlert,
+        },
+        countdown: currentSecState.lockoutSecondsLeft,
+      });
+      return;
+    }
+
     if (!validate()) {
       return;
     }
@@ -75,8 +181,108 @@ const LoginScreen = ({ onSignUp }) => {
     setIsSubmitting(true);
     try {
       await login({ email: email.trim(), password });
+      await authSecurity.clearLockoutState();
+      setFailedAttempts(0);
+      setLockoutSecondsLeft(0);
     } catch (err) {
-      Alert.alert('Login Failed', err.message || 'Invalid email or password');
+      // Check if backend returned HTTP 429 Too Many Requests
+      const isRateLimited =
+        err.status === 429 ||
+        (err.message && err.message.toLowerCase().includes('too many failed'));
+
+      if (isRateLimited) {
+        const retrySec = err.data?.retry_after || err.retryAfter || 60;
+        const secRes = await authSecurity.recordServerLockout(retrySec, email);
+        setFailedAttempts(secRes.failedAttempts);
+        setLockoutSecondsLeft(secRes.lockoutSecondsLeft);
+        showAlert({
+          type: 'warning',
+          title: 'Sign-In Temporarily Locked',
+          message:
+            err.message ||
+            `Too many consecutive failed login attempts. For your account security, sign in is locked for ${secRes.lockoutSecondsLeft} seconds.`,
+          primaryButton: {
+            text: 'Reset Password',
+            onPress: () => {
+              closeAlert();
+              openForgotModal();
+            },
+          },
+          secondaryButton: {
+            text: 'I Will Wait',
+            onPress: closeAlert,
+          },
+          countdown: secRes.lockoutSecondsLeft,
+        });
+        return;
+      }
+
+      // Record local persistent failed attempt
+      const attemptRes = await authSecurity.recordFailedAttempt(email);
+      setFailedAttempts(attemptRes.failedAttempts);
+
+      if (attemptRes.isLocked) {
+        setLockoutSecondsLeft(attemptRes.lockoutSecondsLeft);
+        showAlert({
+          type: 'warning',
+          title: 'Sign-In Temporarily Locked',
+          message: `Too many consecutive failed login attempts. For your account security, sign in is locked for ${attemptRes.lockoutSecondsLeft} seconds.`,
+          primaryButton: {
+            text: 'Forgot Password?',
+            onPress: () => {
+              closeAlert();
+              openForgotModal();
+            },
+          },
+          secondaryButton: {
+            text: 'I Will Wait',
+            onPress: closeAlert,
+          },
+          countdown: attemptRes.lockoutSecondsLeft,
+        });
+      } else {
+        const errMsg = err.message || 'Invalid email or password';
+        const isGoogleConflict = errMsg.toLowerCase().includes('google');
+
+        if (isGoogleConflict) {
+          showAlert({
+            type: 'warning',
+            title: 'Google Account Detected',
+            message: 'This account was registered using Google Sign-In. Please sign in with Google.',
+            primaryButton: {
+              text: 'Sign In with Google',
+              onPress: () => {
+                closeAlert();
+                handleSocialAuth('Google');
+              },
+            },
+            secondaryButton: {
+              text: 'Cancel',
+              onPress: closeAlert,
+            },
+          });
+        } else {
+          showAlert({
+            type: 'error',
+            title: 'Sign In Failed',
+            message:
+              errMsg && errMsg.includes('remaining')
+                ? errMsg
+                : `Invalid email or password. Please check your credentials and try again. (Attempt ${attemptRes.failedAttempts} of 5)`,
+            primaryButton: {
+              text: 'Try Again',
+              onPress: closeAlert,
+            },
+            secondaryButton: attemptRes.failedAttempts >= 2 ? {
+              text: 'Forgot Password?',
+              onPress: () => {
+                closeAlert();
+                openForgotModal();
+              },
+            } : null,
+          });
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -89,32 +295,39 @@ const LoginScreen = ({ onSignUp }) => {
         await loginWithGoogle();
       } catch (err) {
         if (!err.message?.includes('cancelled') && !err.message?.includes('dismissed')) {
-          Alert.alert('Google Sign-In Failed', err.message || 'Could not complete Google Sign-In.');
+          showAlert({
+            type: 'error',
+            title: 'Google Sign-In Failed',
+            message: err.message || 'Could not complete Google Sign-In. Please try again.',
+            primaryButton: { text: 'OK', onPress: closeAlert },
+          });
         }
       } finally {
         setIsGoogleSubmitting(false);
       }
     } else {
-      Alert.alert(
-        `${provider} Sign-In`,
-        `${provider} Sign-In is available on supported iOS devices.`,
-        [{ text: 'OK' }]
-      );
+      showAlert({
+        type: 'info',
+        title: `${provider} Sign-In`,
+        message: `${provider} Sign-In is available on supported iOS devices.`,
+        primaryButton: { text: 'OK', onPress: closeAlert },
+      });
     }
   };
 
   const handleSendForgotPassword = async () => {
-    if (!forgotEmail.trim() || !EMAIL_REGEX.test(forgotEmail.trim())) {
+    const cleanEmail = forgotEmail.trim();
+    if (!cleanEmail || !EMAIL_REGEX.test(cleanEmail)) {
       setForgotError('Please enter a valid email address');
       return;
     }
     setForgotError('');
     setIsSendingForgot(true);
     try {
-      await authService.forgotPassword(forgotEmail.trim());
+      await authService.forgotPassword(cleanEmail);
       setForgotSuccess(true);
     } catch (err) {
-      setForgotError(err.message || 'Failed to send reset email. Please try again.');
+      setForgotSuccess(true);
     } finally {
       setIsSendingForgot(false);
     }
@@ -151,7 +364,7 @@ const LoginScreen = ({ onSignUp }) => {
             StockPot <Text style={styles.brandAi}>AI</Text>
           </Text>
           <Text style={styles.tagline}>
-            Cook Smart • Save Money • Zero Waste
+            Cook Smart • Save Money • Waste Less
           </Text>
         </View>
 
@@ -265,13 +478,22 @@ const LoginScreen = ({ onSignUp }) => {
 
           {/* Primary Submit Button */}
           <TouchableOpacity
-            style={[styles.primaryBtn, isSubmitting && styles.primaryBtnDisabled]}
+            style={[
+              styles.primaryBtn,
+              (isSubmitting || lockoutSecondsLeft > 0) && styles.primaryBtnDisabled,
+              lockoutSecondsLeft > 0 && { backgroundColor: '#994122' },
+            ]}
             onPress={handleLogin}
             activeOpacity={0.88}
-            disabled={isSubmitting}
+            disabled={isSubmitting || lockoutSecondsLeft > 0}
           >
             {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : lockoutSecondsLeft > 0 ? (
+              <>
+                <Ionicons name="lock-closed" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.primaryBtnText}>Locked ({lockoutSecondsLeft}s)</Text>
+              </>
             ) : (
               <>
                 <Text style={styles.primaryBtnText}>Sign In</Text>
@@ -405,6 +627,18 @@ const LoginScreen = ({ onSignUp }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Custom Alert Modal */}
+      <CustomAlertModal
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        primaryButton={alertConfig.primaryButton}
+        secondaryButton={alertConfig.secondaryButton}
+        countdown={alertConfig.countdown}
+        onClose={closeAlert}
+      />
     </KeyboardAvoidingView>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -19,10 +19,19 @@ const THRESHOLDS = [75, 80, 85, 90];
 const BudgetSettingsModal = ({ visible, onClose }) => {
   const { budget, updateBudget } = useAccount();
 
-  const [weeklyBudget, setWeeklyBudget] = useState(String(budget.weeklyBudget));
-  const [savingsGoal, setSavingsGoal] = useState(String(budget.savingsGoal));
-  const [currency, setCurrency] = useState(budget.currency);
-  const [alertThreshold, setAlertThreshold] = useState(budget.alertThreshold);
+  const [weeklyBudget, setWeeklyBudget] = useState(String(budget?.weeklyBudget || 10000));
+  const [savingsGoal, setSavingsGoal] = useState(String(budget?.savingsGoal || 20000));
+  const [currency, setCurrency] = useState(budget?.currency || 'Rs.');
+  const [alertThreshold, setAlertThreshold] = useState(budget?.alertThreshold || 85);
+
+  useEffect(() => {
+    if (visible && budget) {
+      setWeeklyBudget(String(budget.weeklyBudget || 10000));
+      setSavingsGoal(String(budget.savingsGoal || 20000));
+      setCurrency(budget.currency || 'Rs.');
+      setAlertThreshold(budget.alertThreshold || 85);
+    }
+  }, [visible, budget]);
 
   const handleSave = () => {
     updateBudget({
@@ -325,8 +334,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   pillSelected: {
-    backgroundColor: '#166534',
-    borderColor: '#166534',
+    backgroundColor: '#3A6847',
+    borderColor: '#3A6847',
   },
   pillText: {
     fontSize: 13,
@@ -362,10 +371,10 @@ const styles = StyleSheet.create({
     flex: 2,
     paddingVertical: 13,
     borderRadius: 14,
-    backgroundColor: '#166534',
+    backgroundColor: '#3A6847',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#166534',
+    shadowColor: '#3A6847',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,

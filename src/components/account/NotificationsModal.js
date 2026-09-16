@@ -24,10 +24,10 @@ const NotificationsModal = ({ visible, onClose }) => {
       icon: 'restaurant',
     },
     {
-      key: 'expiryAlerts',
-      title: 'Ingredient Expiry Alerts',
-      desc: 'Notified 2 days before pantry items expire',
-      icon: 'hourglass',
+      key: 'basketReminders',
+      title: 'Shopping Basket Reminders',
+      desc: 'Reminders for planned grocery shopping trips and price drops',
+      icon: 'cart',
     },
     {
       key: 'weeklySavingsReport',
@@ -62,7 +62,7 @@ const NotificationsModal = ({ visible, onClose }) => {
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Notifications</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <Ionicons name="close" size={18} color="#6B7280" />
+              <Ionicons name="close" size={18} color="#968880" />
             </TouchableOpacity>
           </View>
 
@@ -79,7 +79,7 @@ const NotificationsModal = ({ visible, onClose }) => {
                   <View key={item.key}>
                     <View style={styles.toggleRow}>
                       <View style={styles.iconCircle}>
-                        <Ionicons name={item.icon} size={18} color="#166534" />
+                        <Ionicons name={item.icon} size={18} color="#3A6847" />
                       </View>
                       <View style={styles.textWrap}>
                         <Text style={styles.toggleTitle}>{item.title}</Text>
@@ -88,7 +88,7 @@ const NotificationsModal = ({ visible, onClose }) => {
                       <Switch
                         value={isEnabled}
                         onValueChange={() => toggleNotification(item.key)}
-                        trackColor={{ false: '#E5E5EA', true: '#166534' }}
+                        trackColor={{ false: '#E8DFD8', true: '#3A6847' }}
                         thumbColor="#FFFFFF"
                       />
                     </View>
@@ -118,12 +118,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FAF8F5',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '90%',
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    shadowColor: '#000',
+    shadowColor: '#2B2420',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.12,
     shadowRadius: 18,
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: '#E8DFD8',
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -151,14 +151,14 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2B2420',
     letterSpacing: -0.4,
   },
   closeBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#F5EFEB',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6B7280',
+    color: '#968880',
     letterSpacing: 0.6,
     marginBottom: 8,
     marginLeft: 4,
@@ -180,10 +180,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: 'rgba(0,0,0,0.03)',
+    borderColor: '#E8DFD8',
+    shadowColor: '#2B2420',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 1,
   },
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#EAF3EC',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -208,17 +208,17 @@ const styles = StyleSheet.create({
   toggleTitle: {
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#111827',
+    color: '#2B2420',
     marginBottom: 2,
   },
   toggleDesc: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#6B5E57',
     lineHeight: 16,
   },
   separator: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#E8DFD8',
     marginLeft: 48,
   },
   actionRow: {
@@ -228,10 +228,10 @@ const styles = StyleSheet.create({
   doneBtn: {
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: '#166534',
+    backgroundColor: '#3A6847',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#166534',
+    shadowColor: '#3A6847',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,

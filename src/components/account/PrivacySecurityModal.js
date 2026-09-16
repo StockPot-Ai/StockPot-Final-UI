@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   View,
@@ -8,30 +8,52 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { useAccount } from '../../context/AccountContext';
+import CustomAlertModal from '../common/CustomAlertModal';
 
 const PrivacySecurityModal = ({ visible, onClose }) => {
   const { privacy, togglePrivacy, profile } = useAccount();
 
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    primaryButton: null,
+  });
+
+  const showAlert = ({ type = 'info', title, message }) => {
+    setAlertConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      primaryButton: { text: 'OK', onPress: () => setAlertConfig((prev) => ({ ...prev, visible: false })) },
+    });
+  };
+
+  const closeAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  };
+
   const handleClearCache = () => {
-    Alert.alert(
-      'Cache Cleared',
-      'Local cached recipe images and temporary offline data have been cleared.',
-      [{ text: 'OK' }]
-    );
+    showAlert({
+      type: 'success',
+      title: 'Cache Cleared',
+      message: 'Local cached recipe images and temporary offline data have been cleared.',
+    });
   };
 
   const handleExportData = () => {
     const email = profile?.email || 'your account email';
-    Alert.alert(
-      'Data Export Requested',
-      `A secure archive of your meal plans and savings history will be sent to ${email} within 24 hours.`,
-      [{ text: 'OK' }]
-    );
+    showAlert({
+      type: 'info',
+      title: 'Data Export Requested',
+      message: `A secure archive of your meal plans and savings history will be sent to ${email} within 24 hours.`,
+    });
   };
 
   return (
@@ -61,7 +83,7 @@ const PrivacySecurityModal = ({ visible, onClose }) => {
               {/* Biometric Toggle */}
               <View style={styles.toggleRow}>
                 <View style={styles.iconCircle}>
-                  <Ionicons name="finger-print" size={18} color="#166534" />
+                  <Ionicons name="finger-print" size={18} color="#3A6847" />
                 </View>
                 <View style={styles.textWrap}>
                   <Text style={styles.toggleTitle}>Biometric Lock</Text>
@@ -70,7 +92,7 @@ const PrivacySecurityModal = ({ visible, onClose }) => {
                 <Switch
                   value={privacy.biometricLogin}
                   onValueChange={() => togglePrivacy('biometricLogin')}
-                  trackColor={{ false: '#E5E5EA', true: '#166534' }}
+                  trackColor={{ false: '#E5E5EA', true: '#3A6847' }}
                   thumbColor="#FFFFFF"
                 />
               </View>
@@ -80,7 +102,7 @@ const PrivacySecurityModal = ({ visible, onClose }) => {
               {/* 2FA Toggle */}
               <View style={styles.toggleRow}>
                 <View style={styles.iconCircle}>
-                  <Ionicons name="shield-checkmark" size={18} color="#166534" />
+                  <Ionicons name="shield-checkmark" size={18} color="#3A6847" />
                 </View>
                 <View style={styles.textWrap}>
                   <Text style={styles.toggleTitle}>Two-Factor Authentication</Text>
@@ -89,7 +111,7 @@ const PrivacySecurityModal = ({ visible, onClose }) => {
                 <Switch
                   value={privacy.twoFactorAuth}
                   onValueChange={() => togglePrivacy('twoFactorAuth')}
-                  trackColor={{ false: '#E5E5EA', true: '#166534' }}
+                  trackColor={{ false: '#E5E5EA', true: '#3A6847' }}
                   thumbColor="#FFFFFF"
                 />
               </View>
@@ -99,7 +121,7 @@ const PrivacySecurityModal = ({ visible, onClose }) => {
               {/* Analytics Toggle */}
               <View style={styles.toggleRow}>
                 <View style={styles.iconCircle}>
-                  <Ionicons name="analytics" size={18} color="#166534" />
+                  <Ionicons name="analytics" size={18} color="#3A6847" />
                 </View>
                 <View style={styles.textWrap}>
                   <Text style={styles.toggleTitle}>Anonymous Analytics</Text>
@@ -108,7 +130,7 @@ const PrivacySecurityModal = ({ visible, onClose }) => {
                 <Switch
                   value={privacy.shareAnalytics}
                   onValueChange={() => togglePrivacy('shareAnalytics')}
-                  trackColor={{ false: '#E5E5EA', true: '#166534' }}
+                  trackColor={{ false: '#E5E5EA', true: '#3A6847' }}
                   thumbColor="#FFFFFF"
                 />
               </View>
@@ -153,6 +175,16 @@ const PrivacySecurityModal = ({ visible, onClose }) => {
           </View>
         </View>
       </View>
+
+      {/* Custom Alert Modal */}
+      <CustomAlertModal
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        primaryButton={alertConfig.primaryButton}
+        onClose={closeAlert}
+      />
     </Modal>
   );
 };

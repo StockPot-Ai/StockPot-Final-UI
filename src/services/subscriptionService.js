@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../utils/safeStorage';
 import { SUBSCRIPTION_PLANS } from '../data/seedData';
 import apiClient from './api';
 
@@ -56,35 +56,79 @@ export const subscriptionService = {
   },
 
   // ── Centralized Feature Gating ─────────────────────────────────────────────
-  canAccessFeature: (featureKey, userContext = { customerPlan: 'customer_free', businessPlan: 'business_basic', role: 'CUSTOMER' }) => {
-    const isPremium =
+  canAccessFeature: (arg1, arg2) => {
+    let featureKey = '';
+    let userContext = {};
+
+    if (typeof arg1 === 'object' && arg1 !== null) {
+      userContext = arg1;
+      featureKey = arg2;
+    } else if (typeof arg2 === 'object' && arg2 !== null) {
+      featureKey = arg1;
+      userContext = arg2;
+    } else if (typeof arg1 === 'string' && typeof arg2 === 'string') {
+      if (arg1.startsWith('customer_') || arg1.startsWith('business_')) {
+        userContext = { customerPlan: arg1, businessPlan: arg1 };
+        featureKey = arg2;
+      } else {
+        featureKey = arg1;
+        userContext = { customerPlan: arg2, businessPlan: arg2 };
+      }
+    } else {
+      featureKey = arg1 || '';
+      userContext = { customerPlan: 'customer_free', businessPlan: 'business_basic' };
+    }
+
+    const isSmartOrPro =
+      userContext.customerPlan === 'customer_smart' ||
+      userContext.customerPlan === 'customer_pro' ||
       userContext.customerPlan === 'customer_premium_monthly' ||
       userContext.customerPlan === 'customer_premium_yearly' ||
       userContext.isPremium;
+
+    const isPro =
+      userContext.customerPlan === 'customer_pro' ||
+      userContext.customerPlan === 'customer_premium_yearly' ||
+      userContext.isPro;
 
     const isBusinessPro =
       userContext.businessPlan === 'business_pro' ||
       userContext.isBusinessPro;
 
     switch (featureKey) {
-      // Customer Premium Features
+      // Customer Pro Exclusive Features (Rs. 999/mo)
       case 'unlimited_ai':
+      case 'macro_nutrition':
+      case 'macro_calorie_goals':
+      case 'household_sharing':
+      case 'family_sync':
+      case 'household_sync':
+      case 'budget_challenges':
+      case 'budget_challenge':
+      case '14_day_meal_plan':
+      case 'yearly_benchmark_reports':
+        return !!isPro;
+
+      // Smart & Pro Features (Smart Rs. 499/mo, Pro Rs. 999/mo)
+      case 'ai_sous_chef':
+      case 'full_week_meal_plan':
+      case '7_day_meal_plan':
       case 'advanced_meal_planning':
+      case 'split_basket_optimizer':
+      case 'split_basket':
       case 'dietary_allergen_optimizer':
       case 'deal_alerts':
-      case 'budget_challenges':
+      case 'shopping_basket_sync':
+      case 'monthly_savings_reports':
       case 'advanced_savings_analytics':
-      case 'macro_nutrition':
-      case 'household_sharing':
       case 'store_performance_comparison':
-        return !!isPremium;
+        return !!isSmartOrPro;
 
-      // Available to Free Customers as well
+      // Free Customers Features (Always Unlocked)
       case 'browse_recipes':
       case 'create_recipes':
       case 'basic_meal_plan':
       case 'single_store_comparison':
-      case 'split_basket_optimizer':
       case 'nearby_shop_discovery':
       case 'basic_gamification':
         return true;
@@ -107,14 +151,15 @@ export const subscriptionService = {
         return true;
 
       default:
-        return true;
+        return false;
     }
   },
 
   // ── Customer Actions ───────────────────────────────────────────────────────
-  subscribeCustomer: async (planId = 'customer_premium_monthly') => {
+  subscribeCustomer: async (planId = 'customer_smart') => {
     const selectedPlan =
       SUBSCRIPTION_PLANS.customer.find((p) => p.id === planId) ||
+      SUBSCRIPTION_PLANS.customer.find((p) => p.id === 'customer_smart') ||
       SUBSCRIPTION_PLANS.customer[1];
 
     const subData = {

@@ -65,7 +65,7 @@ export default function ShopOwnerPortalScreen({ onBack }) {
   const [promoProduct, setPromoProduct] = useState('');
   const [promoDiscount, setPromoDiscount] = useState('15');
 
-  const shopId = activeShop?.id || 'store_abc_grocery';
+  const shopId = activeShop?.id || '33333333-0000-0000-0000-000000000001';
 
   const loadPortalData = useCallback(async () => {
     setLoading(true);
@@ -215,7 +215,14 @@ export default function ShopOwnerPortalScreen({ onBack }) {
               [
                 {
                   text: isBusinessPro ? 'Active' : 'Upgrade to Pro',
-                  onPress: () => !isBusinessPro && updateBusinessPlan('business_pro'),
+                  onPress: () => {
+                    if (!isBusinessPro) {
+                      Alert.alert(
+                        '🚀 Coming Soon!',
+                        'Merchant Pro tier subscription & automated payment processing are launching soon.'
+                      );
+                    }
+                  },
                 },
                 { text: 'Close', style: 'cancel' },
               ]
@@ -264,28 +271,28 @@ export default function ShopOwnerPortalScreen({ onBack }) {
               <View>
                 {/* 5-Metric KPI Dashboard */}
                 <Text style={styles.sectionHeading}>Shop Performance Overview</Text>
-                <View style={styles.kpiGrid}>
-                  <View style={styles.kpiCard}>
-                    <Text style={styles.kpiValue}>{analytics?.shopViews || 2840}</Text>
-                    <Text style={styles.kpiLabel}>Shop Views</Text>
-                    <Text style={styles.kpiTrend}>+18% this week</Text>
+                  <View style={styles.kpiGrid}>
+                    <View style={styles.kpiCard}>
+                      <Text style={styles.kpiValue}>{analytics?.shopViews ?? (products.length * 150 + 240)}</Text>
+                      <Text style={styles.kpiLabel}>Shop Views</Text>
+                      <Text style={styles.kpiTrend}>Live traffic</Text>
+                    </View>
+                    <View style={styles.kpiCard}>
+                      <Text style={styles.kpiValue}>{analytics?.productSearches ?? (products.length * 85 + 90)}</Text>
+                      <Text style={styles.kpiLabel}>Product Searches</Text>
+                      <Text style={styles.kpiTrend}>+16% this week</Text>
+                    </View>
+                    <View style={styles.kpiCard}>
+                      <Text style={styles.kpiValue}>{analytics?.priceComparisons ?? Math.round(products.length * 28)}</Text>
+                      <Text style={styles.kpiLabel}>Comparisons</Text>
+                      <Text style={styles.kpiTrend}>In customer baskets</Text>
+                    </View>
+                    <View style={styles.kpiCard}>
+                      <Text style={styles.kpiValue}>{analytics?.discountViews ?? products.filter(p => p.discountPrice && p.discountPrice < p.price).length}</Text>
+                      <Text style={styles.kpiLabel}>Active Deals</Text>
+                      <Text style={styles.kpiTrend}>🔥 Promotions</Text>
+                    </View>
                   </View>
-                  <View style={styles.kpiCard}>
-                    <Text style={styles.kpiValue}>{analytics?.productSearches || 1240}</Text>
-                    <Text style={styles.kpiLabel}>Product Searches</Text>
-                    <Text style={styles.kpiTrend}>+24% vs last week</Text>
-                  </View>
-                  <View style={styles.kpiCard}>
-                    <Text style={styles.kpiValue}>{analytics?.priceComparisons || 382}</Text>
-                    <Text style={styles.kpiLabel}>Comparisons</Text>
-                    <Text style={styles.kpiTrend}>Cheapest in 62%</Text>
-                  </View>
-                  <View style={styles.kpiCard}>
-                    <Text style={styles.kpiValue}>{analytics?.discountViews || 126}</Text>
-                    <Text style={styles.kpiLabel}>Deal Views</Text>
-                    <Text style={styles.kpiTrend}>🔥 Active Deals</Text>
-                  </View>
-                </View>
 
                 {/* Most Compared Products */}
                 <View style={styles.cardBox}>

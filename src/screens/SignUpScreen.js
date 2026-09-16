@@ -9,12 +9,12 @@ import {
   Platform,
   ScrollView,
   Image,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import { useAccount } from '../context/AccountContext';
+import CustomAlertModal from '../components/common/CustomAlertModal';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -31,6 +31,31 @@ const SignUpScreen = ({ onSignIn }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
+
+  // Custom Alert Modal State
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    primaryButton: null,
+    secondaryButton: null,
+  });
+
+  const showAlert = ({ type = 'info', title, message, primaryButton, secondaryButton }) => {
+    setAlertConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      primaryButton: primaryButton || { text: 'OK', onPress: () => setAlertConfig((prev) => ({ ...prev, visible: false })) },
+      secondaryButton: secondaryButton || null,
+    });
+  };
+
+  const closeAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  };
 
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
@@ -51,8 +76,8 @@ const SignUpScreen = ({ onSignIn }) => {
 
     if (!password) {
       newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
     }
 
     if (!confirmPassword) {
@@ -78,7 +103,62 @@ const SignUpScreen = ({ onSignIn }) => {
         password,
       });
     } catch (err) {
-      Alert.alert('Registration Failed', err.message || 'Could not complete registration.');
+      const errMsg = err.message || '';
+      const isGoogleConflict =
+        errMsg.toLowerCase().includes('google') ||
+        errMsg.toLowerCase().includes('google sign-in');
+      const isExistingAccount =
+        errMsg.toLowerCase().includes('already') ||
+        errMsg.toLowerCase().includes('exists');
+
+      if (isGoogleConflict) {
+        showAlert({
+          type: 'warning',
+          title: 'Google Account Detected',
+          message: `An account with ${email.trim()} was registered using Google Sign-In. You can sign in immediately using Google.`,
+          primaryButton: {
+            text: 'Sign In with Google',
+            onPress: () => {
+              closeAlert();
+              handleSocialAuth('Google');
+            },
+          },
+          secondaryButton: {
+            text: 'Switch to Sign In',
+            onPress: () => {
+              closeAlert();
+              onSignIn();
+            },
+          },
+        });
+      } else if (isExistingAccount) {
+        showAlert({
+          type: 'error',
+          title: 'Account Already Exists',
+          message: `An account for ${email.trim()} is already registered. Please sign in with your credentials or reset your password.`,
+          primaryButton: {
+            text: 'Switch to Sign In',
+            onPress: () => {
+              closeAlert();
+              onSignIn();
+            },
+          },
+          secondaryButton: {
+            text: 'Cancel',
+            onPress: closeAlert,
+          },
+        });
+      } else {
+        showAlert({
+          type: 'error',
+          title: 'Registration Failed',
+          message: errMsg || 'Could not complete registration. Passwords must be at least 8 characters.',
+          primaryButton: {
+            text: 'Try Again',
+            onPress: closeAlert,
+          },
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -91,17 +171,23 @@ const SignUpScreen = ({ onSignIn }) => {
         await loginWithGoogle();
       } catch (err) {
         if (!err.message?.includes('cancelled') && !err.message?.includes('dismissed')) {
-          Alert.alert('Google Sign-In Failed', err.message || 'Could not complete Google Sign-In.');
+          showAlert({
+            type: 'error',
+            title: 'Google Sign-In Failed',
+            message: err.message || 'Could not complete Google Sign-In.',
+            primaryButton: { text: 'OK', onPress: closeAlert },
+          });
         }
       } finally {
         setIsGoogleSubmitting(false);
       }
     } else {
-      Alert.alert(
-        `${provider} Sign-Up`,
-        `${provider} Sign-Up is available on supported iOS devices.`,
-        [{ text: 'OK' }]
-      );
+      showAlert({
+        type: 'info',
+        title: `${provider} Sign-Up`,
+        message: `${provider} Sign-Up is available on supported iOS devices.`,
+        primaryButton: { text: 'OK', onPress: closeAlert },
+      });
     }
   };
 
@@ -129,7 +215,7 @@ const SignUpScreen = ({ onSignIn }) => {
             StockPot <Text style={styles.brandAi}>AI</Text>
           </Text>
           <Text style={styles.tagline}>
-            Cook Smart • Save Money • Zero Waste
+            Cook Smart • Save Money • Waste Less
           </Text>
         </View>
 
@@ -380,6 +466,17 @@ const SignUpScreen = ({ onSignIn }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Custom Alert Modal */}
+      <CustomAlertModal
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        primaryButton={alertConfig.primaryButton}
+        secondaryButton={alertConfig.secondaryButton}
+        onClose={closeAlert}
+      />
     </KeyboardAvoidingView>
   );
 };

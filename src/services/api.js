@@ -1,8 +1,8 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../utils/safeStorage';
 
-// Local IP detected from ipconfig:
+// Local IP or Tunnel URL (e.g. '192.168.1.4' or 'https://your-tunnel.loca.lt'):
 const DEV_LAN_IP = '172.22.0.103';
 
 const isIPv4 = (str) => {
@@ -15,8 +15,24 @@ const isIPv4 = (str) => {
   });
 };
 
+export const formatApiUrl = (input) => {
+  if (!input) return 'http://localhost:5000/api';
+  let clean = String(input).trim();
+  if (clean.startsWith('http://') || clean.startsWith('https://')) {
+    if (clean.endsWith('/')) clean = clean.slice(0, -1);
+    if (!clean.endsWith('/api') && !clean.includes('/api/')) {
+      clean = `${clean}/api`;
+    }
+    return clean;
+  }
+  return `http://${clean}:5000/api`;
+};
+
 // Dynamically extract host IP only if it's a valid local IPv4 (not an exp.direct/ngrok tunnel domain)
 const getHostIp = () => {
+  if (DEV_LAN_IP.startsWith('http://') || DEV_LAN_IP.startsWith('https://')) {
+    return DEV_LAN_IP;
+  }
   const hostUri = Constants.expoConfig?.hostUri;
   if (hostUri) {
     const rawHost = hostUri.split(':')[0];
@@ -33,9 +49,9 @@ export const API_URL_STORAGE_KEY = '@stockpot_custom_api_url';
 
 let customBaseUrl = Platform.select({
   web: 'http://localhost:5000/api',
-  android: `http://${DEFAULT_HOST}:5000/api`,
-  ios: `http://${DEFAULT_HOST}:5000/api`,
-  default: `http://${DEFAULT_HOST}:5000/api`,
+  android: formatApiUrl(DEFAULT_HOST),
+  ios: formatApiUrl(DEFAULT_HOST),
+  default: formatApiUrl(DEFAULT_HOST),
 });
 
 // Immediately load saved custom server URL if previously configured
@@ -46,7 +62,7 @@ AsyncStorage.getItem(API_URL_STORAGE_KEY)
       console.log('[API] Restored saved Base URL:', customBaseUrl);
     }
   })
-  .catch(() => {});
+  .catch(() => { });
 
 export const getApiBaseUrl = () => customBaseUrl;
 
@@ -62,7 +78,7 @@ export const setApiBaseUrl = async (newUrl) => {
     customBaseUrl = clean;
     try {
       await AsyncStorage.setItem(API_URL_STORAGE_KEY, clean);
-    } catch (_) {}
+    } catch (_) { }
     console.log('[API] Base URL updated to:', customBaseUrl);
   }
 };
@@ -130,6 +146,11 @@ async function handleResponse(response, url) {
     error.status = response.status;
     error.data = data;
     error.url = url;
+    const retryHeader = response.headers?.get?.('retry-after');
+    error.retryAfter =
+      (retryHeader ? Number(retryHeader) : null) ||
+      (data && typeof data === 'object' && (data.retry_after || data.retryAfter)) ||
+      null;
     throw error;
   }
 

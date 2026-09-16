@@ -15,11 +15,11 @@ import { useAccount } from '../../context/AccountContext';
 const FAQS = [
   {
     q: 'How does StockPot AI calculate money saved?',
-    a: 'We track the retail prices of ingredients you already own in your pantry and compare them with real supermarket prices across Keells, Cargills, Glomark, and Arpico.',
+    a: 'We track the retail prices of ingredients you already own at home and compare them with real supermarket prices across Keells, Cargills, Glomark, and Arpico.',
   },
   {
     q: 'How is waste avoided measured?',
-    a: 'Every ingredient you mark as used before its expiry date is weighted in kilograms based on portion estimations, saving both food and money.',
+    a: 'Every ingredient you mark as used in recipes is tracked in kilograms based on portion estimations, preventing food waste and saving money.',
   },
   {
     q: 'Can I customize recipe servings for large families?',

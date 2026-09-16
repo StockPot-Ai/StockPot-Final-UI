@@ -8,50 +8,87 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { useAccount } from '../../context/AccountContext';
 
-const PREMIUM_FEATURES = [
-  { icon: 'sparkles', title: 'Unlimited AI Sous-Chef', desc: 'Ask unlimited culinary questions, recipe substitutions & meal ideas' },
-  { icon: 'calendar', title: '7-Day Smart Meal Planning', desc: 'Dietary & allergen-aware automated schedules tailored to your family' },
-  { icon: 'git-merge', title: 'Split-Basket Optimizer', desc: 'Compare supermarkets & local grocers to find the maximum possible savings' },
-  { icon: 'trophy', title: 'Premium Budget Challenges', desc: 'Feed 4 for 7 days under Rs. 7,500 with full price calculation & surplus tracking' },
-  { icon: 'flame', title: 'Live Deal & Flash Sale Alerts', desc: 'Personalized discount notifications relevant to your shopping list' },
-  { icon: 'pie-chart', title: 'Advanced Analytics & Trends', desc: 'Weekly, monthly & yearly savings dashboards and store benchmarks' },
-  { icon: 'fitness', title: 'Macro & Nutrition Goals', desc: 'Protein-focused, calorie-aware and customized macro tracking' },
-  { icon: 'people', title: 'Household Sharing', desc: 'Shared grocery lists, budgets & real-time household syncing' },
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const PLANS_CONFIG = [
+  {
+    id: 'customer_smart',
+    name: 'StockPot Smart',
+    tagline: 'Essential AI cooking & smart grocery savings',
+    price: 499,
+    formattedPrice: 'Rs. 499',
+    period: '/ month',
+    badge: 'Popular ⭐',
+    badgeColor: '#007A3D',
+    badgeBg: '#DCFCE7',
+    cardBorder: '#86EFAC',
+    activeBg: '#F0FDF4',
+    icon: 'flash',
+    features: [
+      'AI Sous-Chef assistance (50 queries/day)',
+      '7-Day budget & allergen meal planning',
+      'Multi-Store Split-Basket Price Optimizer',
+      'Supermarket price drop & deal alerts',
+      'Smart shopping basket auto-sync',
+      'Weekly & monthly savings tracking',
+    ],
+  },
+  {
+    id: 'customer_pro',
+    name: 'StockPot Pro',
+    tagline: 'Unlimited AI power, macro optimizer & family syncing',
+    price: 999,
+    formattedPrice: 'Rs. 999',
+    period: '/ month',
+    badge: 'Ultimate Power 👑',
+    badgeColor: '#B45309',
+    badgeBg: '#FEF3C7',
+    cardBorder: '#FCD34D',
+    activeBg: '#FFFBEB',
+    icon: 'crown',
+    features: [
+      'Unlimited AI Sous-Chef & photo recipe generation',
+      '14-Day automated meal & macro schedule',
+      'Multi-Member Household Sharing & sync',
+      'High-priority flash sale & price drop alerts',
+      'Calorie, protein & macro nutrient tracking',
+      'VIP Budget Challenges (Feed 4 under Rs. 7.5k)',
+      'Yearly savings reports & store benchmarks',
+      'VIP Chef Profile Badge & 24/7 priority support',
+    ],
+  },
 ];
 
 const PremiumUpgradeModal = ({ visible, onClose }) => {
-  const { isPremium, customerPlan, upgradeToPremium, cancelPremium } = useAccount();
-  const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'yearly'
+  const { isPremium, isPro, customerPlan, upgradeToPremium, cancelPremium } = useAccount();
+  const [selectedPlanId, setSelectedPlanId] = useState(
+    customerPlan === 'customer_pro' ? 'customer_pro' : 'customer_smart'
+  );
   const [loading, setLoading] = useState(false);
 
-  const handleSubscribe = async () => {
-    setLoading(true);
-    try {
-      const planId = billingCycle === 'yearly' ? 'customer_premium_yearly' : 'customer_premium_monthly';
-      await upgradeToPremium(planId);
-      setLoading(false);
-      Alert.alert(
-        '🎉 Welcome to StockPot Premium!',
-        'You have unlocked unlimited AI intelligence, 7-day meal optimization, and budget challenges.\n\n🏆 You earned +100 XP bonus!',
-        [{ text: 'Start Cooking Smart', onPress: onClose }]
-      );
-    } catch (err) {
-      setLoading(false);
-      Alert.alert('Error', err.message || 'Could not complete subscription.');
-    }
+  const selectedPlan = PLANS_CONFIG.find((p) => p.id === selectedPlanId) || PLANS_CONFIG[0];
+  const isCurrentlyActivePlan = customerPlan === selectedPlanId;
+
+  const handleSubscribe = () => {
+    Alert.alert(
+      '🚀 Coming Soon!',
+      `StockPot ${selectedPlan.name} (${selectedPlan.formattedPrice}/mo) and online payment processing are coming soon in our next release.\n\nYour account will not be charged. Stay tuned!`,
+      [{ text: 'OK', style: 'default' }]
+    );
   };
 
   const handleCancel = () => {
     Alert.alert(
-      'Cancel Premium?',
-      'Are you sure you want to cancel your Premium subscription? You will revert to the Free plan at the end of your billing cycle.',
+      'Cancel Membership?',
+      'Are you sure you want to cancel your active plan? You will revert to the Free Starter plan at the end of your billing cycle.',
       [
-        { text: 'Keep Premium', style: 'cancel' },
+        { text: 'Keep My Plan', style: 'cancel' },
         {
           text: 'Cancel Subscription',
           style: 'destructive',
@@ -76,101 +113,147 @@ const PremiumUpgradeModal = ({ visible, onClose }) => {
                 <FontAwesome5 name="crown" size={18} color="#D97706" />
               </View>
               <View>
-                <Text style={styles.headerTitle}>StockPot Premium</Text>
-                <Text style={styles.headerSub}>Elevate your cooking & maximize grocery savings</Text>
+                <Text style={styles.headerTitle}>StockPot Memberships</Text>
+                <Text style={styles.headerSub}>Choose the plan that fits your kitchen goals</Text>
               </View>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color="#6B7280" />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {/* Active Status Badge if already premium */}
-            {isPremium ? (
+            {/* Active Status Banner if user already subscribed */}
+            {isPremium && (
               <View style={styles.activeBanner}>
                 <Ionicons name="checkmark-circle" size={22} color="#166534" />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.activeTitle}>You are a Premium Member ⭐</Text>
-                  <Text style={styles.activeSub}>
-                    Active plan: {customerPlan === 'customer_premium_yearly' ? 'Annual (Rs. 4,499/yr)' : 'Monthly (Rs. 499/mo)'}
+                  <Text style={styles.activeTitle}>
+                    You are on {customerPlan === 'customer_pro' ? 'StockPot Pro (Rs. 999/mo) 👑' : 'StockPot Smart (Rs. 499/mo) ⭐'}
                   </Text>
+                  <Text style={styles.activeSub}>Tap another plan below to switch or upgrade anytime.</Text>
                 </View>
               </View>
-            ) : (
-              <>
-                {/* Billing Cycle Switcher */}
-                <View style={styles.cycleSwitch}>
-                  <TouchableOpacity
-                    style={[styles.cycleBtn, billingCycle === 'monthly' && styles.cycleBtnActive]}
-                    onPress={() => setBillingCycle('monthly')}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.cycleBtnText, billingCycle === 'monthly' && styles.cycleBtnTextActive]}>
-                      Monthly
-                    </Text>
-                    <Text style={[styles.cyclePrice, billingCycle === 'monthly' && styles.cyclePriceActive]}>
-                      Rs. 499/mo
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.cycleBtn, billingCycle === 'yearly' && styles.cycleBtnActive]}
-                    onPress={() => setBillingCycle('yearly')}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.saveTag}>
-                      <Text style={styles.saveTagText}>SAVE 25%</Text>
-                    </View>
-                    <Text style={[styles.cycleBtnText, billingCycle === 'yearly' && styles.cycleBtnTextActive]}>
-                      Yearly
-                    </Text>
-                    <Text style={[styles.cyclePrice, billingCycle === 'yearly' && styles.cyclePriceActive]}>
-                      Rs. 4,499/yr (Rs. 375/mo)
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
             )}
 
-            {/* Feature Checklist */}
-            <Text style={styles.featuresHeading}>Everything in StockPot Premium</Text>
-            {PREMIUM_FEATURES.map((item, idx) => (
-              <View key={idx} style={styles.featureRow}>
-                <View style={styles.featureIconWrap}>
-                  <Ionicons name={item.icon} size={18} color="#007A3D" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.featureTitle}>{item.title}</Text>
-                  <Text style={styles.featureDesc}>{item.desc}</Text>
-                </View>
-              </View>
-            ))}
+            {/* Plan Cards Selector */}
+            <Text style={styles.sectionHeading}>SELECT YOUR PLAN</Text>
+            <View style={styles.plansContainer}>
+              {PLANS_CONFIG.map((plan) => {
+                const isSelected = selectedPlanId === plan.id;
+                const isCurrent = customerPlan === plan.id;
 
-            {/* Comparison Matrix Note */}
-            <View style={styles.freeVsPremBox}>
-              <Text style={styles.freeVsPremTitle}>Free Plan vs. Premium Plan</Text>
-              <Text style={styles.freeVsPremDesc}>
-                Free users can always browse, create, like, rate recipes, use basic meal planning and check nearby shop prices. Premium brings the power of full AI automation and maximum multi-store split optimization.
+                return (
+                  <TouchableOpacity
+                    key={plan.id}
+                    style={[
+                      styles.planCard,
+                      isSelected && {
+                        borderColor: plan.cardBorder,
+                        backgroundColor: plan.activeBg,
+                        borderWidth: 2,
+                      },
+                    ]}
+                    onPress={() => setSelectedPlanId(plan.id)}
+                    activeOpacity={0.9}
+                  >
+                    {/* Badge */}
+                    <View style={[styles.planBadge, { backgroundColor: plan.badgeBg }]}>
+                      <Text style={[styles.planBadgeText, { color: plan.badgeColor }]}>
+                        {isCurrent ? 'Current Plan 🌟' : plan.badge}
+                      </Text>
+                    </View>
+
+                    <View style={styles.planCardHeader}>
+                      <View style={styles.radioRow}>
+                        <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                          {isSelected && <View style={styles.radioInner} />}
+                        </View>
+                        <Text style={styles.planName}>{plan.name}</Text>
+                      </View>
+                      <View style={styles.priceWrap}>
+                        <Text style={styles.priceAmount}>{plan.formattedPrice}</Text>
+                        <Text style={styles.pricePeriod}>{plan.period}</Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.planTagline}>{plan.tagline}</Text>
+
+                    {/* Features in this card */}
+                    <View style={styles.cardFeaturesList}>
+                      {plan.features.slice(0, 3).map((feat, idx) => (
+                        <View key={idx} style={styles.cardFeatureItem}>
+                          <Ionicons name="checkmark" size={14} color="#007A3D" />
+                          <Text style={styles.cardFeatureText} numberOfLines={1}>
+                            {feat}
+                          </Text>
+                        </View>
+                      ))}
+                      <Text style={styles.moreFeaturesHint}>
+                        + {plan.features.length - 3} more {plan.id === 'customer_pro' ? 'Pro perks' : 'features'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Selected Plan In-Depth Features */}
+            <View style={styles.fullFeaturesCard}>
+              <View style={styles.featuresHeadingRow}>
+                <Ionicons
+                  name={selectedPlan.id === 'customer_pro' ? 'ribbon-outline' : 'sparkles-outline'}
+                  size={18}
+                  color={selectedPlan.id === 'customer_pro' ? '#D97706' : '#007A3D'}
+                />
+                <Text style={styles.fullFeaturesHeading}>
+                  What's included in {selectedPlan.name}:
+                </Text>
+              </View>
+
+              {selectedPlan.features.map((item, idx) => (
+                <View key={idx} style={styles.fullFeatureRow}>
+                  <View
+                    style={[
+                      styles.featureIconWrap,
+                      selectedPlan.id === 'customer_pro' && { backgroundColor: '#FEF3C7' },
+                    ]}
+                  >
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={17}
+                      color={selectedPlan.id === 'customer_pro' ? '#D97706' : '#007A3D'}
+                    />
+                  </View>
+                  <Text style={styles.fullFeatureText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Guarantee Note */}
+            <View style={styles.guaranteeBox}>
+              <Ionicons name="shield-checkmark" size={18} color="#007A3D" />
+              <Text style={styles.guaranteeText}>
+                Cancel anytime with zero hassle. Money-back satisfaction guarantee on both Smart and Pro plans.
               </Text>
             </View>
 
-            <View style={{ height: 20 }} />
+            <View style={{ height: 18 }} />
           </ScrollView>
 
           {/* Footer CTA */}
           <View style={styles.footer}>
-            {isPremium ? (
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={handleCancel}
-                activeOpacity={0.8}
-              >
+            {isCurrentlyActivePlan ? (
+              <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel} activeOpacity={0.8}>
                 <Text style={styles.cancelBtnText}>Manage / Cancel Subscription</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[styles.subscribeBtn, loading && { opacity: 0.7 }]}
+                style={[
+                  styles.subscribeBtn,
+                  selectedPlan.id === 'customer_pro' && styles.subscribeBtnPro,
+                  loading && { opacity: 0.7 },
+                ]}
                 onPress={handleSubscribe}
                 disabled={loading}
                 activeOpacity={0.88}
@@ -179,9 +262,14 @@ const PremiumUpgradeModal = ({ visible, onClose }) => {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <FontAwesome5 name="crown" size={15} color="#FDE68A" style={{ marginRight: 6 }} />
+                    <FontAwesome5
+                      name={selectedPlan.id === 'customer_pro' ? 'crown' : 'bolt'}
+                      size={14}
+                      color="#FFFFFF"
+                      style={{ marginRight: 8 }}
+                    />
                     <Text style={styles.subscribeBtnText}>
-                      Upgrade to Premium — {billingCycle === 'yearly' ? 'Rs. 4,499 / Year' : 'Rs. 499 / Month'}
+                      Coming Soon — {selectedPlan.name} ({selectedPlan.formattedPrice}/mo)
                     </Text>
                   </>
                 )}
@@ -197,15 +285,15 @@ const PremiumUpgradeModal = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.58)',
     justifyContent: 'flex-end',
   },
   content: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    height: '88%',
-    paddingTop: 16,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    height: '92%',
+    paddingTop: 14,
   },
   header: {
     flexDirection: 'row',
@@ -244,129 +332,194 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingHorizontal: 18,
+    paddingTop: 12,
   },
   activeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#DCFCE7',
     borderRadius: 14,
-    padding: 14,
-    gap: 12,
-    marginBottom: 16,
+    padding: 12,
+    gap: 10,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#86EFAC',
   },
   activeTitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#166534',
   },
   activeSub: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#166534',
-    marginTop: 2,
+    marginTop: 1,
   },
-  cycleSwitch: {
-    flexDirection: 'row',
-    gap: 10,
+  sectionHeading: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#6B7280',
+    letterSpacing: 0.6,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  plansContainer: {
+    gap: 12,
     marginBottom: 16,
   },
-  cycleBtn: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 14,
-    padding: 12,
+  planCard: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
-    alignItems: 'center',
+    position: 'relative',
   },
-  cycleBtnActive: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#007A3D',
-  },
-  saveTag: {
+  planBadge: {
     position: 'absolute',
     top: -9,
-    right: 10,
-    backgroundColor: '#D97706',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    right: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 10,
   },
-  saveTagText: {
-    fontSize: 9.5,
+  planBadgeText: {
+    fontSize: 10,
     fontWeight: '800',
-    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
-  cycleBtnText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#4B5563',
+  planCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
-  cycleBtnTextActive: {
-    color: '#007A3D',
+  radioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  cyclePrice: {
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioCircleActive: {
+    borderColor: '#007A3D',
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#007A3D',
+  },
+  planName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  priceWrap: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  priceAmount: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  pricePeriod: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  planTagline: {
     fontSize: 12,
     color: '#6B7280',
     marginTop: 2,
-    fontWeight: '600',
-  },
-  cyclePriceActive: {
-    color: '#007A3D',
-    fontWeight: '700',
-  },
-  featuresHeading: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111827',
     marginBottom: 10,
+    lineHeight: 16,
   },
-  featureRow: {
+  cardFeaturesList: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 8,
+    gap: 4,
+  },
+  cardFeatureItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
+    alignItems: 'center',
+    gap: 6,
+  },
+  cardFeatureText: {
+    fontSize: 12,
+    color: '#374151',
+    flex: 1,
+  },
+  moreFeaturesHint: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#007A3D',
+    marginTop: 2,
+  },
+  fullFeaturesCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 14,
+  },
+  featuresHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 12,
   },
+  fullFeaturesHeading: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  fullFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 9,
+  },
   featureIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
   },
-  featureTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  featureDesc: {
-    fontSize: 11.5,
-    color: '#6B7280',
-    lineHeight: 16,
-    marginTop: 1,
-  },
-  freeVsPremBox: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  freeVsPremTitle: {
+  fullFeatureText: {
     fontSize: 12.5,
-    fontWeight: '700',
     color: '#374151',
-    marginBottom: 4,
+    flex: 1,
+    lineHeight: 17,
   },
-  freeVsPremDesc: {
+  guaranteeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 14,
+    padding: 12,
+  },
+  guaranteeText: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: '#065F46',
+    flex: 1,
     lineHeight: 16,
   },
   footer: {
@@ -387,6 +540,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 6,
     elevation: 3,
+  },
+  subscribeBtnPro: {
+    backgroundColor: '#D97706',
+    shadowColor: '#D97706',
   },
   subscribeBtnText: {
     color: '#FFFFFF',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,14 @@ import {
   Linking,
   TextInput,
   ActivityIndicator,
+  Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { storeService } from '../../services';
+import locationService from '../../services/locationService';
+import { useAccount } from '../../context/AccountContext';
 
 const CATEGORIES = [
   'All',
@@ -22,10 +26,58 @@ const CATEGORIES = [
   'Bakery',
   'Butcher',
   'Fruits & Vegetables',
-  'Specialty Food',
 ];
 
+// Error-resilient brand & category badge component
+const StoreBadge = ({ store, size = 44 }) => {
+  const [imgFailed, setImgFailed] = useState(false);
+  const color = store?.color || '#007A3D';
+
+  if (store?.logo && !imgFailed) {
+    return (
+      <Image
+        source={{ uri: store.logo }}
+        style={[styles.storeThumbLogo, { width: size, height: size }]}
+        onError={() => setImgFailed(true)}
+      />
+    );
+  }
+
+  const cat = store?.category || 'Grocery';
+  return (
+    <View
+      style={[
+        styles.storeIconWrap,
+        {
+          width: size,
+          height: size,
+          backgroundColor: color + '15',
+          borderWidth: 1.5,
+          borderColor: color + '30',
+        },
+      ]}
+    >
+      <MaterialCommunityIcons
+        name={
+          cat === 'Bakery'
+            ? 'baguette'
+            : cat === 'Butcher'
+            ? 'food-steak'
+            : cat === 'Fruits & Vegetables'
+            ? 'fruit-watermelon'
+            : !store?.isLocalShop
+            ? 'cart'
+            : 'storefront'
+        }
+        size={Math.round(size * 0.52)}
+        color={color}
+      />
+    </View>
+  );
+};
+
 const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
+  const { t } = useAccount();
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
@@ -33,23 +85,43 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'map'
   const [favouriteIds, setFavouriteIds] = useState([]);
   const [selectedStorePreview, setSelectedStorePreview] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
     if (visible) {
       loadStores();
       loadFavourites();
     }
-  }, [visible, activeCategory, searchQuery]);
+  }, [visible]);
 
   const loadStores = async () => {
     setLoading(true);
     try {
-      const list = await storeService.getNearbyStores(6.9147, 79.8778, {
-        category: activeCategory,
-        search: searchQuery,
+      const coords = await locationService.getCoordinates();
+      setUserLocation(coords);
+
+      const list = await storeService.getNearbyStores(coords.latitude, coords.longitude, {
+        category: 'All',
+        city: coords.city || 'Eheliyagoda',
+      });
+
+      setStores(list);
+      if (list.length > 0) {
+        setSelectedStorePreview(list[0]);
+      }
+    } catch (_) {
+      // Fallback guarantees valid stores
+      const coords = locationService.getCachedLocation();
+      setUserLocation(coords);
+      const list = await storeService.getNearbyStores(coords.latitude, coords.longitude, {
+        category: 'All',
+        city: coords.city || 'Eheliyagoda',
       });
       setStores(list);
-    } catch (_) {}
+      if (list.length > 0) {
+        setSelectedStorePreview(list[0]);
+      }
+    }
     setLoading(false);
   };
 
@@ -69,9 +141,68 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
 
   const handleCall = (phone) => {
     if (phone) {
-      Linking.openURL(`tel:${phone.replace(/[^0-9+]/g, '')}`);
+      Linking.openURL(`tel:${phone.replace(/[^0-9+]/g, '')}`).catch(() => {
+        Alert.alert('Unable to Call', `Dial number directly: ${phone}`);
+      });
     }
   };
+
+  // Turn-by-turn navigation in Google Maps
+  const handleOpenGoogleMapsDirections = (store) => {
+    if (!store) return;
+    const dest = `${store.latitude},${store.longitude}`;
+    const url = Platform.select({
+      ios: `comgooglemaps://?daddr=${dest}&directionsmode=driving`,
+      android: `google.navigation:q=${dest}`,
+      default: `https://www.google.com/maps/dir/?api=1&destination=${dest}`,
+    });
+
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${dest}`);
+        }
+      })
+      .catch(() => {
+        Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${dest}`);
+      });
+  };
+
+  // Open native Google Maps app search centered at current town
+  const handleOpenGoogleMapsSearch = () => {
+    const lat = userLocation?.latitude || 6.8436;
+    const lng = userLocation?.longitude || 80.2604;
+    const city = userLocation?.city || 'Eheliyagoda';
+    const query = encodeURIComponent(`supermarkets and grocery stores in ${city}`);
+    const url = `https://www.google.com/maps/search/?api=1&query=${query}&center=${lat},${lng}`;
+    Linking.openURL(url).catch(() => {});
+  };
+
+  const filteredStores = useMemo(() => {
+    let result = [...stores];
+
+    if (activeCategory !== 'All') {
+      result = result.filter((s) =>
+        s.category?.toLowerCase().includes(activeCategory.toLowerCase())
+      );
+    }
+
+    if (searchQuery.trim().length > 0) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (s) =>
+          s.name?.toLowerCase().includes(q) ||
+          s.address?.toLowerCase().includes(q) ||
+          s.category?.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [stores, activeCategory, searchQuery]);
+
+  const cityName = userLocation?.city || 'Eheliyagoda';
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -84,22 +215,49 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
                 <Ionicons name="location" size={20} color="#007A3D" />
               </View>
               <View>
-                <Text style={styles.headerTitle}>Nearby Shop Discovery</Text>
-                <Text style={styles.headerSub}>GPS Location: Colombo 02 • 5km Radius</Text>
+                <Text style={styles.headerTitle}>
+                  {t ? t('nearby_shops', 'Nearby Grocery Stores') : 'Nearby Grocery Stores'}
+                </Text>
+                <View style={styles.gpsSubtitleRow}>
+                  <View style={styles.pulsingDot} />
+                  <Text style={styles.headerSub}>
+                    {cityName}, LK • 5km Radius
+                  </Text>
+                </View>
               </View>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color="#6B7280" />
-            </TouchableOpacity>
+
+            <View style={styles.headerRightActions}>
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+                <Ionicons name="close" size={22} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Search & Mode Switcher */}
+          {/* Quick Action: Open in Google Maps */}
+          <TouchableOpacity
+            style={styles.googleMapsMasterBanner}
+            onPress={handleOpenGoogleMapsSearch}
+            activeOpacity={0.85}
+          >
+            <View style={styles.gmBannerLeft}>
+              <Ionicons name="map" size={18} color="#007A3D" />
+              <Text style={styles.gmBannerTitle}>
+                Explore {cityName} on Google Maps App
+              </Text>
+            </View>
+            <View style={styles.gmBannerPill}>
+              <Text style={styles.gmBannerPillText}>Open Maps 🗺️</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Search & View Switcher Row */}
           <View style={styles.searchRow}>
             <View style={styles.searchBar}>
               <Ionicons name="search" size={17} color="#9CA3AF" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search shops, butchers, grocers..."
+                placeholder="Search Cargills, Sathosa, butcher, grocers..."
                 placeholderTextColor="#9CA3AF"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -129,165 +287,167 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
             </View>
           </View>
 
-          {/* Category Chips */}
+          {/* Category Filter Chips */}
           <View style={styles.categoryScrollWrap}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.categoryRow}
             >
-              {CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[styles.categoryChip, activeCategory === cat && styles.categoryChipActive]}
-                  onPress={() => setActiveCategory(cat)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.categoryText, activeCategory === cat && styles.categoryTextActive]}>
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {CATEGORIES.map((cat) => {
+                const isActive = activeCategory === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.categoryChip, isActive && styles.categoryChipActive]}
+                    onPress={() => setActiveCategory(cat)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.categoryText, isActive && styles.categoryTextActive]}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
 
-          {/* Body Content */}
+          {/* Content Body */}
           {loading ? (
             <View style={styles.loadingBox}>
               <ActivityIndicator size="small" color="#007A3D" />
-              <Text style={styles.loadingText}>Locating nearby verified stores...</Text>
+              <Text style={styles.loadingText}>Locating stores in {cityName}...</Text>
             </View>
           ) : viewMode === 'map' ? (
-            /* ─── Simulated Map View ───────────────────────────────────────── */
+            /* ── Interactive Map / Visual Grid ────────────────────────── */
             <View style={styles.mapContainer}>
-              <View style={styles.simulatedMap}>
-                {/* Street Grid Lines Mock */}
-                <View style={styles.mapGridLineH1} />
-                <View style={styles.mapGridLineH2} />
-                <View style={styles.mapGridLineV1} />
-                <View style={styles.mapGridLineV2} />
+              <View style={styles.mapCanvas}>
+                {/* Visual Distance Rings */}
+                <View style={[styles.ring, styles.ring5k]} />
+                <View style={[styles.ring, styles.ring3k]} />
+                <View style={[styles.ring, styles.ring1k]} />
 
-                {/* User Location Pulse Marker */}
-                <View style={styles.userPin}>
-                  <View style={styles.userPinDot} />
-                  <Text style={styles.userPinText}>You (Colombo)</Text>
+                {/* Center User Pin */}
+                <View style={styles.centerUserPin}>
+                  <View style={styles.centerPulse} />
+                  <View style={styles.centerDot} />
+                  <View style={styles.centerLabelWrap}>
+                    <Text style={styles.centerLabelText}>You ({cityName})</Text>
+                  </View>
                 </View>
 
-                {/* Store Pins on Map */}
-                {stores.slice(0, 6).map((store, index) => {
-                  const offsets = [
-                    { top: '20%', left: '25%' },
-                    { top: '35%', left: '70%' },
-                    { top: '55%', left: '30%' },
-                    { top: '65%', left: '60%' },
-                    { top: '15%', left: '65%' },
-                    { top: '48%', left: '15%' },
-                  ];
-                  const pos = offsets[index % offsets.length];
+                {/* Relative Store Pins */}
+                {filteredStores.slice(0, 7).map((store, idx) => {
+                  const angles = [35, 120, 215, 300, 75, 165, 250];
+                  const angle = angles[idx % angles.length] * (Math.PI / 180);
+                  const distFraction = Math.min(1, Math.max(0.28, (store.distanceKm || 1) / 2.5));
+                  const radius = 100 * distFraction;
+                  const x = Math.cos(angle) * radius;
+                  const y = Math.sin(angle) * radius;
+                  const isSelected = selectedStorePreview?.id === store.id;
+
                   return (
                     <TouchableOpacity
                       key={store.id}
-                      style={[styles.storeMapPin, pos, { borderColor: store.color || '#007A3D' }]}
+                      style={[
+                        styles.storeMapPin,
+                        {
+                          transform: [{ translateX: x }, { translateY: y }],
+                          borderColor: isSelected ? '#007A3D' : '#E5E7EB',
+                          backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF',
+                        },
+                      ]}
                       onPress={() => setSelectedStorePreview(store)}
                       activeOpacity={0.8}
                     >
-                      <MaterialCommunityIcons
-                        name={store.isLocalShop ? 'storefront' : 'shopping'}
-                        size={14}
-                        color={store.color || '#007A3D'}
-                      />
-                      <Text style={styles.pinName} numberOfLines={1}>
-                        {store.name.split(' ')[0]} ({store.distanceKm}km)
+                      <View style={[styles.pinDotIndicator, { backgroundColor: store.color || '#007A3D' }]} />
+                      <Text style={[styles.pinStoreName, isSelected && { fontWeight: '800', color: '#007A3D' }]} numberOfLines={1}>
+                        {store.name.split('-')[0].trim()}
                       </Text>
+                      <View style={styles.pinDistBadge}>
+                        <Text style={styles.pinDistText}>{store.distanceKm} km</Text>
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              {/* Selected Pin Bottom Card */}
-              {selectedStorePreview ? (
+              {/* Sticky Selected Store Preview at Bottom of Map */}
+              {selectedStorePreview && (
                 <View style={styles.mapPreviewCard}>
-                  <View style={styles.cardHeader}>
+                  <View style={styles.mapPreviewTop}>
+                    <StoreBadge store={selectedStorePreview} size={38} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.storeName}>{selectedStorePreview.name}</Text>
-                      <Text style={styles.storeAddress}>{selectedStorePreview.address}</Text>
+                      <Text style={styles.mapPreviewTitle} numberOfLines={1}>
+                        {selectedStorePreview.name}
+                      </Text>
+                      <Text style={styles.mapPreviewSub}>
+                        {selectedStorePreview.address} • ⭐ {selectedStorePreview.rating}
+                      </Text>
                     </View>
-                    <View style={styles.distanceBadge}>
-                      <Text style={styles.distanceText}>{selectedStorePreview.distanceKm} km away</Text>
+                    <View style={styles.distPill}>
+                      <Text style={styles.distPillText}>{selectedStorePreview.distanceKm} km</Text>
                     </View>
                   </View>
-                  <View style={styles.cardActions}>
+
+                  <View style={styles.mapPreviewActions}>
                     <TouchableOpacity
-                      style={styles.callBtn}
+                      style={styles.previewDirBtn}
+                      onPress={() => handleOpenGoogleMapsDirections(selectedStorePreview)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="navigate" size={13} color="#FFFFFF" />
+                      <Text style={styles.previewDirBtnText}>Directions in Google Maps 🧭</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.previewCallBtn}
                       onPress={() => handleCall(selectedStorePreview.phone)}
+                      activeOpacity={0.8}
                     >
-                      <Ionicons name="call" size={14} color="#374151" />
-                      <Text style={styles.callBtnText}>Call</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.selectBtn}
-                      onPress={() => {
-                        onSelectStore && onSelectStore(selectedStorePreview);
-                        onClose();
-                      }}
-                    >
-                      <Text style={styles.selectBtnText}>View Store Details →</Text>
+                      <Ionicons name="call-outline" size={14} color="#374151" />
                     </TouchableOpacity>
                   </View>
-                </View>
-              ) : (
-                <View style={styles.tapPinPrompt}>
-                  <Text style={styles.tapPinPromptText}>Tap any store pin on the map to inspect prices & directions</Text>
                 </View>
               )}
             </View>
           ) : (
-            /* ─── List View ───────────────────────────────────────────────── */
-            <ScrollView style={styles.storeList} showsVerticalScrollIndicator={false}>
-              {stores.length === 0 ? (
+            /* ── High-Density Production List View ─────────────────────── */
+            <ScrollView
+              style={styles.storeList}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 24 }}
+            >
+              {filteredStores.length === 0 ? (
                 <View style={styles.emptyBox}>
-                  <Ionicons name="storefront-outline" size={32} color="#9CA3AF" />
-                  <Text style={styles.emptyText}>No stores matched your search filter.</Text>
+                  <Ionicons name="search-outline" size={36} color="#9CA3AF" />
+                  <Text style={styles.emptyTitle}>No stores found in this category</Text>
+                  <Text style={styles.emptySub}>Try searching for "Cargills", "grocery", or "Sathosa"</Text>
                 </View>
               ) : (
-                stores.map((store) => {
+                filteredStores.map((store) => {
                   const isFav = favouriteIds.includes(store.id);
                   return (
-                    <TouchableOpacity
-                      key={store.id}
-                      style={styles.storeCard}
-                      onPress={() => {
-                        onSelectStore && onSelectStore(store);
-                        onClose();
-                      }}
-                      activeOpacity={0.88}
-                    >
+                    <View key={store.id} style={styles.storeCard}>
                       <View style={styles.cardHeader}>
-                        {store.logo ? (
-                          <Image source={{ uri: store.logo }} style={styles.storeThumbLogo} />
-                        ) : (
-                          <View style={[styles.storeIconWrap, { backgroundColor: (store.color || '#007A3D') + '15' }]}>
-                            {store.isLocalShop ? (
-                              <MaterialCommunityIcons name="storefront" size={22} color={store.color || '#007A3D'} />
-                            ) : (
-                              <FontAwesome5 name="shopping-cart" size={17} color={store.color || '#007A3D'} />
-                            )}
-                          </View>
-                        )}
+                        <StoreBadge store={store} size={44} />
+
                         <View style={{ flex: 1 }}>
-                          <View style={styles.titleRow}>
-                            <Text style={styles.storeName}>{store.name}</Text>
+                          <View style={styles.storeTitleRow}>
+                            <Text style={styles.storeName} numberOfLines={1}>
+                              {store.name}
+                            </Text>
                             {store.isVerified && (
-                              <View style={styles.verifiedBadge}>
+                              <View style={styles.verifiedTag}>
                                 <Ionicons name="checkmark-circle" size={12} color="#166534" />
-                                <Text style={styles.verifiedText}>Verified</Text>
+                                <Text style={styles.verifiedTagText}>Verified</Text>
                               </View>
                             )}
                           </View>
-                          <Text style={styles.storeAddress}>{store.address}</Text>
+                          <Text style={styles.storeAddress} numberOfLines={1}>
+                            {store.address}
+                          </Text>
                         </View>
 
-                        {/* Fav Heart */}
                         <TouchableOpacity
                           style={styles.favBtn}
                           onPress={() => handleToggleFav(store.id)}
@@ -295,62 +455,68 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
                         >
                           <Ionicons
                             name={isFav ? 'heart' : 'heart-outline'}
-                            size={20}
+                            size={19}
                             color={isFav ? '#DC2626' : '#9CA3AF'}
                           />
                         </TouchableOpacity>
                       </View>
 
-                      {/* Meta Tags */}
+                      {/* Store Meta Row */}
                       <View style={styles.metaRow}>
-                        <View style={styles.metaItem}>
-                          <Ionicons name="navigate-outline" size={13} color="#2563EB" />
-                          <Text style={[styles.metaLabel, { color: '#2563EB', fontWeight: '700' }]}>
-                            {store.distanceKm} km away
-                          </Text>
+                        <View style={styles.distanceBadge}>
+                          <Ionicons name="navigate" size={11} color="#007A3D" />
+                          <Text style={styles.distanceBadgeText}>{store.distanceKm} km away</Text>
                         </View>
                         <View style={styles.metaItem}>
-                          <Ionicons name="time-outline" size={13} color="#6B7280" />
+                          <Ionicons name="time-outline" size={12} color="#6B7280" />
                           <Text style={styles.metaLabel}>{store.openingHours || '7:30 AM – 10 PM'}</Text>
                         </View>
                         <View style={styles.metaItem}>
-                          <Ionicons name="star" size={13} color="#F59E0B" />
-                          <Text style={styles.metaLabel}>{store.rating || '4.8'}</Text>
+                          <Ionicons name="star" size={12} color="#F59E0B" />
+                          <Text style={styles.metaLabel}>{store.rating || '4.7'}</Text>
                         </View>
                         {store.deliveryAvailable && (
-                          <View style={styles.deliveryTag}>
-                            <Text style={styles.deliveryText}>🛵 Delivery</Text>
+                          <View style={styles.deliveryBadge}>
+                            <Text style={styles.deliveryBadgeText}>🛵 Delivery</Text>
                           </View>
                         )}
                       </View>
 
-                      {/* Card Actions */}
+                      {/* Store Card Actions */}
                       <View style={styles.cardActions}>
                         <TouchableOpacity
-                          style={styles.callBtn}
+                          style={styles.actionBtnMaps}
+                          onPress={() => handleOpenGoogleMapsDirections(store)}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="navigate" size={13} color="#FFFFFF" />
+                          <Text style={styles.actionBtnMapsText}>Directions in Google Maps 🧭</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.actionBtnCall}
                           onPress={() => handleCall(store.phone)}
                           activeOpacity={0.7}
                         >
                           <Ionicons name="call-outline" size={14} color="#374151" />
-                          <Text style={styles.callBtnText}>Call</Text>
+                          <Text style={styles.actionBtnCallText}>Call</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                          style={styles.selectBtn}
+                          style={styles.actionBtnCatalogue}
                           onPress={() => {
-                            onSelectStore && onSelectStore(store);
+                            if (onSelectStore) onSelectStore(store);
                             onClose();
                           }}
                           activeOpacity={0.8}
                         >
-                          <Text style={styles.selectBtnText}>View Store Details →</Text>
+                          <Text style={styles.actionBtnCatalogueText}>Catalogue →</Text>
                         </TouchableOpacity>
                       </View>
-                    </TouchableOpacity>
+                    </View>
                   );
                 })
               )}
-              <View style={{ height: 20 }} />
             </ScrollView>
           )}
         </View>
@@ -366,31 +532,32 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   content: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    height: '88%',
-    paddingTop: 16,
+    backgroundColor: '#FAFAF8',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    height: '92%',
+    paddingTop: 12,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
+    flex: 1,
   },
   iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#DCFCE7',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8F8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -398,73 +565,132 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: '#111827',
+    letterSpacing: -0.2,
+  },
+  gpsSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+  },
+  pulsingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#166534',
   },
   headerSub: {
-    fontSize: 11.5,
-    color: '#6B7280',
-    marginTop: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#166534',
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   closeBtn: {
-    padding: 6,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleMapsMasterBanner: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#E8F8F0',
+    borderWidth: 1,
+    borderColor: '#C6EED8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gmBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  gmBannerTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#007A3D',
+  },
+  gmBannerPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 4.5,
+    borderRadius: 10,
+    backgroundColor: '#007A3D',
+  },
+  gmBannerPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    gap: 8,
+    gap: 10,
+    paddingHorizontal: 16,
+    marginTop: 10,
   },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    gap: 6,
+    paddingHorizontal: 12,
+    height: 40,
+    gap: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
     color: '#111827',
-    padding: 0,
+    paddingVertical: 0,
   },
   viewModeToggle: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#E5E7EB',
     borderRadius: 12,
     padding: 3,
   },
   modeBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    width: 32,
+    height: 32,
     borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modeBtnActive: {
     backgroundColor: '#007A3D',
   },
   categoryScrollWrap: {
-    height: 38,
-    marginBottom: 8,
+    marginTop: 10,
+    marginBottom: 6,
   },
   categoryRow: {
-    paddingHorizontal: 20,
-    gap: 8,
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 7,
   },
   categoryChip: {
-    height: 32,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
+    paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   categoryChipActive: {
     backgroundColor: '#007A3D',
+    borderColor: '#007A3D',
   },
   categoryText: {
     fontSize: 12,
@@ -476,282 +702,365 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   loadingBox: {
-    padding: 40,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
   },
   loadingText: {
     fontSize: 13,
     color: '#6B7280',
+    fontWeight: '500',
   },
   storeList: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 6,
-  },
-  emptyBox: {
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: '#6B7280',
+    paddingHorizontal: 16,
+    marginTop: 4,
   },
   storeCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 14,
+    padding: 13,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    shadowColor: 'rgba(0,0,0,0.03)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
     elevation: 1,
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 10,
   },
   storeThumbLogo: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
   },
   storeIconWrap: {
-    width: 42,
-    height: 42,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  titleRow: {
+  storeTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
   storeName: {
     fontSize: 14.5,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#111827',
+    flexShrink: 1,
   },
-  verifiedBadge: {
+  verifiedTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
     gap: 2,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 6,
   },
-  verifiedText: {
+  verifiedTagText: {
     fontSize: 9.5,
     fontWeight: '700',
     color: '#166534',
   },
   storeAddress: {
-    fontSize: 11.5,
+    fontSize: 12,
     color: '#6B7280',
     marginTop: 2,
   },
   favBtn: {
-    padding: 4,
+    padding: 6,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
-    gap: 12,
+    gap: 8,
+    marginTop: 9,
+    flexWrap: 'wrap',
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#E8F8F0',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  distanceBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#007A3D',
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   metaLabel: {
     fontSize: 11.5,
     color: '#4B5563',
+    fontWeight: '600',
   },
-  deliveryTag: {
+  deliveryBadge: {
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
   },
-  deliveryText: {
-    fontSize: 10.5,
-    color: '#92400E',
+  deliveryBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
+    color: '#92400E',
   },
   cardActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
+    gap: 7,
+    marginTop: 11,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
   },
-  callBtn: {
+  actionBtnMaps: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-  },
-  callBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  selectBtn: {
+    justifyContent: 'center',
     backgroundColor: '#007A3D',
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 5,
   },
-  selectBtnText: {
-    fontSize: 12,
+  actionBtnMapsText: {
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  actionBtnCall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    gap: 4,
+  },
+  actionBtnCallText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  actionBtnCatalogue: {
+    backgroundColor: '#E8F8F0',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  actionBtnCatalogueText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#007A3D',
+  },
+  emptyBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  emptySub: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
 
-  // Map Simulation
+  // Map Canvas & Pins
   mapContainer: {
     flex: 1,
-    position: 'relative',
-  },
-  simulatedMap: {
-    flex: 1,
-    backgroundColor: '#E2E8F0',
     marginHorizontal: 16,
     marginBottom: 16,
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#C6EED8',
     position: 'relative',
   },
-  mapGridLineH1: {
-    position: 'absolute',
-    top: '33%',
-    left: 0,
-    right: 0,
-    height: 6,
-    backgroundColor: '#CBD5E1',
-  },
-  mapGridLineH2: {
-    position: 'absolute',
-    top: '66%',
-    left: 0,
-    right: 0,
-    height: 6,
-    backgroundColor: '#CBD5E1',
-  },
-  mapGridLineV1: {
-    position: 'absolute',
-    left: '35%',
-    top: 0,
-    bottom: 0,
-    width: 6,
-    backgroundColor: '#CBD5E1',
-  },
-  mapGridLineV2: {
-    position: 'absolute',
-    left: '68%',
-    top: 0,
-    bottom: 0,
-    width: 6,
-    backgroundColor: '#CBD5E1',
-  },
-  userPin: {
-    position: 'absolute',
-    top: '50%',
-    left: '46%',
+  mapCanvas: {
+    flex: 1,
     alignItems: 'center',
-    zIndex: 10,
+    justifyContent: 'center',
   },
-  userPinDot: {
+  ring: {
+    position: 'absolute',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    borderStyle: 'dashed',
+  },
+  ring1k: {
+    width: 100,
+    height: 100,
+  },
+  ring3k: {
+    width: 200,
+    height: 200,
+  },
+  ring5k: {
+    width: 300,
+    height: 300,
+  },
+  centerUserPin: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerPulse: {
+    position: 'absolute',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,122,61,0.2)',
+  },
+  centerDot: {
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#2563EB',
-    borderWidth: 3,
+    backgroundColor: '#007A3D',
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
   },
-  userPinText: {
+  centerLabelWrap: {
+    marginTop: 4,
+    backgroundColor: '#007A3D',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  centerLabelText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#1E3A8A',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-    marginTop: 2,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   storeMapPin: {
     position: 'absolute',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 14,
-    borderWidth: 1.5,
     gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1.5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 3,
-    elevation: 3,
+    elevation: 2,
   },
-  pinName: {
+  pinDotIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  pinStoreName: {
     fontSize: 10.5,
     fontWeight: '700',
     color: '#111827',
+    maxWidth: 80,
+  },
+  pinDistBadge: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  pinDistText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#4B5563',
   },
   mapPreviewCard: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginBottom: 16,
     borderRadius: 16,
     padding: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  distanceBadge: {
-    backgroundColor: '#EFF6FF',
+  mapPreviewTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  mapPreviewTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  mapPreviewSub: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  distPill: {
+    backgroundColor: '#E8F8F0',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
-  distanceText: {
+  distPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#007A3D',
+  },
+  mapPreviewActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  previewDirBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007A3D',
+    paddingVertical: 7,
+    borderRadius: 9,
+    gap: 5,
+  },
+  previewDirBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1E40AF',
+    color: '#FFFFFF',
   },
-  tapPinPrompt: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 10,
-    borderRadius: 12,
+  previewCallBtn: {
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 9,
     alignItems: 'center',
-  },
-  tapPinPromptText: {
-    fontSize: 11.5,
-    color: '#6B7280',
-    fontWeight: '500',
+    justifyContent: 'center',
   },
 });
 

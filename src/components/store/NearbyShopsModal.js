@@ -12,11 +12,15 @@ import {
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { storeService } from '../../services';
+import locationService from '../../services/locationService';
+import { useAccount } from '../../context/AccountContext';
 
 const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
+  const { t } = useAccount();
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('All'); // 'All', 'Supermarkets', 'Local Shops'
+  const [userLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
     if (visible) {
@@ -27,9 +31,20 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
   const loadStores = async () => {
     setLoading(true);
     try {
-      const list = await storeService.getNearbyStores(6.9147, 79.8778);
+      const coords = await locationService.getCoordinates();
+      setUserLocation(coords);
+      const list = await storeService.getNearbyStores(coords.latitude, coords.longitude, {
+        city: coords.city || 'Eheliyagoda',
+      });
       setStores(list);
-    } catch (_) {}
+    } catch (_) {
+      const coords = locationService.getCachedLocation();
+      setUserLocation(coords);
+      const list = await storeService.getNearbyStores(coords.latitude, coords.longitude, {
+        city: coords.city || 'Eheliyagoda',
+      });
+      setStores(list);
+    }
     setLoading(false);
   };
 
@@ -45,6 +60,8 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
     }
   };
 
+  const cityName = userLocation?.city || 'Eheliyagoda';
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
@@ -56,8 +73,8 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
                 <Ionicons name="location" size={20} color={Colors.primary} />
               </View>
               <View>
-                <Text style={styles.headerTitle}>Nearby Grocery Shops</Text>
-                <Text style={styles.headerSub}>Colombo 02 – 07 GPS Radius</Text>
+                <Text style={styles.headerTitle}>{t ? t('nearby_shops', 'Nearby Grocery Shops') : 'Nearby Grocery Shops'}</Text>
+                <Text style={styles.headerSub}>GPS Location: {cityName} • 5km Radius</Text>
               </View>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>

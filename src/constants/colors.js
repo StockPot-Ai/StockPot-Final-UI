@@ -1,114 +1,132 @@
-// Color palette extracted from the design reference
+// StockPot Brand Palette - Strictly Unified 4-Color Foundation:
+// 1. Terracotta / Rust: #994122 (Action, Accent, Urgent Highlights, Primary CTA)
+// 2. Forest Basil Green: #3A6847 (Brand Primary, Savings, Eco, Freshness, Success)
+// 3. Turmeric Gold: #E8A93F (Badges, Pro Crowns, Rewards, Ratings, Warm Accents)
+// 4. Espresso Charcoal: #2B2420 (Primary Headings, High-Contrast Typography, Deep Neutral)
+
 const Colors = {
-  // Primary green
-  primary: '#2E7D32',
-  primaryLight: '#4CAF50',
-  primaryDark: '#1B5E20',
+  // ── Core Brand 4-Color Tokens ──────────────────────────────────────────────
+  terracotta: '#994122',
+  forestGreen: '#3A6847',
+  gold: '#E8A93F',
+  charcoal: '#2B2420',
 
-  // Background tones
-  background: '#FAFAF8',
+  // ── Semantic Core ─────────────────────────────────────────────────────────
+  primary: '#3A6847',
+  primaryLight: '#4F825F',
+  primaryDark: '#284C32',
+  secondary: '#994122',
+  accent: '#E8A93F',
+
+  // ── Backgrounds & Surfaces (Warm Culinary Tones) ───────────────────────────
+  background: '#FAF8F5',
   surface: '#FFFFFF',
+  surfaceWarm: '#F5EFEB',
+  surfaceLight: '#FBF8F5',
+  surfaceLow: '#F8F2EE',
 
-  // Cards & Banners
-  milestoneCard: '#D4EDDA',        // light green card
-  bannerCard: '#F5E6C8',           // warm amber/orange card
+  // ── Cards & Banners ────────────────────────────────────────────────────────
+  milestoneCard: '#EAF3EC',        // soft forest green card
+  bannerCard: '#FDF4E7',           // soft warm amber/gold card
+  cardBg: '#FFFFFF',
 
-  // Text
-  textPrimary: '#1A1A1A',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
+  // ── Typography ─────────────────────────────────────────────────────────────
+  textPrimary: '#2B2420',          // deep espresso charcoal
+  textSecondary: '#6B5E57',        // warm muted espresso
+  textMuted: '#968880',            // soft neutral
   textWhite: '#FFFFFF',
-  textGreen: '#2E7D32',
-  textAmber: '#7C4A00',
+  textGreen: '#3A6847',
+  textAmber: '#C6851C',
+  textGold: '#E8A93F',
+  textTerracotta: '#994122',
 
-  // Error
-  error: '#D32F2F',
+  // ── Alerts & Error ─────────────────────────────────────────────────────────
+  error: '#994122',
+  errorBg: '#FCECE8',
+  success: '#3A6847',
+  successBg: '#EAF3EC',
+  warning: '#E8A93F',
+  warningBg: '#FEF6EB',
 
-  // Challenge
-  challengeDone: '#2E7D32',
-  rewardGold: '#B8860B',
-
-  // Tab bar
-  tabActive: '#2E7D32',
-  tabInactive: '#9CA3AF',
-  tabBackground: '#FFFFFF',
-
-  // Badge / match
-  matchBadge: 'rgba(0,0,0,0.55)',
-
-  // Borders
-  border: '#E5E7EB',
-  borderLight: '#F3F4F6',
-
-  // Pill / filter tabs
-  pillActive: '#2E7D32',
-  pillInactive: '#F3F4F6',
-  pillTextActive: '#FFFFFF',
-  pillTextInactive: '#374151',
-
-  // Button
-  shopNowBtn: '#2E7D32',
-
-  // Shadow
-  shadow: 'rgba(0, 0, 0, 0.08)',
-
-  // Plus button
-  plusBtn: '#2E7D32',
-
-  // Milestone trend icon circle
+  // ── Challenge & Gamification ───────────────────────────────────────────────
+  challengeDone: '#3A6847',
+  rewardGold: '#E8A93F',
+  rewardBg: '#FEF6EB',
+  starGold: '#E8A93F',
   trendCircle: '#FFFFFF',
 
-  // Progress dots / reward
-  rewardBg: '#FFF8E1',
+  // ── Tab Bar & Navigation ───────────────────────────────────────────────────
+  tabActive: '#3A6847',
+  tabInactive: '#968880',
+  tabBackground: '#FFFFFF',
 
-  // Account / Profile Page Palette
-  accountBg: '#FAF7F2',
-  terracotta: '#8D3B2D',
-  terracottaDark: '#782F23',
-  forestGreen: '#1E5E3A',
-  forestGreenLight: '#2D7A4D',
-  accountTextPrimary: '#1C1917',
-  accountTextSecondary: '#78716C',
-  accountSectionHeader: '#4A3F35',
-  accountBorder: '#EDE5DC',
+  // ── Badges ─────────────────────────────────────────────────────────────────
+  matchBadge: 'rgba(43, 36, 32, 0.65)',
+  matchGreen: '#3A6847',
+  matchGreenBg: '#EAF3EC',
+  proBadgeBg: '#FEF6EB',
+  proBadgeText: '#C6851C',
+  smartBadgeBg: '#EAF3EC',
+  smartBadgeText: '#3A6847',
+
+  // ── Borders ────────────────────────────────────────────────────────────────
+  border: '#E8DFD8',
+  borderLight: '#F3ECE6',
+  borderWarm: '#DFD2C7',
+
+  // ── Pills & Filter Tabs ────────────────────────────────────────────────────
+  pillActive: '#3A6847',
+  pillInactive: '#F5EFEB',
+  pillTextActive: '#FFFFFF',
+  pillTextInactive: '#2B2420',
+
+  // ── Buttons & Shadows ──────────────────────────────────────────────────────
+  shopNowBtn: '#3A6847',
+  actionBtn: '#994122',
+  plusBtn: '#3A6847',
+  shadow: 'rgba(43, 36, 32, 0.08)',
+
+  // ── Account / Profile Theme ────────────────────────────────────────────────
+  accountBg: '#FAF8F5',
+  accountTextPrimary: '#2B2420',
+  accountTextSecondary: '#6B5E57',
+  accountSectionHeader: '#4A3D36',
+  accountBorder: '#E8DFD8',
   accountCardBg: '#FFFFFF',
-  progressTrack: '#EADBCE',
-  progressFill: '#1E5E3A',
+  progressTrack: '#E8DFD8',
+  progressFill: '#3A6847',
 
-  // Stat Card Colors
-  statMintBg: '#DCFCE7',
-  statMintIcon: '#16A34A',
-  statPinkBg: '#FEE2E2',
-  statPinkIcon: '#EF4444',
-  statRustBg: '#8D3B2D',
+  // ── Stat Card Colors ───────────────────────────────────────────────────────
+  statMintBg: '#EAF3EC',
+  statMintIcon: '#3A6847',
+  statPinkBg: '#FCECE8',
+  statPinkIcon: '#994122',
+  statRustBg: '#994122',
   statRustIcon: '#FFFFFF',
-  statAmberBg: '#8D6816',
+  statAmberBg: '#E8A93F',
   statAmberIcon: '#FFFFFF',
 
-  // Ingredient / Recipe Details Page Palette
-  warmCard: '#FFF8F5',
-  warmBorder: '#FEEFE7',
-  starGold: '#F59E0B',
+  // ── Recipe / Ingredients Palette ───────────────────────────────────────────
+  warmCard: '#FDFBF9',
+  warmBorder: '#E8DFD8',
 
-  // Meal Plan Page Palette
-  terracottaDeep: '#6E240D',
-  budgetTrack: '#EFE6DE',
-  matchGreen: '#059669',
-  matchGreenBg: '#D1FAE5',
+  // ── Meal Plan Palette ──────────────────────────────────────────────────────
+  terracottaDeep: '#994122',
+  budgetTrack: '#E8DFD8',
 
-  // Shopping List / Retail Comparing Page Palette
-  retailBg: '#FFF8F5',
+  // ── Retail & Split-Basket Palette ──────────────────────────────────────────
+  retailBg: '#FAF8F5',
   retailCard: '#FFFFFF',
-  retailSurface: '#F9EBE5',
-  retailSurfaceLow: '#FFF1EA',
+  retailSurface: '#F5EFEB',
+  retailSurfaceLow: '#FBF8F5',
   retailCharcoal: '#2B2420',
   retailTerracotta: '#994122',
   retailBasil: '#3A6847',
-  retailBasilSoft: '#B9ECC2',
+  retailBasilSoft: '#D4E6D9',
   retailTurmeric: '#E8A93F',
-  retailMuted: '#56423C',
-  retailOutlineWarm: '#DCC1B9',
-  retailCheapestBg: '#DCFCE7',
+  retailMuted: '#6B5E57',
+  retailOutlineWarm: '#E8DFD8',
+  retailCheapestBg: '#EAF3EC',
 };
 
 export default Colors;

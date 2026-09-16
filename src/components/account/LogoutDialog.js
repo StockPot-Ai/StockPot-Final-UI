@@ -24,13 +24,13 @@ const LogoutDialog = ({ visible, onCancel, onConfirm }) => {
         <View style={styles.dialogCard}>
           {/* Icon Circle */}
           <View style={styles.iconCircle}>
-            <MaterialCommunityIcons name="logout" size={26} color="#DC2626" />
+            <MaterialCommunityIcons name="logout" size={26} color="#994122" />
           </View>
 
           {/* Title & Description */}
           <Text style={styles.dialogTitle}>Log Out</Text>
           <Text style={styles.dialogMessage}>
-            Are you sure you want to log out? Your meal plan and pantry items are safely synced to your account.
+            Are you sure you want to log out? Your meal plans, budget settings, and grocery lists are safely synced to your account.
           </Text>
 
           {/* Buttons */}
@@ -60,7 +60,7 @@ const LogoutDialog = ({ visible, onCancel, onConfirm }) => {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(43, 36, 32, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
@@ -73,31 +73,35 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     paddingHorizontal: 22,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#2B2420',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 8,
+    borderWidth: 1,
+    borderColor: '#E8DFD8',
   },
   iconCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FDF1EC',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#F3D5C8',
   },
   dialogTitle: {
     fontSize: 19,
     fontWeight: '700',
-    color: '#111827',
+    color: '#2B2420',
     marginBottom: 6,
     letterSpacing: -0.3,
   },
   dialogMessage: {
     fontSize: 13.5,
-    color: '#6B7280',
+    color: '#5C544E',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 22,
@@ -113,21 +117,23 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FAF8F5',
+    borderWidth: 1,
+    borderColor: '#E8DFD8',
   },
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: '#5C544E',
   },
   logoutButton: {
     flex: 1,
     paddingVertical: 13,
     borderRadius: 14,
-    backgroundColor: '#DC2626',
+    backgroundColor: '#994122',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#DC2626',
+    shadowColor: '#994122',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 6,

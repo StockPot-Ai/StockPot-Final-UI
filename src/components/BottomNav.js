@@ -1,21 +1,24 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Colors from '../constants/colors';
+import { useAccount } from '../context/AccountContext';
 
 const NAV_ITEMS = [
-  { id: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'Home' },
-  { id: 'MealPlan', icon: 'calendar-outline', activeIcon: 'calendar', label: 'Meal Plan' },
-  { id: 'Savings', icon: 'wallet-outline', activeIcon: 'wallet', label: 'Savings' },
-  { id: 'History', icon: 'receipt-outline', activeIcon: 'receipt', label: 'History' },
-  { id: 'Profile', icon: 'person-outline', activeIcon: 'person', label: 'Profile' },
+  { id: 'Home', icon: 'home-outline', activeIcon: 'home', key: 'nav_home', label: 'Home' },
+  { id: 'MealPlan', icon: 'calendar-outline', activeIcon: 'calendar', key: 'nav_meal_plan', label: 'Meal Plan' },
+  { id: 'Savings', icon: 'wallet-outline', activeIcon: 'wallet', key: 'nav_savings', label: 'Savings' },
+  { id: 'History', icon: 'receipt-outline', activeIcon: 'receipt', key: 'nav_history', label: 'History' },
+  { id: 'Profile', icon: 'person-outline', activeIcon: 'person', key: 'nav_profile', label: 'Profile' },
 ];
 
 const BottomNav = ({ activeNav, onNavChange }) => {
+  const { t } = useAccount();
+
   return (
     <View style={styles.bottomNav}>
       {NAV_ITEMS.map((item) => {
         const isActive = item.id === activeNav;
+        const translatedLabel = t ? t(item.key, item.label) : item.label;
         return (
           <TouchableOpacity
             key={item.id}
@@ -24,17 +27,17 @@ const BottomNav = ({ activeNav, onNavChange }) => {
             activeOpacity={0.7}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
-            accessibilityLabel={item.label}
+            accessibilityLabel={translatedLabel}
           >
             <View style={[styles.navIconWrap, isActive && styles.navIconWrapActive]}>
               <Ionicons
                 name={isActive ? item.activeIcon : item.icon}
                 size={22}
-                color={isActive ? '#166534' : '#9CA3AF'}
+                color={isActive ? '#3A6847' : '#968880'}
               />
             </View>
             <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
-              {item.label}
+              {translatedLabel}
             </Text>
           </TouchableOpacity>
         );
@@ -52,8 +55,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingBottom: Platform.OS === 'ios' ? 24 : 10,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    shadowColor: '#000',
+    borderTopColor: '#E8DFD8',
+    shadowColor: '#2B2420',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -72,15 +75,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   navIconWrapActive: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#EAF3EC',
   },
   navLabel: {
     fontSize: 10.5,
-    color: '#9CA3AF',
+    color: '#968880',
     fontWeight: '500',
   },
   navLabelActive: {
-    color: '#166534',
+    color: '#3A6847',
     fontWeight: '700',
   },
 });

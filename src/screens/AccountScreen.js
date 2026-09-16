@@ -33,9 +33,11 @@ import PremiumUpgradeModal from '../components/account/PremiumUpgradeModal';
 import ShopOwnerModal from '../components/store/ShopOwnerModal';
 import ShopOwnerPortalScreen from './ShopOwnerPortalScreen';
 import { useAccount } from '../context/AccountContext';
+import { useNotifications } from '../context/NotificationContext';
 
 const AccountScreen = ({ onBack, onNavigateHome }) => {
-  const { isPremium, customerPlan, isShopOwner, businessPlan } = useAccount();
+  const { isPremium, isPro, customerPlan, isShopOwner, businessPlan, language, t } = useAccount();
+  const { unreadCount, openNotificationCenter } = useNotifications();
 
   // ── Modal Visibility States
   const [editProfileVisible, setEditProfileVisible] = useState(false);
@@ -85,17 +87,23 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
         {/* ── STOCKPOT MEMBERSHIPS & BUSINESS SECTION ── */}
         <MenuSection title="STOCKPOT ECOSYSTEM & TIERS">
           <MenuItem
-            icon={<FontAwesome5 name="crown" size={17} color="#D97706" />}
-            label={isPremium ? "StockPot Premium (Active ⭐)" : "Upgrade to StockPot Premium"}
+            icon={<FontAwesome5 name="crown" size={17} color="#E8A93F" />}
+            label={
+              isPro
+                ? "StockPot Pro (Active 👑)"
+                : isPremium
+                ? "StockPot Smart (Active ⭐)"
+                : "Upgrade to Smart (Rs. 499) or Pro (Rs. 999)"
+            }
             onPress={() => setPremiumModalVisible(true)}
           />
           <MenuItem
-            icon={<MaterialCommunityIcons name="storefront-outline" size={20} color="#007A3D" />}
+            icon={<MaterialCommunityIcons name="storefront-outline" size={20} color="#3A6847" />}
             label="Shop Owner Portal & Catalogue"
             onPress={() => setShopOwnerPortalVisible(true)}
           />
           <MenuItem
-            icon={<Ionicons name="storefront-outline" size={19} color="#292524" />}
+            icon={<Ionicons name="storefront-outline" size={19} color="#2B2420" />}
             label="Register a New Local Store"
             onPress={() => setShopOwnerRegisterVisible(true)}
             isLast
@@ -103,15 +111,15 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
         </MenuSection>
 
         {/* PERSONAL Section */}
-        <MenuSection title="PERSONAL">
+        <MenuSection title={t ? t('personal', 'PERSONAL') : 'PERSONAL'}>
           <MenuItem
-            icon={<Feather name="user" size={19} color="#292524" />}
-            label="Edit Profile"
+            icon={<Feather name="user" size={19} color="#2B2420" />}
+            label={t ? t('edit_profile', 'Edit Profile') : 'Edit Profile'}
             onPress={() => setEditProfileVisible(true)}
           />
           <MenuItem
-            icon={<Feather name="home" size={19} color="#292524" />}
-            label="Household & Preferences"
+            icon={<Feather name="home" size={19} color="#2B2420" />}
+            label={t ? t('household_pref', 'Household & Preferences') : 'Household & Preferences'}
             onPress={() => setHouseholdVisible(true)}
           />
           <MenuItem
@@ -119,10 +127,10 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
               <MaterialCommunityIcons
                 name="silverware-fork-knife"
                 size={19}
-                color="#292524"
+                color="#2B2420"
               />
             }
-            label="Dietary Preferences"
+            label={t ? t('dietary_pref', 'Dietary Preferences') : 'Dietary Preferences'}
             onPress={() => setDietaryVisible(true)}
           />
           <MenuItem
@@ -130,35 +138,40 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
               <MaterialCommunityIcons
                 name="wallet-outline"
                 size={20}
-                color="#292524"
+                color="#2B2420"
               />
             }
-            label="Budget Settings"
+            label={t ? t('budget_settings', 'Budget Settings') : 'Budget Settings'}
             onPress={() => setBudgetVisible(true)}
             isLast
           />
         </MenuSection>
 
         {/* APP Section */}
-        <MenuSection title="APP">
+        <MenuSection title={t ? t('app_notifications', 'APP & NOTIFICATIONS') : 'APP & NOTIFICATIONS'}>
           <MenuItem
-            icon={<Ionicons name="notifications-outline" size={20} color="#292524" />}
-            label="Notifications & Deal Alerts"
+            icon={<Ionicons name="notifications-outline" size={20} color="#2B2420" />}
+            label={unreadCount > 0 ? `${t ? t('notification_center', 'Notification Center') : 'Notification Center'} (${unreadCount})` : (t ? t('notification_center', 'Notification Center') : 'Notification Center')}
+            onPress={openNotificationCenter}
+          />
+          <MenuItem
+            icon={<Ionicons name="options-outline" size={20} color="#2B2420" />}
+            label={t ? t('notification_pref', 'Notification Preferences') : 'Notification Preferences'}
             onPress={() => setNotificationsVisible(true)}
           />
           <MenuItem
-            icon={<Ionicons name="shield-outline" size={20} color="#292524" />}
-            label="Privacy & Security"
+            icon={<Ionicons name="shield-outline" size={20} color="#2B2420" />}
+            label={t ? t('privacy_security', 'Privacy & Security') : 'Privacy & Security'}
             onPress={() => setPrivacyVisible(true)}
           />
           <MenuItem
-            icon={<Ionicons name="globe-outline" size={20} color="#292524" />}
-            label="Language"
+            icon={<Ionicons name="globe-outline" size={20} color="#2B2420" />}
+            label={`${t ? t('language', 'Language') : 'Language'}: ${language || 'English'}`}
             onPress={() => setLanguageVisible(true)}
           />
           <MenuItem
-            icon={<Ionicons name="help-circle-outline" size={20} color="#292524" />}
-            label="Help & Support"
+            icon={<Ionicons name="help-circle-outline" size={20} color="#2B2420" />}
+            label={t ? t('help_support', 'Help & Support') : 'Help & Support'}
             onPress={() => setHelpVisible(true)}
             isLast
           />
@@ -170,10 +183,10 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
           onPress={() => setLogoutDialogVisible(true)}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Log Out"
+          accessibilityLabel={t ? t('log_out', 'Log Out') : 'Log Out'}
         >
           <Feather name="log-out" size={19} color={Colors.terracotta} />
-          <Text style={styles.logoutText}>Log Out</Text>
+          <Text style={styles.logoutText}>{t ? t('log_out', 'Log Out') : 'Log Out'}</Text>
         </TouchableOpacity>
 
         {/* Bottom spacing */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   RefreshControl,
   TextInput,
   Modal,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -28,6 +29,7 @@ import { recipeService, savingsService, gamificationService } from '../services'
 import { CONTRIBUTORS, STORES } from '../data/seedData';
 import ShopProfileModal from '../components/store/ShopProfileModal';
 import { useAccount } from '../context/AccountContext';
+import { useNotifications } from '../context/NotificationContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_PADDING = 16;
@@ -50,68 +52,204 @@ const CUISINES = ['All', 'Sri Lankan', 'Indian', 'Italian', 'Asian Fusion', 'Con
 
 import locationService from '../services/locationService';
 
-const Header = ({ userName, isPremium, gpsLocation, onOpenPremium, onOpenAI }) => (
-  <View style={styles.header}>
-    <View style={styles.headerLeft}>
-      <Image
-        source={require('../../assets/user_avatar.jpg')}
-        style={styles.avatar}
-      />
-      <View>
-        <Text style={styles.greeting}>
-          Hi {userName || 'Chef'} <Text style={styles.wave}>👋</Text>
-        </Text>
-        <View style={styles.gpsRow}>
-          <Ionicons name="navigate" size={11} color="#007A3D" />
-          <Text style={styles.gpsLocationText}>{gpsLocation || 'Colombo, Sri Lanka'}</Text>
-          <View style={styles.gpsLiveDot} />
+const AnimatedWave = () => {
+  const waveAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const waveLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(waveAnim, { toValue: 1, duration: 240, useNativeDriver: true }),
+        Animated.timing(waveAnim, { toValue: -1, duration: 300, useNativeDriver: true }),
+        Animated.timing(waveAnim, { toValue: 1, duration: 240, useNativeDriver: true }),
+        Animated.timing(waveAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
+        Animated.delay(2000),
+      ])
+    );
+    waveLoop.start();
+    return () => waveLoop.stop();
+  }, [waveAnim]);
+
+  const rotateInterpolation = waveAnim.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-18deg', '0deg', '22deg'],
+  });
+
+  return (
+    <Animated.View style={[styles.waveWrap, { transform: [{ rotate: rotateInterpolation }] }]}>
+      <Text style={styles.wave}>👋</Text>
+    </Animated.View>
+  );
+};
+
+const Header = ({
+  profile,
+  isPremium,
+  isPro,
+  gpsLocation,
+  locationLoading,
+  onOpenPremium,
+  onOpenProfile,
+  t,
+}) => {
+  const { unreadCount, openNotificationCenter } = useNotifications();
+
+  const getFirstName = () => {
+    if (profile?.name && typeof profile.name === 'string' && profile.name.trim()) {
+      return profile.name.trim().split(' ')[0];
+    }
+    if (profile?.full_name && typeof profile.full_name === 'string' && profile.full_name.trim()) {
+      return profile.full_name.trim().split(' ')[0];
+    }
+    if (profile?.email && profile.email.includes('@')) {
+      const uname = profile.email.split('@')[0];
+      return uname.charAt(0).toUpperCase() + uname.slice(1);
+    }
+    return 'Chef';
+  };
+
+  const getTimeGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr < 12) return t ? t('good_morning', 'Good morning') : 'Good morning';
+    if (hr < 17) return t ? t('good_afternoon', 'Good afternoon') : 'Good afternoon';
+    return t ? t('good_evening', 'Good evening') : 'Good evening';
+  };
+
+  const firstName = getFirstName();
+  const initial = (firstName.charAt(0) || 'C').toUpperCase();
+
+  // Animated live pulse for GPS indicator
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.4,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
+
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerLeft}>
+        <TouchableOpacity
+          onPress={onOpenProfile}
+          activeOpacity={0.8}
+          style={styles.avatarTouch}
+        >
+          {profile?.avatarUrl || profile?.avatar_url ? (
+            <Image
+              source={{ uri: profile.avatarUrl || profile.avatar_url }}
+              style={styles.avatar}
+            />
+          ) : (
+            <View style={styles.initialsAvatar}>
+              <Text style={styles.initialsText}>{initial}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.greetingWrap}>
+          <Text style={styles.greetingSub}>{getTimeGreeting()}</Text>
+          <View style={styles.greetingRow}>
+            <Text style={styles.greeting}>{firstName}</Text>
+            <AnimatedWave />
+          </View>
+          <View style={styles.gpsRow}>
+            {locationLoading ? (
+              <View style={styles.locationLoadingRow}>
+                <ActivityIndicator size={9} color="#3A6847" />
+                <Text style={styles.gpsLocationLoadingText}>{t ? t('detecting_location', 'Detecting location...') : 'Detecting location...'}</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.gpsLocationText} numberOfLines={1}>
+                  {gpsLocation || 'Location unavailable'}
+                </Text>
+                {gpsLocation ? (
+                  <Animated.View style={[styles.gpsLiveDot, { transform: [{ scale: pulseAnim }] }]} />
+                ) : null}
+              </>
+            )}
+          </View>
         </View>
       </View>
-    </View>
 
-    <View style={styles.headerRight}>
-      <TouchableOpacity style={styles.aiHeaderBtn} onPress={onOpenAI} activeOpacity={0.8}>
-        <Ionicons name="sparkles" size={12} color="#007A3D" />
-        <Text style={styles.aiHeaderBtnText}>AI Chef</Text>
-      </TouchableOpacity>
-      {isPremium ? (
-        <View style={styles.premiumHeaderTag}>
-          <FontAwesome5 name="crown" size={10} color="#D97706" />
-          <Text style={styles.premiumHeaderTagText}>PRO</Text>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.crownNavBtn} onPress={onOpenPremium} activeOpacity={0.8}>
-          <FontAwesome5 name="crown" size={11} color="#D97706" />
-          <Text style={styles.crownNavBtnText}>Go Pro</Text>
+      <View style={styles.headerRight}>
+        {isPro ? (
+          <View style={styles.premiumHeaderTag}>
+            <FontAwesome5 name="crown" size={10} color="#E8A93F" />
+            <Text style={styles.premiumHeaderTagText}>PRO</Text>
+          </View>
+        ) : isPremium ? (
+          <View style={[styles.premiumHeaderTag, { backgroundColor: '#EAF3EC', borderColor: '#E8DFD8' }]}>
+            <Ionicons name="flash" size={10} color="#3A6847" />
+            <Text style={[styles.premiumHeaderTagText, { color: '#3A6847' }]}>SMART</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.crownNavBtn} onPress={onOpenPremium} activeOpacity={0.82}>
+            <FontAwesome5 name="crown" size={11} color="#E8A93F" />
+            <Text style={styles.crownNavBtnText}>{t ? t('plans', 'Plans') : 'Plans'}</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={styles.headerBellBtn}
+          onPress={openNotificationCenter}
+          activeOpacity={0.8}
+          accessibilityLabel="Notifications"
+          accessibilityRole="button"
+        >
+          <Ionicons name="notifications-outline" size={18} color="#2B2420" />
+          {unreadCount > 0 && (
+            <View style={styles.bellBadge}>
+              <Text style={styles.bellBadgeText}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
-      )}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
-const SearchAndFilterBar = ({ search, onSearchChange, onOpenFilter, onOpenAI, activeFilterCount }) => (
+const SearchAndFilterBar = ({ search, onSearchChange, onOpenFilter, onOpenAI, activeFilterCount, t }) => (
   <View style={styles.searchRow}>
     <View style={styles.searchBar}>
-      <Ionicons name="search" size={18} color="#9CA3AF" />
+      <Ionicons name="search" size={18} color="#968880" />
       <TextInput
         style={styles.searchInput}
-        placeholder="Search recipes, dhal, stores, budget..."
-        placeholderTextColor="#9CA3AF"
+        placeholder={t ? t('search_placeholder', 'Search recipes, dhal, stores, budget...') : 'Search recipes, dhal, stores, budget...'}
+        placeholderTextColor="#968880"
         value={search}
         onChangeText={onSearchChange}
       />
       {search.length > 0 ? (
         <TouchableOpacity onPress={() => onSearchChange('')}>
-          <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+          <Ionicons name="close-circle" size={18} color="#968880" />
         </TouchableOpacity>
       ) : (
-        <TouchableOpacity onPress={onOpenAI} style={styles.searchAiBtn}>
-          <Ionicons name="sparkles" size={15} color="#007A3D" />
+        <TouchableOpacity onPress={onOpenAI} style={styles.searchAiBtn} activeOpacity={0.7}>
+          <MaterialCommunityIcons name="chef-hat" size={16} color="#3A6847" />
         </TouchableOpacity>
       )}
     </View>
-    <TouchableOpacity style={styles.filterBtn} onPress={onOpenFilter} activeOpacity={0.8}>
-      <Ionicons name="options-outline" size={20} color="#007A3D" />
+    <TouchableOpacity
+      style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]}
+      onPress={onOpenFilter}
+      activeOpacity={0.8}
+    >
+      <Ionicons name="options-outline" size={20} color={activeFilterCount > 0 ? '#FFFFFF' : '#3A6847'} />
       {activeFilterCount > 0 && (
         <View style={styles.filterBadge}>
           <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -121,26 +259,105 @@ const SearchAndFilterBar = ({ search, onSearchChange, onOpenFilter, onOpenAI, ac
   </View>
 );
 
-// ── Beautiful, Cute Weekly Milestone Banner ──
-const MilestoneBanner = ({ onPress, savingsAmount = 1250, streakDays = 5 }) => (
-  <TouchableOpacity onPress={onPress} activeOpacity={0.88} style={styles.milestoneBanner}>
-    <View style={styles.milestoneLeft}>
-      <View style={styles.milestoneHeaderRow}>
-        <Text style={styles.milestoneTitle}>Weekly Milestone</Text>
-        <Ionicons name="sparkles" size={12} color="#007A3D" />
-      </View>
-      <Text style={styles.milestoneSavings}>
-        Save Rs. {savingsAmount ? savingsAmount.toLocaleString() : '1,200'} this week
-      </Text>
-      <Text style={styles.milestoneFlame}>🔥 {streakDays}-day cooking streak!</Text>
-    </View>
-    <View style={styles.trendCircle}>
-      <Ionicons name="trending-up" size={22} color="#FFFFFF" />
-    </View>
-  </TouchableOpacity>
-);
+// ── Beautiful, Animated Weekly Milestone Banner ──
+const MilestoneBanner = ({ onPress, savingsAmount = 0, streakDays = 0, weeklyGoal = 5000, t }) => {
+  const flameAnim = useRef(new Animated.Value(1)).current;
+  const pressAnim = useRef(new Animated.Value(1)).current;
 
-const MealFilterTabs = ({ activeTab, onTabChange }) => (
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(flameAnim, {
+          toValue: 1.25,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+        Animated.timing(flameAnim, {
+          toValue: 1,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [flameAnim]);
+
+  const handlePressIn = () => {
+    Animated.spring(pressAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(pressAnim, {
+      toValue: 1,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const progressPct = weeklyGoal > 0 ? Math.min(100, Math.round(((savingsAmount || 0) / weeklyGoal) * 100)) : 0;
+
+  return (
+    <Animated.View style={{ transform: [{ scale: pressAnim }] }}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.92}
+        style={styles.milestoneBanner}
+      >
+        <View style={styles.milestoneLeft}>
+          <View style={styles.milestoneHeaderRow}>
+            <View style={styles.milestoneTag}>
+              <Ionicons name="sparkles" size={10} color="#007A3D" />
+              <Text style={styles.milestoneTagText}>{t ? t('weekly_milestone', 'WEEKLY MILESTONE') : 'WEEKLY MILESTONE'}</Text>
+            </View>
+            <View style={styles.streakPill}>
+              <Animated.Text style={[styles.milestoneFlame, { transform: [{ scale: flameAnim }] }]}>
+                🔥
+              </Animated.Text>
+              <Text style={styles.streakPillText}>{streakDays > 0 ? `${streakDays} ${t ? t('day_streak', 'day streak') : 'day streak'}` : (t ? t('ready_to_cook', 'Ready to cook') : 'Ready to cook')}</Text>
+            </View>
+          </View>
+          <Text style={styles.milestoneSavings}>
+            {savingsAmount > 0
+              ? `Rs. ${savingsAmount.toLocaleString()} ${t ? t('saved_this_week', 'saved this week') : 'saved this week'}`
+              : (t ? t('ready_to_save', 'Start your grocery savings journey 🍲') : 'Start your grocery savings journey 🍲')}
+          </Text>
+
+          {/* Micro Progress Bar */}
+          <View style={styles.miniProgressTrack}>
+            <View style={[styles.miniProgressFill, { width: `${progressPct}%` }]} />
+          </View>
+          <Text style={styles.miniProgressText}>
+            {progressPct > 0 ? `${progressPct}% of Rs. ${weeklyGoal.toLocaleString()} target` : `Weekly target: Rs. ${weeklyGoal.toLocaleString()}`}
+          </Text>
+        </View>
+
+        <View style={styles.trendCircle}>
+          <Ionicons name="trending-up" size={22} color="#FFFFFF" />
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const MEAL_TAB_MAP = {
+  'All': 'all_categories',
+  'Breakfast': 'breakfast',
+  'Lunch': 'lunch',
+  'Dinner': 'dinner',
+  'Trending 🔥': 'trending',
+  'Top Rated ⭐': 'top_rated',
+  'Budget Friendly 💰': 'budget_friendly',
+  'Quick Meals ⚡': 'quick_meals',
+  'Community Picks 👨‍🍳': 'community_picks',
+};
+
+const MealFilterTabs = ({ activeTab, onTabChange, t }) => (
   <ScrollView
     horizontal
     showsHorizontalScrollIndicator={false}
@@ -148,6 +365,7 @@ const MealFilterTabs = ({ activeTab, onTabChange }) => (
   >
     {MEAL_TABS.map((tab) => {
       const isActive = tab === activeTab;
+      const label = t && MEAL_TAB_MAP[tab] ? t(MEAL_TAB_MAP[tab], tab) : tab;
       return (
         <TouchableOpacity
           key={tab}
@@ -156,7 +374,7 @@ const MealFilterTabs = ({ activeTab, onTabChange }) => (
           activeOpacity={0.75}
         >
           <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
-            {tab}
+            {label}
           </Text>
         </TouchableOpacity>
       );
@@ -164,109 +382,223 @@ const MealFilterTabs = ({ activeTab, onTabChange }) => (
   </ScrollView>
 );
 
-const LocalMerchantHub = ({ onFindShops, onRegisterShop, onSelectShop }) => (
-  <View style={styles.localShopsBanner}>
-    <View style={styles.localShopsContent}>
-      <View style={styles.localShopsHeaderRow}>
-        <View style={styles.localShopsBadge}>
-          <Ionicons name="storefront" size={13} color="#007A3D" />
-          <Text style={styles.localShopsBadgeText}>LOCAL GROCERY HUB</Text>
+const LocalMerchantHub = ({ onFindShops, onRegisterShop, onSelectShop, stores = [], t }) => {
+  const displayStores = stores && stores.length > 0 ? stores : STORES.slice(0, 6);
+
+  return (
+    <View style={styles.localShopsBanner}>
+      <View style={styles.localShopsContent}>
+        <View style={styles.localShopsHeaderRow}>
+          <View style={styles.localShopsBadge}>
+            <Ionicons name="storefront" size={13} color="#007A3D" />
+            <Text style={styles.localShopsBadgeText}>LOCAL GROCERY HUB</Text>
+          </View>
+          <Text style={styles.verifiedStoreCount}>{displayStores.length}+ Verified Stores</Text>
         </View>
-        <Text style={styles.verifiedStoreCount}>10+ Verified Stores</Text>
-      </View>
-      <Text style={styles.localShopsTitle}>Compare Local Supermarkets & Groceries</Text>
-      <Text style={styles.localShopsDesc}>
-        Find cheaper prices near you across Keells, Cargills, Glomark, and verified neighborhood grocers.
-      </Text>
+        <Text style={styles.localShopsTitle}>Compare Local Supermarkets & Groceries</Text>
+        <Text style={styles.localShopsDesc}>
+          Find cheaper prices near you across Keells, Cargills, Sathosa, and verified neighborhood grocers.
+        </Text>
 
-      {/* Horizontal store pills/cards */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.hubStoresScroll}
-      >
-        {STORES.slice(0, 6).map((st) => (
-          <TouchableOpacity
-            key={st.id}
-            style={styles.hubStoreCard}
-            onPress={() => onSelectShop && onSelectShop(st)}
-            activeOpacity={0.78}
-          >
-            {st.logo ? (
-              <Image source={{ uri: st.logo }} style={styles.hubStoreLogo} />
-            ) : (
+        {/* Horizontal store pills/cards */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.hubStoresScroll}
+        >
+          {displayStores.map((st) => (
+            <TouchableOpacity
+              key={st.id}
+              style={styles.hubStoreCard}
+              onPress={() => onSelectShop && onSelectShop(st)}
+              activeOpacity={0.78}
+            >
               <View style={[styles.hubStoreLogoFallback, { backgroundColor: (st.color || '#007A3D') + '20' }]}>
-                <Ionicons name="storefront" size={16} color={st.color || '#007A3D'} />
+                <Ionicons name={st.isLocalShop ? 'storefront' : 'cart'} size={16} color={st.color || '#007A3D'} />
               </View>
-            )}
-            <View style={{ flex: 1, justifyContent: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                <Text style={styles.hubStoreName} numberOfLines={1}>{st.name}</Text>
-                {st.isVerified && <Ionicons name="checkmark-circle" size={11} color="#007A3D" />}
+              <View style={{ flex: 1, justifyContent: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Text style={styles.hubStoreName} numberOfLines={1}>{st.name}</Text>
+                  {st.isVerified && <Ionicons name="checkmark-circle" size={11} color="#007A3D" />}
+                </View>
+                <Text style={styles.hubStoreSub}>
+                  ⭐ {st.rating || 4.5} • {st.distanceKm ? `${st.distanceKm} km` : (st.isLocalShop ? 'Local' : 'Supermarket')}
+                </Text>
               </View>
-              <Text style={styles.hubStoreSub}>⭐ {st.rating || 4.5} • {st.isLocalShop ? 'Local' : 'Supermarket'}</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
-      <View style={styles.localShopsBtnRow}>
-        <TouchableOpacity style={styles.findShopsBtn} onPress={onFindShops} activeOpacity={0.8}>
-          <Ionicons name="map-outline" size={14} color="#FFFFFF" />
-          <Text style={styles.findShopsBtnText}>Discover All Stores</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.ownerPortalBtn} onPress={onRegisterShop} activeOpacity={0.8}>
-          <Ionicons name="storefront-outline" size={14} color="#007A3D" />
-          <Text style={styles.ownerPortalBtnText}>Shop Owner Portal</Text>
-        </TouchableOpacity>
+        <View style={styles.localShopsBtnRow}>
+          <TouchableOpacity style={styles.findShopsBtn} onPress={onFindShops} activeOpacity={0.8}>
+            <Ionicons name="map-outline" size={14} color="#FFFFFF" />
+            <Text style={styles.findShopsBtnText}>{t ? t('discover_stores', 'Discover All Stores') : 'Discover All Stores'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.ownerPortalBtn} onPress={onRegisterShop} activeOpacity={0.8}>
+            <Ionicons name="storefront-outline" size={14} color="#007A3D" />
+            <Text style={styles.ownerPortalBtnText}>{t ? t('shop_owner_portal', 'Shop Owner Portal') : 'Shop Owner Portal'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
-  </View>
-);
+  );
+};
 
 const TopContributorsSection = () => (
   <View style={styles.section}>
     <View style={styles.sectionHeader}>
-      <View>
-        <Text style={styles.sectionTitle}>Community Chef Highlights</Text>
-        <Text style={styles.sectionSub}>Top verified home recipe creators</Text>
+      <View style={styles.sectionHeaderTitleWrap}>
+        <Text style={styles.sectionTitle} numberOfLines={1}>Community Chef Highlights</Text>
+        <Text style={styles.sectionSub} numberOfLines={1}>Top verified home recipe creators</Text>
       </View>
-      <View style={styles.communityHeartPill}>
-        <Ionicons name="shield-checkmark" size={12} color="#007A3D" />
-        <Text style={styles.communityHeartText}>4 Verified Chefs</Text>
+      <View style={styles.communityVerifiedPill}>
+        <MaterialCommunityIcons name="check-decagram" size={13} color="#34B7F1" />
+        <Text style={styles.communityVerifiedText}>4 Verified</Text>
       </View>
     </View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.contributorsRow}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.contributorsRow}
+    >
       {CONTRIBUTORS.map((c) => (
         <View key={c.id} style={styles.contributorCard}>
           <View style={styles.contributorAvatarWrap}>
             <Image source={{ uri: c.avatar }} style={styles.contributorAvatar} />
-            <View style={styles.verifiedChefDot}>
-              <Ionicons name="checkmark" size={9} color="#FFFFFF" />
-            </View>
           </View>
+
           <View style={styles.contributorNameRow}>
-            <Text style={styles.contributorName} numberOfLines={1}>{c.name}</Text>
+            <Text style={styles.contributorName} numberOfLines={1}>
+              {c.name}
+            </Text>
+            <MaterialCommunityIcons name="check-decagram" size={13} color="#34B7F1" />
           </View>
+
           <View style={styles.contributorBadge}>
-            <Ionicons name="ribbon" size={11} color="#007A3D" />
-            <Text style={styles.contributorBadgeText}>{c.badge}</Text>
+            <Text style={styles.contributorBadgeText}>{c.badge || 'Creator'}</Text>
           </View>
-          <Text style={styles.contributorSpecialty} numberOfLines={1}>{c.specialty || 'Home Cook'}</Text>
-          <Text style={styles.contributorStats}>
-            ❤️ {c.totalLikes} • 🍳 {c.recipesCount} dishes
+
+          <Text style={styles.contributorSpecialty} numberOfLines={1}>
+            {c.specialty || 'Home Cook'}
           </Text>
+
+          <View style={styles.contributorStatsRow}>
+            <Text style={styles.contributorStatLine} numberOfLines={1}>
+              <Text style={styles.contributorRatingText}>⭐ {c.ratingAvg || 4.9}</Text>
+              <Text style={styles.contributorDotText}> • </Text>
+              <Text style={styles.contributorCookText}>🍳 {c.recipesCount} dishes</Text>
+            </Text>
+          </View>
         </View>
       ))}
     </ScrollView>
   </View>
 );
 
-const getRecipeImage = (img) => {
-  if (img && typeof img === 'string' && (img.startsWith('http') || img.startsWith('data:'))) {
-    return { uri: img };
+const RecipeThumbnail = ({ img, style }) => {
+  const [hasError, setHasError] = useState(false);
+  const fallback = require('../../assets/creamy_pumpkin_pasta.jpg');
+
+  if (hasError || !img) {
+    return <Image source={fallback} style={style} resizeMode="cover" />;
   }
-  return require('../../assets/creamy_pumpkin_pasta.jpg');
+
+  const src = (typeof img === 'string' && (img.startsWith('http') || img.startsWith('data:')))
+    ? { uri: img }
+    : fallback;
+
+  return (
+    <Image
+      source={src}
+      style={style}
+      resizeMode="cover"
+      onError={() => setHasError(true)}
+    />
+  );
+};
+
+const FeaturedDishCard = ({ featured, onSelectDish }) => {
+  const flamePulse = useRef(new Animated.Value(1)).current;
+  const cardScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(flamePulse, {
+          toValue: 1.28,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(flamePulse, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [flamePulse]);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: cardScale }] }}>
+      <TouchableOpacity
+        style={styles.featuredCard}
+        onPress={() => onSelectDish && onSelectDish(featured)}
+        onPressIn={() =>
+          Animated.spring(cardScale, {
+            toValue: 0.98,
+            useNativeDriver: true,
+          }).start()
+        }
+        onPressOut={() =>
+          Animated.spring(cardScale, {
+            toValue: 1,
+            friction: 4,
+            useNativeDriver: true,
+          }).start()
+        }
+        activeOpacity={0.92}
+      >
+        <RecipeThumbnail
+          img={featured.image || featured.image_url}
+          style={styles.featuredImage}
+        />
+
+        {/* #1 Trending Badge */}
+        <View style={styles.trendingRibbon}>
+          <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
+            <Ionicons name="flame" size={13} color="#FFFFFF" />
+          </Animated.View>
+          <Text style={styles.trendingRibbonText}>#1 TRENDING DISH</Text>
+        </View>
+
+        <View style={styles.ratingBadge}>
+          <Ionicons name="star" size={12} color="#F59E0B" />
+          <Text style={styles.ratingBadgeText}>{featured.rating || '4.9'}</Text>
+        </View>
+
+        <View style={styles.featuredInfo}>
+          <View style={styles.featuredInfoLeft}>
+            <Text style={styles.featuredTitle}>{featured.title || featured.name}</Text>
+            <View style={styles.metaRow}>
+              <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
+              <Text style={styles.metaText}>{featured.cookTime || featured.prepTime || '25m'}</Text>
+              <Text style={styles.metaText}> • </Text>
+              <Text style={styles.metaPrice}>Rs. {featured.estimatedCost || 850}</Text>
+              <Text style={styles.metaText}> • </Text>
+              <Text style={styles.metaText}>❤️ {featured.likesCount || 120}</Text>
+              <Text style={styles.metaText}> • </Text>
+              <Text style={styles.metaText}>🍳 {featured.cooksCount || 85} cooked</Text>
+            </View>
+          </View>
+          <View style={styles.plusBtn}>
+            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 };
 
 const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
@@ -327,46 +659,7 @@ const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
       </View>
 
       {featured && (
-        <TouchableOpacity
-          style={styles.featuredCard}
-          onPress={() => onSelectDish && onSelectDish(featured)}
-          activeOpacity={0.88}
-        >
-          <Image
-            source={getRecipeImage(featured.image || featured.image_url)}
-            style={styles.featuredImage}
-          />
-          
-          {/* #1 Trending Badge */}
-          <View style={styles.trendingRibbon}>
-            <Ionicons name="flame" size={13} color="#FFFFFF" />
-            <Text style={styles.trendingRibbonText}>#1 TRENDING DISH</Text>
-          </View>
-
-          <View style={styles.ratingBadge}>
-            <Ionicons name="star" size={12} color="#F59E0B" />
-            <Text style={styles.ratingBadgeText}>{featured.rating || '4.9'}</Text>
-          </View>
-
-          <View style={styles.featuredInfo}>
-            <View style={styles.featuredInfoLeft}>
-              <Text style={styles.featuredTitle}>{featured.title || featured.name}</Text>
-              <View style={styles.metaRow}>
-                <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
-                <Text style={styles.metaText}>{featured.cookTime || featured.prepTime || '25m'}</Text>
-                <Text style={styles.metaText}> • </Text>
-                <Text style={styles.metaPrice}>Rs. {featured.estimatedCost || 850}</Text>
-                <Text style={styles.metaText}> • </Text>
-                <Text style={styles.metaText}>❤️ {featured.likesCount || 120}</Text>
-                <Text style={styles.metaText}> • </Text>
-                <Text style={styles.metaText}>🍳 {featured.cooksCount || 85} cooked</Text>
-              </View>
-            </View>
-            <View style={styles.plusBtn}>
-              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-            </View>
-          </View>
-        </TouchableOpacity>
+        <FeaturedDishCard featured={featured} onSelectDish={onSelectDish} />
       )}
 
       {others.length > 0 && (
@@ -378,8 +671,8 @@ const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
               onPress={() => onSelectDish && onSelectDish(recipe)}
               activeOpacity={0.85}
             >
-              <Image
-                source={getRecipeImage(recipe.image || recipe.image_url)}
+              <RecipeThumbnail
+                img={recipe.image || recipe.image_url}
                 style={styles.smallCardImage}
               />
               <View style={styles.smallCardRating}>
@@ -403,8 +696,8 @@ const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
   );
 };
 
-const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
-  const { profile, isPremium } = useAccount();
+const HomeScreen = ({ onSelectRecipe, onMilestonePress, onOpenProfile }) => {
+  const { profile, isPremium, isPro, t } = useAccount();
   const [activeTab, setActiveTab] = useState('All');
   const [search, setSearch] = useState('');
   const [recipes, setRecipes] = useState([]);
@@ -412,7 +705,11 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
   const [recipeError, setRecipeError] = useState(null);
   const [weeklySavings, setWeeklySavings] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [gpsLocation, setGpsLocation] = useState('Colombo 07, LK');
+  const [gpsLocation, setGpsLocation] = useState(
+    locationService.getCachedLocation()?.formatted || 'Eheliyagoda, LK'
+  );
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [nearbyStores, setNearbyStores] = useState([]);
   const [aiModalVisible, setAiModalVisible] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [nearbyShopsVisible, setNearbyShopsVisible] = useState(false);
@@ -421,19 +718,53 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
   const [shopOwnerPortalVisible, setShopOwnerPortalVisible] = useState(false);
   const [selectedShopProfile, setSelectedShopProfile] = useState(null);
   const [shopProfileVisible, setShopProfileVisible] = useState(false);
-  
+
   // Advanced Filter state
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedCuisine, setSelectedCuisine] = useState('All');
   const [maxCookTime, setMaxCookTime] = useState(60);
   const [maxBudget, setMaxBudget] = useState(2000);
 
+  // Animated pulse for floating AI Chef button
+  const fabPulseAnim = useRef(new Animated.Value(1)).current;
   useEffect(() => {
-    locationService.getCurrentLocation().then((loc) => {
-      if (loc && loc.formatted) {
-        setGpsLocation(loc.formatted);
-      }
-    });
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(fabPulseAnim, {
+          toValue: 1.06,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fabPulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [fabPulseAnim]);
+
+  useEffect(() => {
+    locationService
+      .getCoordinates()
+      .then((loc) => {
+        if (loc && loc.formatted) {
+          setGpsLocation(loc.formatted);
+        }
+        if (loc && loc.latitude && loc.longitude) {
+          storeService
+            .getNearbyStores(loc.latitude, loc.longitude, { city: loc.city })
+            .then((stores) => {
+              if (Array.isArray(stores) && stores.length > 0) {
+                setNearbyStores(stores.slice(0, 8));
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const fetchHomeData = useCallback(async () => {
@@ -453,7 +784,7 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
 
       setRecipes(recipesList);
       if (savingsRes) {
-        setWeeklySavings(savingsRes.weekly_saved || savingsRes.this_month || 1250);
+        setWeeklySavings(savingsRes.weekly_saved ?? savingsRes.this_month ?? profile?.moneySaved ?? 0);
       }
     } catch (err) {
       setRecipeError(err.message || 'API connection note');
@@ -496,37 +827,44 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
           }
         >
           <Header
-            userName={profile.name}
+            profile={profile}
             isPremium={isPremium}
+            isPro={isPro}
             gpsLocation={gpsLocation}
+            locationLoading={locationLoading}
             onOpenPremium={() => setPremiumModalVisible(true)}
-            onOpenAI={() => setAiModalVisible(true)}
+            onOpenProfile={onOpenProfile}
+            t={t}
           />
-          
+
           <SearchAndFilterBar
             search={search}
             onSearchChange={setSearch}
             onOpenFilter={() => setFilterModalVisible(true)}
             onOpenAI={() => setAiModalVisible(true)}
             activeFilterCount={activeFilterCount}
+            t={t}
           />
 
           {/* Elevated Cute Milestone Banner */}
           <MilestoneBanner
             onPress={onMilestonePress}
-            savingsAmount={weeklySavings || profile.moneySaved || 1250}
-            streakDays={profile.streakDays || 5}
+            savingsAmount={weeklySavings || profile?.moneySaved || 0}
+            streakDays={profile?.streakDays || 0}
+            t={t}
           />
 
-          <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          <MealFilterTabs activeTab={activeTab} onTabChange={setActiveTab} t={t} />
 
           <LocalMerchantHub
+            stores={nearbyStores}
             onFindShops={() => setNearbyShopsVisible(true)}
             onRegisterShop={() => setShopOwnerPortalVisible(true)}
             onSelectShop={(st) => {
               setSelectedShopProfile(st);
               setShopProfileVisible(true);
             }}
+            t={t}
           />
 
           <PopularDishes
@@ -685,6 +1023,20 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress }) => {
             </View>
           </View>
         </Modal>
+
+        {/* Animated Floating Chef TeteAssistant */}
+        <Animated.View style={[styles.floatingAiFabWrap, { transform: [{ scale: fabPulseAnim }] }]}>
+          <TouchableOpacity
+            style={styles.floatingAiFab}
+            onPress={() => setAiModalVisible(true)}
+            activeOpacity={0.88}
+          >
+            <View style={styles.fabIconWrap}>
+              <MaterialCommunityIcons name="chef-hat" size={18} color="#FFFFFF" />
+            </View>
+            <Text style={styles.floatingAiFabText}>Ask Tete👨‍🍳</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     </SafeAreaView>
   );
@@ -712,30 +1064,97 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
     gap: 10,
+    marginRight: 8,
+  },
+  avatarTouch: {
+    position: 'relative',
+    flexShrink: 0,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
     borderColor: '#DCFCE7',
   },
+  initialsAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#007A3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#007A3D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  initialsText: {
+    fontSize: 16.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  greetingWrap: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  greetingSub: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#007A3D',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
+    marginVertical: 1,
+  },
   greeting: {
-    fontSize: 16,
+    fontSize: 17.5,
     fontWeight: '800',
     color: '#111827',
+    letterSpacing: -0.3,
+  },
+  waveWrap: {
+    width: 22,
+    height: 22,
+    marginLeft: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  wave: {
+    fontSize: 16,
   },
   gpsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 2,
+    marginTop: 1,
+    flexWrap: 'nowrap',
+  },
+  locationLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexWrap: 'nowrap',
+  },
+  gpsLocationLoadingText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#007A3D',
+    fontStyle: 'italic',
   },
   gpsLocationText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '600',
-    color: '#007A3D',
+    color: '#4B5563',
   },
   gpsLiveDot: {
     width: 6,
@@ -743,59 +1162,79 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: '#10B981',
     marginLeft: 2,
-  },
-  wave: {
-    fontSize: 16,
+    flexShrink: 0,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  aiHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-  },
-  aiHeaderBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#007A3D',
+    flexShrink: 0,
   },
   crownNavBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-    gap: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 16,
+    gap: 5,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
   crownNavBtnText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '800',
     color: '#D97706',
+    letterSpacing: 0.2,
   },
   premiumHeaderTag: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 12,
     gap: 4,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
   premiumHeaderTagText: {
     fontSize: 10,
     fontWeight: '800',
     color: '#92400E',
     letterSpacing: 0.5,
+  },
+  headerBellBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    zIndex: 10,
+  },
+  bellBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '800',
+    lineHeight: 11,
   },
   searchRow: {
     flexDirection: 'row',
@@ -814,6 +1253,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     gap: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
@@ -822,15 +1266,21 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   searchAiBtn: {
-    padding: 2,
+    padding: 4,
   },
   filterBtn: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  filterBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   filterBadge: {
     position: 'absolute',
@@ -860,13 +1310,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
     marginTop: 4,
     marginBottom: 14,
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 16,
     shadowColor: '#007A3D',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowRadius: 10,
+    elevation: 3,
   },
   milestoneLeft: {
     flex: 1,
@@ -874,28 +1324,66 @@ const styles = StyleSheet.create({
   milestoneHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginBottom: 2,
+    gap: 7,
+    marginBottom: 4,
   },
-  milestoneTitle: {
-    fontSize: 11,
+  milestoneTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 8,
+  },
+  milestoneTagText: {
+    fontSize: 10,
     fontWeight: '800',
     color: '#007A3D',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
+  },
+  streakPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 8,
+  },
+  streakPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#B45309',
   },
   milestoneSavings: {
-    fontSize: 15.5,
+    fontSize: 16,
     fontWeight: '800',
     color: '#111827',
-    lineHeight: 21,
-    marginVertical: 2,
+    lineHeight: 22,
+    marginVertical: 4,
   },
   milestoneFlame: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#D97706',
-    marginTop: 2,
+    fontSize: 12,
+  },
+  miniProgressTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#D1FAE5',
+    overflow: 'hidden',
+    marginTop: 3,
+    marginBottom: 4,
+    width: '92%',
+  },
+  miniProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: '#007A3D',
+  },
+  miniProgressText: {
+    fontSize: 10.5,
+    color: '#047857',
+    fontWeight: '600',
   },
   trendCircle: {
     width: 44,
@@ -910,6 +1398,44 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
     marginLeft: 12,
+  },
+
+  // ── Floating AI Chef FAB ──
+  floatingAiFabWrap: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 24 : 16,
+    right: 16,
+    zIndex: 999,
+  },
+  floatingAiFab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#007A3D',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+    gap: 8,
+    shadowColor: '#007A3D',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1.5,
+    borderColor: '#34D399',
+  },
+  fabIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingAiFabText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
 
   // Meal Filter Tabs
@@ -1156,16 +1682,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.primary,
   },
-  communityHeartPill: {
-    backgroundColor: '#E8F8F0',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+  sectionHeaderTitleWrap: {
+    flex: 1,
+    marginRight: 8,
   },
-  communityHeartText: {
+  communityVerifiedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 8,
+    flexShrink: 0,
+  },
+  communityVerifiedText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#007A3D',
+    color: '#0284C7',
   },
 
   // Featured Dish Card
@@ -1321,83 +1855,90 @@ const styles = StyleSheet.create({
   // Contributors
   contributorsRow: {
     paddingVertical: 6,
-    gap: 10,
+    gap: 12,
   },
   contributorCard: {
-    width: 148,
+    width: 156,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 12,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    shadowColor: 'rgba(0,0,0,0.02)',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   contributorAvatarWrap: {
-    position: 'relative',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   contributorAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 1.5,
-    borderColor: '#DCFCE7',
-  },
-  verifiedChefDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#007A3D',
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#E5E7EB',
   },
   contributorNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
+    width: '100%',
   },
   contributorName: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
     color: '#111827',
+    maxWidth: 110,
     textAlign: 'center',
   },
   contributorBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 6,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
-    marginVertical: 4,
+    marginTop: 4,
+    marginBottom: 3,
   },
   contributorBadgeText: {
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#166534',
+    color: '#007A3D',
   },
   contributorSpecialty: {
-    fontSize: 10,
+    fontSize: 10.5,
     color: '#6B7280',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  contributorStats: {
-    fontSize: 10,
+  contributorStatsRow: {
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contributorStatLine: {
+    fontSize: 10.5,
+    textAlign: 'center',
+  },
+  contributorRatingText: {
+    fontSize: 10.5,
+    fontWeight: '700',
     color: '#4B5563',
+  },
+  contributorDotText: {
+    fontSize: 10.5,
+    color: '#9CA3AF',
+  },
+  contributorCookText: {
+    fontSize: 10.5,
     fontWeight: '600',
-    marginTop: 2,
+    color: '#4B5563',
   },
 
   // Floating AI Chef FAB

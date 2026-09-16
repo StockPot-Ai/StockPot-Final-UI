@@ -24,12 +24,12 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_PADDING = 16;
 
 const DEFAULT_TREND = [
-  { month: 'Jan', amount: 1200 },
-  { month: 'Feb', amount: 1800 },
-  { month: 'Mar', amount: 1500 },
-  { month: 'Apr', amount: 2200 },
-  { month: 'May', amount: 2400 },
-  { month: 'Jun', amount: 2850 },
+  { month: 'Apr', amount: 0 },
+  { month: 'May', amount: 0 },
+  { month: 'Jun', amount: 0 },
+  { month: 'Jul', amount: 0 },
+  { month: 'Aug', amount: 0 },
+  { month: 'Sep', amount: 0 },
 ];
 
 const CHALLENGES = [
@@ -409,23 +409,23 @@ export default function SavingsDashboard({ onBack }) {
   const [challengeModalVisible, setChallengeModalVisible] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [stats, setStats] = useState({
-    totalSaved: profile.moneySaved || 5450,
+    totalSaved: profile.moneySaved || 0,
     goal: budget.savingsGoal || 20000,
-    thisMonth: 5450,
-    weeklyAvg: 1450,
-    foodWasteAvoided: profile.wasteAvoided || 4.8,
-    mealsPlanned: 24,
-    avgTripSaving: 460,
-    weeklySpend: 3850,
+    thisMonth: profile.moneySaved || 0,
+    weeklyAvg: 0,
+    foodWasteAvoided: profile.wasteAvoided || 0,
+    mealsPlanned: 0,
+    avgTripSaving: 0,
+    weeklySpend: 0,
     weeklyBudget: budget.weeklyBudget || 10000,
   });
   const [trend, setTrend] = useState(DEFAULT_TREND);
   const [gamificationData, setGamificationData] = useState({
-    xp: 450,
-    currentLevel: { level: 2, name: 'Home Cook', minXp: 200, maxXp: 500, icon: 'utensils' },
-    nextLevel: { level: 3, name: 'Kitchen Pro', minXp: 500, maxXp: 1000, icon: 'award' },
-    progressPct: 83,
-    streakDays: 5,
+    xp: profile.currentXp || 0,
+    currentLevel: { level: 1, name: 'Recipe Starter', minXp: 0, maxXp: 200, icon: 'seedling' },
+    nextLevel: { level: 2, name: 'Home Cook', minXp: 200, maxXp: 500, icon: 'utensils' },
+    progressPct: 0,
+    streakDays: profile.streakDays || 0,
     badges: [],
   });
   const [activityLogs, setActivityLogs] = useState([]);
