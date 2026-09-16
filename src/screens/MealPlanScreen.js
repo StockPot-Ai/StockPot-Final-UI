@@ -367,7 +367,7 @@ export default function MealPlanScreen({
                     <View style={styles.mealCardContent}>
                       <Text style={styles.mealTitle} numberOfLines={2}>{meal.title}</Text>
                       <Text style={styles.mealIngredients} numberOfLines={1}>
-                        🧺 {meal.ingredients}
+                        🧺 {typeof meal.ingredients === 'string' ? meal.ingredients : (Array.isArray(meal.ingredients) ? meal.ingredients.map((i) => typeof i === 'string' ? i : (i.name || i.title || 'Ingredient')).join(', ') : '')}
                       </Text>
                       <View style={styles.mealMetaRow}>
                         <Text style={styles.mealMetaText}>⏱️ {meal.time}</Text>

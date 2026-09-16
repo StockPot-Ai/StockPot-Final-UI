@@ -19,36 +19,141 @@ import AddToMealPlanBar from '../components/ingredient/AddToMealPlanBar';
 import RecipeReportModal from '../components/recipe/RecipeReportModal';
 import { recipeService, mealPlanService, gamificationService } from '../services';
 
+export const normalizeIngredients = (rawIngredients, defaultCost = 150) => {
+  if (!rawIngredients) return [];
+
+  // Case 1: Comma-separated string (e.g. from meal plan schedule: "Rice flour, eggs, onions, chili")
+  if (typeof rawIngredients === 'string') {
+    return rawIngredients
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((name, idx) => ({
+        id: `ing-${idx}`,
+        name,
+        baseQuantity: 100,
+        unit: 'g',
+        baseCost: defaultCost,
+        inPantry: true,
+        iconName: 'food-apple',
+        iconLib: 'MaterialCommunityIcons',
+      }));
+  }
+
+  // Case 2: Array of items (either strings or objects)
+  if (Array.isArray(rawIngredients)) {
+    return rawIngredients
+      .filter(Boolean)
+      .map((ing, idx) => {
+        if (typeof ing === 'string') {
+          return {
+            id: `ing-${idx}`,
+            name: ing.trim(),
+            baseQuantity: 100,
+            unit: 'g',
+            baseCost: defaultCost,
+            inPantry: true,
+            iconName: 'food-apple',
+            iconLib: 'MaterialCommunityIcons',
+          };
+        }
+
+        const name = ing.name || ing.ingredient_name || ing.title || `Ingredient ${idx + 1}`;
+        const rawQty = ing.quantity != null ? ing.quantity : 100;
+        let baseQty = 100;
+        let unit = ing.unit || 'g';
+
+        if (typeof rawQty === 'number') {
+          baseQty = Math.round(rawQty) || 100;
+        } else if (typeof rawQty === 'string') {
+          const parsed = parseFloat(rawQty);
+          if (!isNaN(parsed)) baseQty = parsed;
+          const extractedUnit = rawQty.replace(/[0-9.]/g, '').trim();
+          if (extractedUnit && !ing.unit) {
+            unit = extractedUnit;
+          }
+        }
+
+        const baseCost = Number(ing.estimatedPrice ?? ing.base_cost ?? ing.cost ?? ing.price) || defaultCost;
+
+        return {
+          id: String(ing.id || ing.ingredient_id || ing.productId || `ing-${idx}`),
+          name: String(name),
+          baseQuantity: baseQty,
+          unit: unit || 'g',
+          baseCost,
+          inPantry: ing.inPantry !== false,
+          iconName: ing.iconName || 'food-apple',
+          iconLib: ing.iconLib || 'MaterialCommunityIcons',
+          iconBg: ing.iconBg,
+          iconColor: ing.iconColor,
+        };
+      });
+  }
+
+  return [];
+};
+
 export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCompare }) {
   const [data, setData] = useState(recipe || {});
-  const [servings, setServings] = useState(recipe?.servings || 4);
-  const [ingredients, setIngredients] = useState(recipe?.ingredients || []);
+  const [servings, setServings] = useState(recipe?.servings || recipe?.base_servings || 4);
+  const [ingredients, setIngredients] = useState(() =>
+    normalizeIngredients(recipe?.ingredients, Math.round((recipe?.estimatedCost || recipe?.price || 600) / 4))
+  );
   const [loading, setLoading] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [hasCooked, setHasCooked] = useState(false);
-  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedIds, setSelectedIds] = useState(() =>
+    normalizeIngredients(recipe?.ingredients, Math.round((recipe?.estimatedCost || recipe?.price || 600) / 4)).map((i) => i.id)
+  );
   const [reportModalVisible, setReportModalVisible] = useState(false);
 
   useEffect(() => {
-    if (recipe) {
-      setData(recipe);
-      if (recipe.ingredients && recipe.ingredients.length > 0) {
-        setIngredients(
-          recipe.ingredients.map((ing, idx) => ({
-            id: ing.id || `ing-${idx}`,
-            name: ing.name || ing.ingredient_name,
-            baseQuantity: parseInt(ing.quantity) || 100,
-            unit: ing.unit || ing.quantity?.replace(/[0-9]/g, '').trim() || 'g',
-            baseCost: ing.estimatedPrice || ing.base_cost || 150,
-            inPantry: true,
-            iconName: 'food-apple',
-            iconLib: 'MaterialCommunityIcons',
-          }))
-        );
-        setSelectedIds(recipe.ingredients.map((_, idx) => `ing-${idx}`));
-      }
+    if (!recipe) return;
+
+    setData(recipe);
+    if (recipe.servings || recipe.base_servings) {
+      setServings(recipe.servings || recipe.base_servings);
+    }
+
+    const norm = normalizeIngredients(
+      recipe.ingredients,
+      Math.round((recipe.estimatedCost || recipe.price || 600) / 4)
+    );
+    if (norm.length > 0) {
+      setIngredients(norm);
+      setSelectedIds(norm.map((i) => i.id));
+    }
+
+    // If recipe has an ID and needs full details (e.g. from backend API list which doesn't include ingredients/steps)
+    if (recipe.id && (norm.length === 0 || !recipe.steps || recipe.steps.length === 0)) {
+      setLoading(true);
+      recipeService
+        .getRecipeById(recipe.id)
+        .then((full) => {
+          if (full) {
+            setData((prev) => ({ ...prev, ...full }));
+            if (full.servings || full.base_servings) {
+              setServings(full.servings || full.base_servings);
+            }
+            const fullNorm = normalizeIngredients(
+              full.ingredients,
+              Math.round((full.estimatedCost || 600) / 4)
+            );
+            if (fullNorm.length > 0) {
+              setIngredients(fullNorm);
+              setSelectedIds(fullNorm.map((i) => i.id));
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('[IngredientScreen] Failed to fetch full recipe details:', err?.message || err);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }
   }, [recipe]);
 
@@ -57,23 +162,32 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
   };
 
   const handleToggleItem = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    setSelectedIds((prev) => {
+      const safePrev = Array.isArray(prev) ? prev : [];
+      return safePrev.includes(id)
+        ? safePrev.filter((item) => item !== id)
+        : [...safePrev, id];
+    });
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === ingredients.length) {
+    const safeIngredients = Array.isArray(ingredients) ? ingredients : [];
+    const safeSelectedIds = Array.isArray(selectedIds) ? selectedIds : [];
+    if (safeSelectedIds.length === safeIngredients.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(ingredients.map((i) => i.id));
+      setSelectedIds(safeIngredients.map((i) => i.id));
     }
   };
 
+  const baseServings = Number(data?.servings || recipe?.servings || recipe?.base_servings) || 4;
+  const safeIngredients = Array.isArray(ingredients) ? ingredients : [];
+  const safeSelectedIds = Array.isArray(selectedIds) ? selectedIds : [];
+
   const totalCost = Math.round(
-    ingredients
-      .filter((item) => selectedIds.includes(item.id))
-      .reduce((acc, item) => acc + ((item.baseCost || 150) * servings) / (recipe?.servings || 4), 0)
+    safeIngredients
+      .filter((item) => item && safeSelectedIds.includes(item.id))
+      .reduce((acc, item) => acc + ((Number(item.baseCost) || 150) * (servings || 1)) / (baseServings || 4), 0)
   );
 
   const handleLike = async () => {
@@ -96,26 +210,26 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
   const handleMarkCooked = async () => {
     setHasCooked(true);
     await recipeService.recordCook(data);
-    Alert.alert('🍳 Cook Logged!', `Awesome work chef! You prepared ${data.title}.\n\n🏆 You earned +15 XP!`);
+    Alert.alert('🍳 Cook Logged!', `Awesome work chef! You prepared ${data.title || data.name}.\n\n🏆 You earned +15 XP!`);
   };
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Check out "${data.title}" on StockPot AI! Cook for ~Rs. ${totalCost} (${servings} servings).`,
+        message: `Check out "${data.title || data.name}" on StockPot AI! Cook for ~Rs. ${totalCost} (${servings} servings).`,
       });
     } catch (_) {}
   };
 
   const handleCompare = () => {
     if (!onCompare) return;
-    const items = ingredients
-      .filter((item) => selectedIds.includes(item.id))
+    const items = safeIngredients
+      .filter((item) => item && safeSelectedIds.includes(item.id))
       .map((item) => ({
         id: item.id,
         name: item.name,
-        quantity: `${Math.round(((item.baseQuantity * servings) / (recipe?.servings || 4)) * 10) / 10} ${item.unit}`,
-        cost: Math.round(((item.baseCost || 150) * servings) / (recipe?.servings || 4)),
+        quantity: `${Math.round((((item.baseQuantity || 100) * servings) / (baseServings || 4)) * 10) / 10} ${item.unit || 'g'}`,
+        cost: Math.round(((Number(item.baseCost) || 150) * servings) / (baseServings || 4)),
       }));
     onCompare(items);
   };
@@ -207,17 +321,28 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
         {/* Servings Stepper */}
         <ServingsControl servings={servings} onServingsChange={handleServingsChange} min={1} max={10} />
 
+        {/* Loading indicator if fetching ingredients from backend */}
+        {loading && safeIngredients.length === 0 && (
+          <View style={{ paddingVertical: 24, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+            <Text style={{ marginTop: 8, fontSize: 13, color: '#6B7280' }}>
+              Fetching ingredients & recipe details...
+            </Text>
+          </View>
+        )}
+
         {/* Ingredients List */}
         <IngredientList
-          ingredients={ingredients}
+          ingredients={safeIngredients}
           servings={servings}
-          selectedIds={selectedIds}
+          baseServings={baseServings}
+          selectedIds={safeSelectedIds}
           onToggleItem={handleToggleItem}
           onSelectAll={handleSelectAll}
         />
 
         {/* Step by Step Cooking Directions */}
-        {data.steps && data.steps.length > 0 && (
+        {data.steps && Array.isArray(data.steps) && data.steps.length > 0 && (
           <View style={styles.stepsCard}>
             <Text style={styles.stepsTitle}>Cooking Directions</Text>
             {data.steps.map((st, idx) => (
@@ -225,7 +350,9 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
                 <View style={styles.stepNum}>
                   <Text style={styles.stepNumText}>{idx + 1}</Text>
                 </View>
-                <Text style={styles.stepDesc}>{st}</Text>
+                <Text style={styles.stepDesc}>
+                  {typeof st === 'string' ? st : (st?.description || st?.step || JSON.stringify(st))}
+                </Text>
               </View>
             ))}
           </View>

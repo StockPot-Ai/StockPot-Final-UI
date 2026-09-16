@@ -292,7 +292,7 @@ export const recipeService = {
         all = [...JSON.parse(stored), ...all];
       }
     } catch (_) { }
-    return all.find((r) => r.id === id) || RECIPES[0];
+    return all.find((r) => r.id === id) || null;
   },
 
   likeRecipe: async (id) => {

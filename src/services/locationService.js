@@ -25,7 +25,7 @@ let cachedLocation = { ...DEFAULT_LOCATION };
         cachedLocation = { ...DEFAULT_LOCATION, ...parsed };
       }
     }
-  } catch (_) {}
+  } catch (_) { }
 })();
 
 // Helper to race a promise against a timeout
@@ -75,7 +75,7 @@ export const locationService = {
           if (last && last.coords) {
             coords = last.coords;
           }
-        } catch (_) {}
+        } catch (_) { }
 
         // If no last known position, try active position with Low accuracy (fast lock)
         if (!coords) {
@@ -88,7 +88,7 @@ export const locationService = {
             if (current && current.coords) {
               coords = current.coords;
             }
-          } catch (_) {}
+          } catch (_) { }
         }
       }
 
@@ -117,7 +117,7 @@ export const locationService = {
               formatted = `${region}, ${countryCode}`;
             }
           }
-        } catch (_) {}
+        } catch (_) { }
 
         // Fallback reverse geocode via OpenStreetMap Nominatim
         if (!formatted) {
@@ -141,7 +141,7 @@ export const locationService = {
                 formatted = `${city}, ${countryCode}`;
               }
             }
-          } catch (_) {}
+          } catch (_) { }
         }
 
         // If city still couldn't be resolved by name, check proximity to known Sri Lankan hubs
@@ -156,14 +156,14 @@ export const locationService = {
         cachedLocation = {
           latitude,
           longitude,
-          city: city || 'Eheliyagoda',
+          city: city || DEFAULT_LOCATION.city,
           region: region || 'LK',
           country: 'Sri Lanka',
-          formatted: formatted || `${city || 'Eheliyagoda'}, LK`,
+          formatted: formatted || `${city || DEFAULT_LOCATION.city}, LK`,
           isGps: true,
         };
 
-        AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
+        AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => { });
         return cachedLocation;
       }
 
@@ -185,11 +185,11 @@ export const locationService = {
               formatted: `${ipData.city || DEFAULT_LOCATION.city}, LK`,
               isGps: false,
             };
-            AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
+            AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => { });
             return cachedLocation;
           }
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // Return default location if all else fails (never returns null)
       return cachedLocation || DEFAULT_LOCATION;
@@ -205,7 +205,7 @@ export const locationService = {
     // If cached location already has valid coordinates and is less than 30 mins old, return immediately
     if (cachedLocation && cachedLocation.latitude && cachedLocation.longitude && cachedLocation.formatted) {
       // Trigger background refresh without blocking
-      locationService.getCurrentLocation().catch(() => {});
+      locationService.getCurrentLocation().catch(() => { });
       return {
         latitude: cachedLocation.latitude,
         longitude: cachedLocation.longitude,
@@ -246,7 +246,7 @@ export const locationService = {
       formatted: `${cityName}, LK`,
       isGps: false,
     };
-    await AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
+    await AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => { });
     return cachedLocation;
   },
 };
