@@ -2,8 +2,8 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '../utils/safeStorage';
 
-// Local IP or Tunnel URL (e.g. '192.168.1.4' or 'https://your-tunnel.loca.lt'):
-const DEV_LAN_IP = '172.22.0.103';
+// Production Live Backend URL on Railway:
+export const PRODUCTION_API_URL = 'https://stockpot-ai-mobile-backend-final-production.up.railway.app/api';
 
 const isIPv4 = (str) => {
   if (!str) return false;
@@ -16,7 +16,7 @@ const isIPv4 = (str) => {
 };
 
 export const formatApiUrl = (input) => {
-  if (!input) return 'http://localhost:5000/api';
+  if (!input) return PRODUCTION_API_URL;
   let clean = String(input).trim();
   if (clean.startsWith('http://') || clean.startsWith('https://')) {
     if (clean.endsWith('/')) clean = clean.slice(0, -1);
@@ -28,38 +28,32 @@ export const formatApiUrl = (input) => {
   return `http://${clean}:5000/api`;
 };
 
-// Dynamically extract host IP only if it's a valid local IPv4 (not an exp.direct/ngrok tunnel domain)
-const getHostIp = () => {
-  if (DEV_LAN_IP.startsWith('http://') || DEV_LAN_IP.startsWith('https://')) {
-    return DEV_LAN_IP;
-  }
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const rawHost = hostUri.split(':')[0];
-    if (isIPv4(rawHost) && rawHost !== 'localhost' && rawHost !== '127.0.0.1') {
-      return rawHost;
-    }
-  }
-  return DEV_LAN_IP;
-};
-
-const DEFAULT_HOST = getHostIp();
-
 export const API_URL_STORAGE_KEY = '@stockpot_custom_api_url';
 
-let customBaseUrl = Platform.select({
-  web: 'http://localhost:5000/api',
-  android: formatApiUrl(DEFAULT_HOST),
-  ios: formatApiUrl(DEFAULT_HOST),
-  default: formatApiUrl(DEFAULT_HOST),
-});
+let customBaseUrl = PRODUCTION_API_URL;
 
-// Immediately load saved custom server URL if previously configured
+// Immediately load saved custom server URL if previously configured,
+// but automatically migrate away from stale local development IPs to Railway Production:
 AsyncStorage.getItem(API_URL_STORAGE_KEY)
   .then((saved) => {
     if (saved && typeof saved === 'string' && saved.startsWith('http')) {
-      customBaseUrl = saved;
-      console.log('[API] Restored saved Base URL:', customBaseUrl);
+      const isStaleLocal =
+        saved.includes('172.22.') ||
+        saved.includes('192.168.') ||
+        saved.includes('10.4.2.') ||
+        saved.includes('localhost') ||
+        saved.includes('127.0.0.1');
+
+      if (isStaleLocal) {
+        customBaseUrl = PRODUCTION_API_URL;
+        AsyncStorage.setItem(API_URL_STORAGE_KEY, PRODUCTION_API_URL).catch(() => {});
+        console.log('[API] Upgraded stale local IP to Railway Production URL:', customBaseUrl);
+      } else {
+        customBaseUrl = formatApiUrl(saved);
+        console.log('[API] Using saved Base URL:', customBaseUrl);
+      }
+    } else {
+      AsyncStorage.setItem(API_URL_STORAGE_KEY, PRODUCTION_API_URL).catch(() => {});
     }
   })
   .catch(() => { });
