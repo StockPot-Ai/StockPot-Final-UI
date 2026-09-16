@@ -24,6 +24,7 @@ const SHOP_PRODUCTS_KEY = '@stockpot_shop_products';
 const PRICE_HISTORY_KEY = '@stockpot_price_history';
 const SHOP_DISCOUNTS_KEY = '@stockpot_shop_discounts';
 const FAVOURITE_SHOPS_KEY = '@stockpot_favourite_shops';
+const LOCAL_SAVINGS_KEY = '@stockpot_local_savings';
 
 // Helper: Haversine distance in km between two lat/lng points
 export const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -809,8 +810,10 @@ export const smartBasketService = {
   },
 
   // Calculate cheapest single store vs split multi-store strategy
-  optimizeBasket: (basketItems = [], preferences = { maxStores: 3, minSavings: 150 }) => {
+  // liveDiscounts: optional array of discounts fetched from API (overrides seed DISCOUNTS)
+  optimizeBasket: (basketItems = [], preferences = { maxStores: 3, minSavings: 150 }, liveDiscounts = null) => {
     const stores = STORES;
+    const discountSource = (liveDiscounts && liveDiscounts.length > 0) ? liveDiscounts : DISCOUNTS;
     const singleStoreTotals = {};
 
     stores.forEach((store) => {
@@ -821,8 +824,8 @@ export const smartBasketService = {
         const prod = item.matchedProduct || PRODUCTS[0];
         const basePrice = prod.prices[store.id] || 450;
 
-        // Apply discount if exists
-        const disc = DISCOUNTS.find((d) => d.storeId === store.id && d.productId === prod.id);
+        // Apply discount if exists (uses live API discounts when available)
+        const disc = discountSource.find((d) => d.storeId === store.id && d.productId === prod.id);
         const finalPrice = disc ? disc.discountedPrice : basePrice;
 
         total += finalPrice;
@@ -859,7 +862,7 @@ export const smartBasketService = {
 
       stores.forEach((store) => {
         const basePrice = prod.prices[store.id] || 450;
-        const disc = DISCOUNTS.find((d) => d.storeId === store.id && d.productId === prod.id);
+        const disc = discountSource.find((d) => d.storeId === store.id && d.productId === prod.id);
         const price = disc ? disc.discountedPrice : basePrice;
 
         if (price < lowestPrice) {
@@ -1318,21 +1321,78 @@ export const mealPlanService = {
 // ── Savings Service ──────────────────────────────────────────────────────────
 export const savingsService = {
   getSummary: async () => {
+    // Load locally tracked savings first
+    let localData = { total_saved: 0, this_month: 0, weekly_saved: 0, comparisons_count: 0, avg_trip_saving: 0 };
+    try {
+      const stored = await AsyncStorage.getItem(LOCAL_SAVINGS_KEY);
+      if (stored) localData = { ...localData, ...JSON.parse(stored) };
+    } catch (_) {}
+
     try {
       const res = await apiClient.get('/savings/summary');
-      if (res?.data) return res.data;
-      if (res?.total_saved !== undefined) return res;
-    } catch (_) { }
+      const apiData = res?.data || (res?.total_saved !== undefined ? res : null);
+      if (apiData) {
+        // Merge: use whichever is higher for each metric
+        return {
+          ...apiData,
+          total_saved: Math.max(apiData.total_saved || 0, localData.total_saved),
+          this_month: Math.max(apiData.this_month || 0, localData.this_month),
+          weekly_saved: Math.max(apiData.weekly_saved || 0, localData.weekly_saved),
+          comparisons_count: Math.max(apiData.comparisons_count || 0, localData.comparisons_count),
+          avg_trip_saving: Math.max(apiData.avg_trip_saving || 0, localData.avg_trip_saving),
+        };
+      }
+    } catch (_) {}
+
     return {
       weekly_budget: 10000,
-      weekly_saved: 0,
-      this_month: 0,
-      total_saved: 0,
-      comparisons_count: 0,
+      weekly_saved: localData.weekly_saved || 0,
+      this_month: localData.this_month || 0,
+      total_saved: localData.total_saved || 0,
+      comparisons_count: localData.comparisons_count || 0,
       meals_planned: 0,
-      cheapest_store_used: '',
-      avg_trip_saving: 0,
+      cheapest_store_used: localData.cheapest_store_used || '',
+      avg_trip_saving: localData.avg_trip_saving || 0,
     };
+  },
+
+  // Record a savings event (called from RetailComparingScreen when user applies split basket)
+  recordSaving: async (amountSaved, storeName = '') => {
+    try {
+      const stored = await AsyncStorage.getItem(LOCAL_SAVINGS_KEY);
+      const current = stored ? JSON.parse(stored) : {
+        total_saved: 0, this_month: 0, weekly_saved: 0,
+        comparisons_count: 0, avg_trip_saving: 0, cheapest_store_used: '',
+        last_month: new Date().getMonth(),
+        last_week: Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000)),
+      };
+
+      // Reset monthly/weekly counters when period changes
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentWeek = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+      if (current.last_month !== currentMonth) {
+        current.this_month = 0;
+        current.last_month = currentMonth;
+      }
+      if (current.last_week !== currentWeek) {
+        current.weekly_saved = 0;
+        current.last_week = currentWeek;
+      }
+
+      current.total_saved = (current.total_saved || 0) + amountSaved;
+      current.this_month = (current.this_month || 0) + amountSaved;
+      current.weekly_saved = (current.weekly_saved || 0) + amountSaved;
+      current.comparisons_count = (current.comparisons_count || 0) + 1;
+      const count = current.comparisons_count;
+      current.avg_trip_saving = Math.round(current.total_saved / count);
+      if (storeName) current.cheapest_store_used = storeName;
+
+      await AsyncStorage.setItem(LOCAL_SAVINGS_KEY, JSON.stringify(current));
+      return { success: true, total_saved: current.total_saved };
+    } catch (_) {
+      return { success: false };
+    }
   },
 };
 

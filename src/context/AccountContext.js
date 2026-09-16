@@ -280,7 +280,12 @@ export const AccountProvider = ({ children }) => {
 
   // ── Profile Actions
   const updateProfile = async (fields) => {
-    setProfile((prev) => ({ ...prev, ...fields }));
+    // Optimistically update state + persist locally so changes survive app restart
+    setProfile((prev) => {
+      const next = { ...prev, ...fields };
+      AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
     try {
       await profileService.updateProfile({
         full_name: fields.name,

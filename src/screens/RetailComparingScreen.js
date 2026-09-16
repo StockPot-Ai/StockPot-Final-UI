@@ -68,8 +68,8 @@ export default function RetailComparingScreen({ items = [], onBack }) {
     return smartBasketService.optimizeBasket(basketItems, {
       maxStores,
       minSavings,
-    });
-  }, [basketItems, maxStores, minSavings]);
+    }, discounts.length > 0 ? discounts : null);
+  }, [basketItems, maxStores, minSavings, discounts]);
 
   const { cheapestSingleStore, sortedSingleStores, splitStrategy } = optimization;
 
@@ -115,14 +115,20 @@ export default function RetailComparingScreen({ items = [], onBack }) {
 
   const handleApplySplitSavings = async () => {
     if (splitStrategy.potentialSavings > 0) {
+      const savedAmount = splitStrategy.potentialSavings;
+      const storeName = splitStrategy.storesInvolved?.[0]?.name || '';
+
+      // Record savings locally so the Savings Dashboard is updated
+      await savingsService.recordSaving(savedAmount, storeName);
+
       await gamificationService.awardXp(
         25,
-        `Saved Rs. ${splitStrategy.potentialSavings} with Split-Basket`,
+        `Saved Rs. ${savedAmount} with Split-Basket`,
         `Optimized between ${splitStrategy.storesInvolved.length} nearby stores!`
       );
       Alert.alert(
         '🎉 Savings Applied!',
-        `You unlocked Rs. ${splitStrategy.potentialSavings} in estimated grocery savings!\n\n🏆 You earned +25 XP!`,
+        `You unlocked Rs. ${savedAmount} in estimated grocery savings!\n\n🏆 You earned +25 XP!`,
         [{ text: 'Great!' }]
       );
     }

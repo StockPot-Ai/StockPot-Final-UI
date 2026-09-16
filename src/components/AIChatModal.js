@@ -354,7 +354,7 @@ export default function AIChatModal({ visible, onClose }) {
               </View>
             </ScrollView>
           ) : (
-            <>
+            <View style={{ flex: 1 }}>
               {/* Chat Messages */}
               <ScrollView
                 ref={scrollViewRef}
@@ -444,7 +444,7 @@ export default function AIChatModal({ visible, onClose }) {
                   </TouchableOpacity>
                 )}
               </View>
-            </>
+            </View>
           )}
         </KeyboardAvoidingView>
 

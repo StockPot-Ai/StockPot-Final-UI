@@ -202,26 +202,32 @@ export const locationService = {
   getCachedLocation: () => cachedLocation || DEFAULT_LOCATION,
 
   getCoordinates: async () => {
-    // If cached location already has valid coordinates and is less than 30 mins old, return immediately
-    if (cachedLocation && cachedLocation.latitude && cachedLocation.longitude && cachedLocation.formatted) {
-      // Trigger background refresh without blocking
-      locationService.getCurrentLocation().catch(() => { });
+    // Check if cached location is a real GPS/IP fix or still the hardcoded default
+    const isDefaultFallback =
+      !cachedLocation.isGps &&
+      Math.abs(cachedLocation.latitude - DEFAULT_LOCATION.latitude) < 0.001 &&
+      Math.abs(cachedLocation.longitude - DEFAULT_LOCATION.longitude) < 0.001;
+
+    if (cachedLocation && cachedLocation.latitude && cachedLocation.longitude && !isDefaultFallback) {
+      // Real cached location — trigger background refresh while returning cache
+      locationService.getCurrentLocation().catch(() => {});
       return {
         latitude: cachedLocation.latitude,
         longitude: cachedLocation.longitude,
-        city: cachedLocation.city || 'Eheliyagoda',
-        formatted: cachedLocation.formatted || 'Eheliyagoda, LK',
+        city: cachedLocation.city || DEFAULT_LOCATION.city,
+        formatted: cachedLocation.formatted || DEFAULT_LOCATION.formatted,
         isGps: !!cachedLocation.isGps,
       };
     }
 
+    // Default still loaded or nothing yet — get the real location now
     const loc = await locationService.getCurrentLocation();
     if (loc && loc.latitude && loc.longitude) {
       return {
         latitude: loc.latitude,
         longitude: loc.longitude,
-        city: loc.city || 'Eheliyagoda',
-        formatted: loc.formatted || 'Eheliyagoda, LK',
+        city: loc.city || DEFAULT_LOCATION.city,
+        formatted: loc.formatted || DEFAULT_LOCATION.formatted,
         isGps: !!loc.isGps,
       };
     }

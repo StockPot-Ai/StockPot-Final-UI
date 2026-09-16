@@ -43,7 +43,7 @@ export default function SelectRecipeModal({
   const loadRecipes = async () => {
     setLoading(true);
     try {
-      const data = await recipeService.getAllRecipes();
+      const data = await recipeService.getRecipes();
       setRecipes(data || []);
     } catch (e) {
       console.log('Error loading recipes for meal planner:', e.message);
