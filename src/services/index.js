@@ -1640,6 +1640,125 @@ export const activityService = {
   },
 };
 
+// ── User Pantry & Supermarket Ingredients Service ─────────────────────────────
+const PANTRY_STORAGE_KEY = '@stockpot_user_pantry_ingredients';
+
+export const pantryService = {
+  getPantryIngredients: async () => {
+    try {
+      const stored = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
+      if (stored) {
+        const list = JSON.parse(stored);
+        if (Array.isArray(list)) return list;
+      }
+    } catch (_) {}
+    return [];
+  },
+
+  addPantryIngredient: async (item) => {
+    try {
+      const stored = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
+      let list = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(list)) list = [];
+
+      const existingIndex = list.findIndex(
+        (i) => i.id === item.id || (i.name && item.name && i.name.toLowerCase() === item.name.toLowerCase())
+      );
+
+      if (existingIndex >= 0) {
+        list[existingIndex] = {
+          ...list[existingIndex],
+          quantity: (list[existingIndex].quantity || 1) + 1,
+          updatedAt: Date.now(),
+        };
+      } else {
+        list.unshift({
+          id: item.id || `pantry_${Date.now()}`,
+          name: item.name,
+          category: item.category || 'Grocery',
+          price: item.price || item.storePrice || 0,
+          unit: item.unit || '1 unit',
+          image: item.image,
+          store: item.store || 'Supermarket',
+          quantity: 1,
+          addedAt: Date.now(),
+        });
+      }
+
+      await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(list));
+      return list;
+    } catch (_) {
+      return [];
+    }
+  },
+
+  removePantryIngredient: async (id) => {
+    try {
+      const stored = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
+      let list = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(list)) list = [];
+      list = list.filter((i) => i.id !== id);
+      await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(list));
+      return list;
+    } catch (_) {
+      return [];
+    }
+  },
+
+  clearPantry: async () => {
+    try {
+      await AsyncStorage.removeItem(PANTRY_STORAGE_KEY);
+      return [];
+    } catch (_) {
+      return [];
+    }
+  },
+
+  getSuggestedRecipes: (pantryItems = [], recipes = []) => {
+    if (!Array.isArray(pantryItems) || pantryItems.length === 0 || !Array.isArray(recipes)) {
+      return [];
+    }
+
+    const pantryNames = pantryItems.map((p) => (p.name || '').toLowerCase());
+
+    const scored = recipes.map((recipe) => {
+      const recipeIngs = Array.isArray(recipe.ingredients)
+        ? recipe.ingredients.map((i) => (typeof i === 'string' ? i : i.name || '').toLowerCase())
+        : (recipe.title || '').toLowerCase().split(' ');
+
+      if (recipeIngs.length === 0) return { ...recipe, matchCount: 0, matchPercentage: 0, matchedIngs: [] };
+
+      const matchedIngs = [];
+      recipeIngs.forEach((rIng) => {
+        const found = pantryNames.some((pName) => {
+          const rTokens = rIng.split(' ').filter((t) => t.length > 2);
+          const pTokens = pName.split(' ').filter((t) => t.length > 2);
+          return (
+            pName.includes(rIng) ||
+            rIng.includes(pName) ||
+            rTokens.some((t) => pTokens.includes(t))
+          );
+        });
+        if (found) matchedIngs.push(rIng);
+      });
+
+      const matchPercentage = Math.min(100, Math.round((matchedIngs.length / recipeIngs.length) * 100));
+
+      return {
+        ...recipe,
+        totalIngredientsCount: recipeIngs.length,
+        matchCount: matchedIngs.length,
+        matchPercentage: matchPercentage > 0 ? matchPercentage : (matchedIngs.length > 0 ? 50 : 0),
+        matchedIngs,
+      };
+    });
+
+    return scored
+      .filter((r) => r.matchCount > 0)
+      .sort((a, b) => b.matchPercentage - a.matchPercentage || b.matchCount - a.matchCount);
+  },
+};
+
 export default {
   authService,
   profileService,
@@ -1649,6 +1768,7 @@ export default {
   gamificationService,
   shopOwnerService,
   mealPlanService,
+  pantryService,
   savingsService,
   activityService,
   aiService,

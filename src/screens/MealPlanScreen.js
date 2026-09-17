@@ -14,6 +14,7 @@ import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import SelectRecipeModal from '../components/mealplan/SelectRecipeModal';
 import PremiumUpgradeModal from '../components/account/PremiumUpgradeModal';
+import GroceryCatalogueModal from '../components/store/GroceryCatalogueModal';
 import { mealPlanService, recipeService } from '../services';
 import { useAccount } from '../context/AccountContext';
 
@@ -84,6 +85,7 @@ export default function MealPlanScreen({
   const [recipeModalVisible, setRecipeModalVisible] = useState(false);
   const [activeSlot, setActiveSlot] = useState('lunch');
   const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const [catalogueModalVisible, setCatalogueModalVisible] = useState(false);
 
   useEffect(() => {
     if (initialDay) {
@@ -232,8 +234,19 @@ export default function MealPlanScreen({
           <Text style={styles.headerSub}>Organize dishes & grocery spending</Text>
         </View>
 
-        <View style={styles.mealCountBadge}>
-          <Text style={styles.mealCountText}>{totalMeals} Planned</Text>
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            style={styles.headerCatalogueBtn}
+            onPress={() => setCatalogueModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="basket" size={13} color="#007A3D" />
+            <Text style={styles.headerCatalogueBtnText}>Catalogue</Text>
+          </TouchableOpacity>
+
+          <View style={styles.mealCountBadge}>
+            <Text style={styles.mealCountText}>{totalMeals} Planned</Text>
+          </View>
         </View>
       </View>
 
@@ -431,6 +444,31 @@ export default function MealPlanScreen({
           })
         )}
 
+        {/* Supermarket Catalogue & Meal Suggester Banner */}
+        <TouchableOpacity
+          style={styles.catalogueBannerCard}
+          onPress={() => setCatalogueModalVisible(true)}
+          activeOpacity={0.88}
+        >
+          <View style={styles.catalogueBannerLeft}>
+            <View style={styles.catalogueBadgeRow}>
+              <View style={styles.catalogueLiveBadge}>
+                <Ionicons name="sparkles" size={10} color="#007A3D" />
+                <Text style={styles.catalogueLiveBadgeText}>SUPERMARKET CATALOGUE</Text>
+              </View>
+              <Text style={styles.catalogueStoresTag}>Cargills • Keells (224)</Text>
+            </View>
+            <Text style={styles.catalogueBannerTitle}>Shop Ingredients & Plan Meals</Text>
+            <Text style={styles.catalogueBannerSub}>
+              Browse real items, add ingredients to your pantry, and schedule matched meals directly into your week!
+            </Text>
+          </View>
+          <View style={styles.catalogueBannerArrowBtn}>
+            <Ionicons name="cart" size={16} color="#FFFFFF" />
+            <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+
         {/* Bottom Grocery List Prompt */}
         <View style={styles.grocerySummaryCard}>
           <View style={styles.grocerySummaryLeft}>
@@ -464,6 +502,21 @@ export default function MealPlanScreen({
       <PremiumUpgradeModal
         visible={upgradeModalVisible}
         onClose={() => setUpgradeModalVisible(false)}
+      />
+
+      {/* Supermarket Catalogue & Meal Suggester Modal */}
+      <GroceryCatalogueModal
+        visible={catalogueModalVisible}
+        onClose={() => setCatalogueModalVisible(false)}
+        onCookRecipe={(recipe) => {
+          setCatalogueModalVisible(false);
+          if (onSelectMeal) onSelectMeal(recipe);
+        }}
+        onAddToMealPlan={() => {
+          mealPlanService.getMealPlan().then((saved) => {
+            if (saved && typeof saved === 'object') setSchedule(saved);
+          });
+        }}
       />
     </SafeAreaView>
   );
@@ -870,5 +923,92 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13.5,
     fontWeight: '800',
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerCatalogueBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  headerCatalogueBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#007A3D',
+  },
+  catalogueBannerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#BBF7D0',
+    padding: 16,
+    marginTop: 14,
+    marginBottom: 8,
+    shadowColor: '#007A3D',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+    gap: 12,
+  },
+  catalogueBannerLeft: {
+    flex: 1,
+  },
+  catalogueBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  catalogueLiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 99,
+    gap: 3,
+  },
+  catalogueLiveBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#007A3D',
+    letterSpacing: 0.4,
+  },
+  catalogueStoresTag: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  catalogueBannerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  catalogueBannerSub: {
+    fontSize: 12,
+    color: '#4B5563',
+    lineHeight: 17,
+  },
+  catalogueBannerArrowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#007A3D',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 14,
+    gap: 2,
   },
 });

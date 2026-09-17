@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
-import { shopOwnerService } from '../../services';
+import { shopOwnerService, pantryService } from '../../services';
 
 const getStoreCover = (store) => {
   if (store?.coverImage) return { uri: store.coverImage };
@@ -268,11 +268,20 @@ export default function ShopProfileModal({
 
                       <TouchableOpacity
                         style={styles.addBtn}
-                        onPress={() => {
+                        onPress={async () => {
                           if (onAddProductToBasket) {
                             onAddProductToBasket(prod, store);
                           }
-                          Alert.alert('Added to Basket', `${prod.name} added at Rs. ${prod.storePrice}`);
+                          await pantryService.addPantryIngredient({
+                            id: prod.id || `prod_${Date.now()}`,
+                            name: prod.name,
+                            category: prod.category || 'Grocery',
+                            price: prod.storePrice || prod.price || 0,
+                            unit: prod.unit || '1 unit',
+                            image: prod.image,
+                            store: store?.name || 'Supermarket',
+                          });
+                          Alert.alert('Added to Pantry & Basket', `${prod.name} added! View suggested meals in Catalogue.`);
                         }}
                         activeOpacity={0.8}
                       >

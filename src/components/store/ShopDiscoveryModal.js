@@ -563,62 +563,25 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
 
                       {/* Store Card Actions */}
                       <View style={styles.cardActions}>
-                        {hasCatalogue ? (
-                          <>
-                            <TouchableOpacity
-                              style={styles.actionBtnMapsSecondary}
-                              onPress={() => handleOpenGoogleMapsDirections(store)}
-                              activeOpacity={0.8}
-                            >
-                              <Ionicons name="navigate" size={13} color="#007A3D" />
-                              <Text style={styles.actionBtnMapsSecondaryText}>Directions</Text>
-                            </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.actionBtnMapsFull, store.phone ? { flex: 1 } : { width: '100%' }]}
+                          onPress={() => handleOpenGoogleMapsDirections(store)}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="navigate" size={14} color="#FFFFFF" />
+                          <Text style={styles.actionBtnMapsFullText}>Directions in Google Maps 🧭</Text>
+                        </TouchableOpacity>
 
-                            {store.phone ? (
-                              <TouchableOpacity
-                                style={styles.actionBtnCall}
-                                onPress={() => handleCall(store.phone)}
-                                activeOpacity={0.7}
-                              >
-                                <Ionicons name="call-outline" size={13} color="#374151" />
-                                <Text style={styles.actionBtnCallText}>Call</Text>
-                              </TouchableOpacity>
-                            ) : null}
-
-                            <TouchableOpacity
-                              style={styles.actionBtnCatalogue}
-                              onPress={() => {
-                                if (onSelectStore) onSelectStore(store);
-                                onClose();
-                              }}
-                              activeOpacity={0.8}
-                            >
-                              <Text style={styles.actionBtnCatalogueText}>Catalogue ({store.catalogueCount || 224}) →</Text>
-                            </TouchableOpacity>
-                          </>
-                        ) : (
-                          <>
-                            <TouchableOpacity
-                              style={styles.actionBtnMapsFull}
-                              onPress={() => handleOpenGoogleMapsDirections(store)}
-                              activeOpacity={0.8}
-                            >
-                              <Ionicons name="navigate" size={14} color="#FFFFFF" />
-                              <Text style={styles.actionBtnMapsFullText}>Directions in Google Maps 🧭</Text>
-                            </TouchableOpacity>
-
-                            {store.phone ? (
-                              <TouchableOpacity
-                                style={styles.actionBtnCall}
-                                onPress={() => handleCall(store.phone)}
-                                activeOpacity={0.7}
-                              >
-                                <Ionicons name="call-outline" size={14} color="#374151" />
-                                <Text style={styles.actionBtnCallText}>Call</Text>
-                              </TouchableOpacity>
-                            ) : null}
-                          </>
-                        )}
+                        {store.phone ? (
+                          <TouchableOpacity
+                            style={styles.actionBtnCall}
+                            onPress={() => handleCall(store.phone)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="call-outline" size={14} color="#374151" />
+                            <Text style={styles.actionBtnCallText}>Call</Text>
+                          </TouchableOpacity>
+                        ) : null}
                       </View>
                     </View>
                   );

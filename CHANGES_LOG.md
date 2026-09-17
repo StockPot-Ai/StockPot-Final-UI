@@ -37,6 +37,10 @@
 | `[LANG-01]` | Dynamic Language Switching | `src/i18n/`<br>`src/components/account/LanguageModal.js` | ✅ Complete | Instant UI translation for English, Sinhala (සිංහල), Tamil (தமிழ்) |
 | `[BUILD-01]` | Standalone Android APK Setup | `eas.json`<br>`app.json` | ✅ Complete | Configured for `eas build -p android --profile preview` |
 | `[BUILD-02]` | Cloud Hosting Architecture | `walkthrough.md` | ✅ Complete | Render/Railway backend guide & Supabase PostgreSQL instructions |
+| `[CAT-01]` | Supermarket Catalogue Redesign | `src/components/store/GroceryCatalogueModal.js` | ✅ Complete | Premium SmoothUI & Bencho design; 224 Cargills/Keells products; 8 category pills |
+| `[CAT-02]` | Persistent Pantry & Add Ingredient | `src/services/index.js`<br>`src/components/store/ShopProfileModal.js` | ✅ Complete | `pantryService` with AsyncStorage persistence; instant quantity badges & counters |
+| `[CAT-03]` | Dynamic Meal Suggester | `src/components/store/GroceryCatalogueModal.js`<br>`src/services/index.js` | ✅ Complete | Matches pantry against recipes with % score; direct Cook & Meal Plan scheduling |
+| `[CAT-04]` | Catalogue Relocation to Recipes & Meal Plan | `src/components/store/ShopDiscoveryModal.js`<br>`src/screens/HomeScreen.js`<br>`src/screens/MealPlanScreen.js` | ✅ Complete | Removed catalogue from nearby shops; added SmoothUI hero banners to Home & Meal Plan |
 
 ---
 
