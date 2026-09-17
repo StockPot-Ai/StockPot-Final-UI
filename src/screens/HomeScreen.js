@@ -414,9 +414,19 @@ const LocalMerchantHub = ({ onFindShops, onRegisterShop, onSelectShop, stores = 
                 onPress={() => onSelectShop && onSelectShop(st)}
                 activeOpacity={0.78}
               >
-                <View style={[styles.hubStoreLogoFallback, { backgroundColor: (st.color || '#007A3D') + '20' }]}>
-                  <Ionicons name={st.isLocalShop ? 'storefront' : 'cart'} size={16} color={st.color || '#007A3D'} />
-                </View>
+                {st.logo ? (
+                  <View style={[styles.hubStoreLogoFallback, { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: (st.color || '#007A3D') + '30' }]}>
+                    <Image
+                      source={{ uri: st.logo }}
+                      style={{ width: 22, height: 22 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                ) : (
+                  <View style={[styles.hubStoreLogoFallback, { backgroundColor: (st.color || '#007A3D') + '20' }]}>
+                    <Ionicons name={st.isLocalShop ? 'storefront' : 'cart'} size={16} color={st.color || '#007A3D'} />
+                  </View>
+                )}
                 <View style={{ flex: 1, justifyContent: 'center' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                     <Text style={styles.hubStoreName} numberOfLines={1}>{st.name}</Text>

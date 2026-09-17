@@ -470,6 +470,91 @@ export const recipeService = {
 };
 
 // ── Supermarkets & Local Stores Service (Shop Discovery) ──────────────────────
+// Brand metadata catalog with high-resolution official logos and brand colors
+export const SRI_LANKA_STORE_BRANDS = [
+  {
+    brand: 'Cargills Food City',
+    keywords: ['cargills', 'food city', 'foodcity'],
+    logo: 'https://www.google.com/s2/favicons?domain=cargillsceylon.com&sz=128',
+    color: '#C8102E',
+  },
+  {
+    brand: 'Keells Super',
+    keywords: ['keells', 'keels'],
+    logo: 'https://www.google.com/s2/favicons?domain=keellssuper.com&sz=128',
+    color: '#007A3D',
+  },
+  {
+    brand: 'Softlogic GLOMARK',
+    keywords: ['glomark', 'softlogic'],
+    logo: 'https://www.google.com/s2/favicons?domain=glomark.lk&sz=128',
+    color: '#1E3A8A',
+  },
+  {
+    brand: 'Arpico Supercentre',
+    keywords: ['arpico', 'supercentre', 'super centre'],
+    logo: 'https://www.google.com/s2/favicons?domain=arpicosupercentre.com&sz=128',
+    color: '#005A9C',
+  },
+  {
+    brand: 'SPAR Sri Lanka',
+    keywords: ['spar'],
+    logo: 'https://www.google.com/s2/favicons?domain=spar.lk&sz=128',
+    color: '#00843D',
+  },
+  {
+    brand: 'LAUGFS Super',
+    keywords: ['laugfs', 'laugh'],
+    logo: 'https://www.google.com/s2/favicons?domain=laugfs.lk&sz=128',
+    color: '#F58220',
+  },
+  {
+    brand: 'Lanka Sathosa',
+    keywords: ['sathosa', 'lanka sathosa'],
+    logo: 'https://www.google.com/s2/favicons?domain=lankasathosa.org&sz=128',
+    color: '#D92D20',
+  },
+  {
+    brand: 'Perera & Sons',
+    keywords: ['perera & sons', 'perera and sons', 'p&s'],
+    logo: 'https://www.google.com/s2/favicons?domain=pereraandsons.com&sz=128',
+    color: '#800020',
+  },
+];
+
+// Blacklist non-grocery / clothing / retail stores to prevent them from appearing in store discovery
+const NON_GROCERY_KEYWORDS = [
+  'clothing', 'apparel', 'textile', 'fashion', 'garment', 'boutique',
+  'spring & summer', 'spring and summer', 'lucky plaza', 'odel', 'nolimit',
+  'fashion bug', 'glitz', 'hameedia', 'kelly felder', 'cotton collection',
+  'house of fashions', 'beverly street', 'cool planet', 'dsi', 'bata',
+  'shoe', 'footwear', 'optician', 'tailor', 'tailoring', 'salon', 'parlour',
+  'spa', 'jewel', 'jewellery', 'jewelry', 'electronics', 'mobile phone',
+];
+
+export const isGroceryOrFoodStore = (storeName = '', category = '') => {
+  const text = `${storeName || ''} ${category || ''}`.toLowerCase();
+  for (const word of NON_GROCERY_KEYWORDS) {
+    if (text.includes(word)) return false;
+  }
+  return true;
+};
+
+export const resolveStoreBrandMeta = (store) => {
+  if (!store) return store;
+  const nameLower = (store.name || '').toLowerCase();
+  const match = SRI_LANKA_STORE_BRANDS.find((b) =>
+    b.keywords.some((kw) => nameLower.includes(kw))
+  );
+
+  return {
+    ...store,
+    logo: store.logo || match?.logo || null,
+    color: store.color || match?.color || '#007A3D',
+    brandName: match?.brand || null,
+  };
+};
+
 // Returns real stores only — no fake mock shops
 export const generateLocalStores = () => {
   return [];
@@ -484,28 +569,29 @@ export const storeService = {
       const res = await apiClient.get('/stores');
       const apiStores = Array.isArray(res?.data) ? res.data : (res?.data?.stores || (Array.isArray(res) ? res : []));
       if (apiStores && apiStores.length > 0) {
-        allStores = apiStores.map((s) => ({
-          ...s,
-          id: s.id,
-          name: s.name,
-          address: s.address || `${s.name} Supermarket, Sri Lanka`,
-          category: s.category || 'Supermarket',
-          latitude: s.latitude || null,
-          longitude: s.longitude || null,
-          logo: s.logo || s.logo_url,
-          logo_url: s.logo_url || s.logo,
-          distanceKm: s.distanceKm || 0.8,
-          rating: s.rating || 4.7,
-        }));
+        allStores = apiStores
+          .filter((s) => isGroceryOrFoodStore(s.name, s.category))
+          .map((s) => resolveStoreBrandMeta({
+            ...s,
+            id: s.id,
+            name: s.name,
+            address: s.address || `${s.name} Supermarket, Sri Lanka`,
+            category: s.category || 'Supermarket',
+            latitude: s.latitude || null,
+            longitude: s.longitude || null,
+            logo: s.logo || s.logo_url,
+            logo_url: s.logo_url || s.logo,
+            distanceKm: s.distanceKm || 0.8,
+            rating: s.rating || 4.7,
+          }));
       }
     } catch (_) { }
-
-    // API returned no stores — show empty, don't use mock STORES
 
     try {
       const customShops = await AsyncStorage.getItem(CUSTOM_SHOPS_KEY);
       if (customShops) {
-        allStores = [...allStores, ...JSON.parse(customShops)];
+        const parsed = JSON.parse(customShops);
+        allStores = [...allStores, ...parsed.map(resolveStoreBrandMeta)];
       }
     } catch (_) { }
     return allStores;
@@ -565,6 +651,11 @@ export const storeService = {
         });
         list.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
       }
+
+      // Filter out clothing/fashion stores and enrich with brand logos & colors
+      list = list
+        .filter((s) => isGroceryOrFoodStore(s.name, s.category))
+        .map((s) => resolveStoreBrandMeta(s));
 
       // Filter by search query if provided
       if (params.search && params.search.trim()) {

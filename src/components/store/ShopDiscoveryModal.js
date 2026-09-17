@@ -36,11 +36,24 @@ const StoreBadge = ({ store, size = 44 }) => {
 
   if (store?.logo && !imgFailed) {
     return (
-      <Image
-        source={{ uri: store.logo }}
-        style={[styles.storeThumbLogo, { width: size, height: size }]}
-        onError={() => setImgFailed(true)}
-      />
+      <View
+        style={[
+          styles.storeLogoBox,
+          {
+            width: size,
+            height: size,
+            borderRadius: Math.round(size * 0.28),
+            borderColor: (color || '#007A3D') + '35',
+          },
+        ]}
+      >
+        <Image
+          source={{ uri: store.logo }}
+          style={{ width: size - 10, height: size - 10 }}
+          resizeMode="contain"
+          onError={() => setImgFailed(true)}
+        />
+      </View>
     );
   }
 
@@ -62,8 +75,8 @@ const StoreBadge = ({ store, size = 44 }) => {
         name={
           cat === 'Bakery'
             ? 'baguette'
-            : cat === 'Butcher'
-            ? 'food-steak'
+            : cat === 'Meat & Fish'
+            ? 'fish'
             : cat === 'Fruits & Vegetables'
             ? 'fruit-watermelon'
             : !store?.isLocalShop
@@ -74,6 +87,46 @@ const StoreBadge = ({ store, size = 44 }) => {
         color={color}
       />
     </View>
+  );
+};
+
+// Map store pin with logo and fallback indicator
+const MapStorePin = ({ store, isSelected, onPress, x, y }) => {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const color = store?.color || '#007A3D';
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.storeMapPin,
+        {
+          transform: [{ translateX: x }, { translateY: y }],
+          borderColor: isSelected ? color : '#E5E7EB',
+          backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF',
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      {store.logo && !logoFailed ? (
+        <View style={styles.pinLogoWrap}>
+          <Image
+            source={{ uri: store.logo }}
+            style={styles.pinMiniLogo}
+            resizeMode="contain"
+            onError={() => setLogoFailed(true)}
+          />
+        </View>
+      ) : (
+        <View style={[styles.pinDotIndicator, { backgroundColor: color }]} />
+      )}
+      <Text style={[styles.pinStoreName, isSelected && { fontWeight: '800', color: color }]} numberOfLines={1}>
+        {store.name.split('-')[0].trim()}
+      </Text>
+      <View style={styles.pinDistBadge}>
+        <Text style={styles.pinDistText}>{store.distanceKm} km</Text>
+      </View>
+    </TouchableOpacity>
   );
 };
 
@@ -367,27 +420,14 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
                   const isSelected = selectedStorePreview?.id === store.id;
 
                   return (
-                    <TouchableOpacity
+                    <MapStorePin
                       key={store.id}
-                      style={[
-                        styles.storeMapPin,
-                        {
-                          transform: [{ translateX: x }, { translateY: y }],
-                          borderColor: isSelected ? '#007A3D' : '#E5E7EB',
-                          backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF',
-                        },
-                      ]}
+                      store={store}
+                      isSelected={isSelected}
                       onPress={() => setSelectedStorePreview(store)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={[styles.pinDotIndicator, { backgroundColor: store.color || '#007A3D' }]} />
-                      <Text style={[styles.pinStoreName, isSelected && { fontWeight: '800', color: '#007A3D' }]} numberOfLines={1}>
-                        {store.name.split('-')[0].trim()}
-                      </Text>
-                      <View style={styles.pinDistBadge}>
-                        <Text style={styles.pinDistText}>{store.distanceKm} km</Text>
-                      </View>
-                    </TouchableOpacity>
+                      x={x}
+                      y={y}
+                    />
                   );
                 })}
               </View>
@@ -801,7 +841,18 @@ const styles = StyleSheet.create({
   },
   storeThumbLogo: {
     borderRadius: 10,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FFFFFF',
+  },
+  storeLogoBox: {
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2.5,
+    elevation: 2,
   },
   storeIconWrap: {
     borderRadius: 12,
@@ -1072,6 +1123,21 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+  },
+  pinLogoWrap: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  pinMiniLogo: {
+    width: 16,
+    height: 16,
   },
   pinStoreName: {
     fontSize: 10.5,
