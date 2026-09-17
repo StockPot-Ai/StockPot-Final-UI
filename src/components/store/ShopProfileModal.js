@@ -35,9 +35,6 @@ export default function ShopProfileModal({
   const [activeTab, setActiveTab] = useState('catalogue'); // 'catalogue' | 'deals' | 'about'
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-
-  if (!visible || !store) return null;
-
   const [storeProducts, setStoreProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -92,14 +89,17 @@ export default function ShopProfileModal({
   };
 
   const handleDirections = () => {
+    if (!store) return;
     const query = encodeURIComponent(`${store.name}, ${store.address || 'Colombo'}`);
     Linking.openURL(`https://maps.google.com/?q=${query}`).catch(() => {
       Alert.alert('Directions', `Address: ${store.address}`);
     });
   };
 
+  if (!visible || !store) return null;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={Boolean(visible && store)} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           {/* Cover Header */}
