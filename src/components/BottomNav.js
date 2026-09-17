@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccount } from '../context/AccountContext';
 
 const NAV_ITEMS = [
@@ -13,9 +14,12 @@ const NAV_ITEMS = [
 
 const BottomNav = ({ activeNav, onNavChange }) => {
   const { t } = useAccount();
+  const insets = useSafeAreaInsets();
+
+  const bottomPadding = Math.max((insets?.bottom || 0) + 6, Platform.OS === 'ios' ? 24 : 10);
 
   return (
-    <View style={styles.bottomNav}>
+    <View style={[styles.bottomNav, { paddingBottom: bottomPadding }]}>
       {NAV_ITEMS.map((item) => {
         const isActive = item.id === activeNav;
         const translatedLabel = t ? t(item.key, item.label) : item.label;
@@ -52,8 +56,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 6,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: '#E8DFD8',
     shadowColor: '#2B2420',

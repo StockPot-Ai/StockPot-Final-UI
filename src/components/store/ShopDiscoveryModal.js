@@ -421,7 +421,7 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
 
                   return (
                     <MapStorePin
-                      key={store.id}
+                      key={`${store.id}_${idx}`}
                       store={store}
                       isSelected={isSelected}
                       onPress={() => setSelectedStorePreview(store)}
@@ -484,7 +484,7 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
                   <Text style={styles.emptySub}>Try searching for "Cargills", "grocery", or "Sathosa"</Text>
                 </View>
               ) : (
-                filteredStores.map((store) => {
+                filteredStores.map((store, idx) => {
                   const isFav = favouriteIds.includes(store.id);
                   const hasCatalogue = Boolean(
                     store.hasCatalogue === true ||
@@ -501,7 +501,7 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
                     /cargills|keells|food\s*city/i.test(store.name || '')
                   );
                   return (
-                    <View key={store.id} style={styles.storeCard}>
+                    <View key={`${store.id}_${idx}`} style={styles.storeCard}>
                       <View style={styles.cardHeader}>
                         <StoreBadge store={store} size={44} />
 

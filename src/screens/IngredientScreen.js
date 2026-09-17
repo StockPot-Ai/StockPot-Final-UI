@@ -10,7 +10,9 @@ import {
   ActivityIndicator,
   Share,
   Modal,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import IngredientHeader from '../components/ingredient/IngredientHeader';
@@ -19,9 +21,32 @@ import IngredientList from '../components/ingredient/IngredientList';
 import AddToMealPlanBar from '../components/ingredient/AddToMealPlanBar';
 import RecipeReportModal from '../components/recipe/RecipeReportModal';
 import { recipeService, mealPlanService, gamificationService } from '../services';
+import { RECIPES as SEED_RECIPES } from '../data/seedData';
 
 export const normalizeIngredients = (rawIngredients, defaultCost = 150) => {
   if (!rawIngredients) return [];
+
+  // Parse JSON string if present
+  if (typeof rawIngredients === 'string') {
+    const trimmed = rawIngredients.trim();
+    if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        rawIngredients = parsed;
+      } catch (_) {}
+    }
+  }
+
+  // Handle nested object structures (e.g. recipe_ingredients, ingredients, items)
+  if (rawIngredients && typeof rawIngredients === 'object' && !Array.isArray(rawIngredients)) {
+    if (Array.isArray(rawIngredients.recipe_ingredients)) {
+      rawIngredients = rawIngredients.recipe_ingredients;
+    } else if (Array.isArray(rawIngredients.ingredients)) {
+      rawIngredients = rawIngredients.ingredients;
+    } else if (Array.isArray(rawIngredients.items)) {
+      rawIngredients = rawIngredients.items;
+    }
+  }
 
   // Case 1: Comma-separated string (e.g. from meal plan schedule: "Rice flour, eggs, onions, chili")
   if (typeof rawIngredients === 'string') {
@@ -79,6 +104,7 @@ export const normalizeIngredients = (rawIngredients, defaultCost = 150) => {
 
         return {
           id: String(ing.id || ing.ingredient_id || ing.productId || `ing-${idx}`),
+          productId: ing.productId || null,
           name: String(name),
           baseQuantity: baseQty,
           unit: unit || 'g',
@@ -95,20 +121,37 @@ export const normalizeIngredients = (rawIngredients, defaultCost = 150) => {
   return [];
 };
 
+export const resolveInitialIngredients = (rec) => {
+  if (!rec) return [];
+  const defaultCost = Math.round((rec?.estimatedCost || rec?.price || 600) / 4);
+
+  const direct = normalizeIngredients(rec.ingredients, defaultCost);
+  if (direct.length > 0) return direct;
+
+  const targetId = rec.recipeId || rec.id;
+  const match = SEED_RECIPES.find((s) =>
+    (targetId && s.id === targetId) ||
+    (rec.title && s.title && s.title.toLowerCase().trim() === rec.title.toLowerCase().trim()) ||
+    (rec.name && s.name && s.name.toLowerCase().trim() === rec.name.toLowerCase().trim())
+  );
+  if (match && match.ingredients) {
+    return normalizeIngredients(match.ingredients, defaultCost);
+  }
+  return [];
+};
+
 export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCompare }) {
+  const insets = useSafeAreaInsets();
+  const bottomBarPadding = 62 + Math.max((insets?.bottom || 0) + 12, Platform.OS === 'ios' ? 24 : 16) + 20;
   const [data, setData] = useState(recipe || {});
   const [servings, setServings] = useState(recipe?.servings || recipe?.base_servings || 4);
-  const [ingredients, setIngredients] = useState(() =>
-    normalizeIngredients(recipe?.ingredients, Math.round((recipe?.estimatedCost || recipe?.price || 600) / 4))
-  );
+  const [ingredients, setIngredients] = useState(() => resolveInitialIngredients(recipe));
   const [loading, setLoading] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [hasCooked, setHasCooked] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(() =>
-    normalizeIngredients(recipe?.ingredients, Math.round((recipe?.estimatedCost || recipe?.price || 600) / 4)).map((i) => i.id)
-  );
+  const [selectedIds, setSelectedIds] = useState(() => resolveInitialIngredients(recipe).map((i) => i.id));
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [daySlotModalVisible, setDaySlotModalVisible] = useState(false);
   const [chosenDay, setChosenDay] = useState('mon');
@@ -141,25 +184,35 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
   useEffect(() => {
     if (!recipe) return;
 
-    setData(recipe);
-    if (recipe.servings || recipe.base_servings) {
-      setServings(recipe.servings || recipe.base_servings);
+    const targetId = recipe.recipeId || recipe.id;
+    const seedMatch = SEED_RECIPES.find((s) =>
+      (targetId && s.id === targetId) ||
+      (recipe.title && s.title && s.title.toLowerCase().trim() === recipe.title.toLowerCase().trim()) ||
+      (recipe.name && s.name && s.name.toLowerCase().trim() === recipe.name.toLowerCase().trim())
+    );
+
+    const mergedRecipe = {
+      ...(seedMatch || {}),
+      ...recipe,
+      steps: (recipe.steps && recipe.steps.length > 0) ? recipe.steps : (seedMatch?.steps || []),
+    };
+
+    setData(mergedRecipe);
+    if (mergedRecipe.servings || mergedRecipe.base_servings) {
+      setServings(mergedRecipe.servings || mergedRecipe.base_servings);
     }
 
-    const norm = normalizeIngredients(
-      recipe.ingredients,
-      Math.round((recipe.estimatedCost || recipe.price || 600) / 4)
-    );
-    if (norm.length > 0) {
-      setIngredients(norm);
-      setSelectedIds(norm.map((i) => i.id));
+    const resolved = resolveInitialIngredients(mergedRecipe);
+    if (resolved.length > 0) {
+      setIngredients(resolved);
+      setSelectedIds(resolved.map((i) => i.id));
     }
 
     // If recipe has an ID and needs full details (e.g. from backend API list which doesn't include ingredients/steps)
-    if (recipe.id && (norm.length === 0 || !recipe.steps || recipe.steps.length === 0)) {
+    if (targetId && (resolved.length === 0 || !mergedRecipe.steps || mergedRecipe.steps.length === 0)) {
       setLoading(true);
       recipeService
-        .getRecipeById(recipe.id)
+        .getRecipeById(targetId)
         .then((full) => {
           if (full) {
             setData((prev) => ({ ...prev, ...full }));
@@ -255,6 +308,7 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
       .filter((item) => item && safeSelectedIds.includes(item.id))
       .map((item) => ({
         id: item.id,
+        productId: item.productId,
         name: item.name,
         quantity: `${Math.round((((item.baseQuantity || 100) * servings) / (baseServings || 4)) * 10) / 10} ${item.unit || 'g'}`,
         cost: Math.round(((Number(item.baseCost) || 150) * servings) / (baseServings || 4)),
@@ -269,7 +323,7 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarPadding }]}
       >
         <IngredientHeader
           title={data.title || data.name}
@@ -283,7 +337,12 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
         />
 
         {/* Social Interaction Strip */}
-        <View style={styles.interactionStrip}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.interactionStripScroll}
+          contentContainerStyle={styles.interactionStrip}
+        >
           <TouchableOpacity style={[styles.pillBtn, isLiked && styles.pillBtnActive]} onPress={handleLike}>
             <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={18} color={isLiked ? '#EF4444' : '#4B5563'} />
             <Text style={[styles.pillBtnText, isLiked && { color: '#EF4444' }]}>
@@ -309,7 +368,7 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
           <TouchableOpacity onPress={() => setReportModalVisible(true)} style={styles.flagBtn}>
             <Ionicons name="flag-outline" size={16} color="#9CA3AF" />
           </TouchableOpacity>
-        </View>
+        </ScrollView>
 
         {/* Author / Community Creator Card */}
         {data.author && (
@@ -531,7 +590,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 110,
+  },
+  interactionStripScroll: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   interactionStrip: {
     flexDirection: 'row',
@@ -539,8 +602,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   pillBtn: {
     flexDirection: 'row',
@@ -690,9 +751,9 @@ const styles = StyleSheet.create({
   compareBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
+    marginHorizontal: 20,
     marginTop: 16,
-    marginBottom: 90,
+    marginBottom: 20,
     padding: 14,
     borderRadius: 16,
     borderWidth: 1.5,

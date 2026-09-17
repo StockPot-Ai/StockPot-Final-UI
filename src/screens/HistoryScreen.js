@@ -242,7 +242,7 @@ export default function HistoryScreen({ onBack }) {
   const stats = computeStats(filtered);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <HistoryHeader onBack={onBack} />
       <ScrollView
@@ -295,8 +295,6 @@ export default function HistoryScreen({ onBack }) {
             ))}
           </View>
         )}
-
-        <View style={styles.scrollEndSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -315,9 +313,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
-  },
-  scrollEndSpacer: {
-    height: 32,
+    paddingBottom: 20,
   },
 
   // Header

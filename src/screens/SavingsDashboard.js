@@ -451,7 +451,7 @@ export default function SavingsDashboard({ onBack }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <SavingsHeader onBack={onBack} activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -662,8 +662,6 @@ export default function SavingsDashboard({ onBack }) {
             </View>
           </View>
         )}
-
-        <View style={{ height: 32 }} />
       </ScrollView>
 
       {/* Premium Budget Challenge Modal */}

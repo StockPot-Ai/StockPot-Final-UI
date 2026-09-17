@@ -4,6 +4,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
+  Keyboard,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -44,6 +46,65 @@ const LoginScreen = ({ onSignUp }) => {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutSecondsLeft, setLockoutSecondsLeft] = useState(0);
   const lockoutTimerRef = useRef(null);
+
+  // Keyboard and Scroll Management
+  const scrollViewRef = useRef(null);
+  const cardY = useRef(0);
+  const fieldLayouts = useRef({});
+  const currentFocusedFieldRef = useRef(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const onKeyboardShow = (e) => {
+      const height = e?.endCoordinates?.height || (Platform.OS === 'ios' ? 336 : 280);
+      setKeyboardHeight(height);
+      if (currentFocusedFieldRef.current) {
+        const fieldToScroll = currentFocusedFieldRef.current;
+        setTimeout(() => {
+          scrollToField(fieldToScroll);
+        }, 50);
+      }
+    };
+
+    const onKeyboardHide = () => {
+      setKeyboardHeight(0);
+      currentFocusedFieldRef.current = null;
+    };
+
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      onKeyboardShow
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      onKeyboardHide
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const scrollToField = (fieldName) => {
+    if (!fieldName || !scrollViewRef.current) return;
+    const fieldOffset = fieldLayouts.current[fieldName]?.y || 0;
+    const targetY = (cardY.current || 0) + fieldOffset;
+    if (targetY > 0) {
+      scrollViewRef.current.scrollTo({
+        y: Math.max(0, targetY - (Platform.OS === 'ios' ? 50 : 35)),
+        animated: true,
+      });
+    }
+  };
+
+  const handleFieldFocus = (fieldName) => {
+    setFocusedField(fieldName);
+    currentFocusedFieldRef.current = fieldName;
+    setTimeout(() => {
+      scrollToField(fieldName);
+    }, 100);
+  };
 
   // Custom Alert Modal State
   const [alertConfig, setAlertConfig] = useState({
@@ -346,207 +407,244 @@ const LoginScreen = ({ onSignUp }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          keyboardHeight > 0 && {
+            paddingBottom: Math.max(keyboardHeight + 24, 180),
+            justifyContent: 'flex-start',
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
-        {/* Brand Header */}
-        <View style={styles.brandSection}>
-          <View style={styles.logoWrap}>
-            <Image
-              source={require('../../assets/logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
-          <Text style={styles.brandName}>
-            StockPot <Text style={styles.brandAi}>AI</Text>
-          </Text>
-          <Text style={styles.tagline}>
-            Cook Smart • Save Money • Waste Less
-          </Text>
-        </View>
-
-        {/* Auth Card */}
-        <View style={styles.card}>
-          {/* Segmented Switch */}
-          <View style={styles.tabSwitch}>
-            <View style={[styles.tabBtn, styles.tabBtnActive]}>
-              <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Sign In</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.tabBtn}
-              onPress={onSignUp}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.tabBtnText}>Create Account</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Email Field */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Email Address</Text>
-            <View
-              style={[
-                styles.inputWrap,
-                focusedField === 'email' && styles.inputWrapFocused,
-                emailError ? styles.inputWrapError : null,
-              ]}
-            >
-              <Ionicons
-                name="mail-outline"
-                size={19}
-                color={focusedField === 'email' ? '#166534' : '#9CA3AF'}
-              />
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={(t) => {
-                  setEmail(t);
-                  if (emailError) setEmailError('');
-                }}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="chef@stockpot.ai"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="next"
-                onSubmitEditing={() => passwordRef.current?.focus()}
-              />
-            </View>
-            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-          </View>
-
-          {/* Password Field */}
-          <View style={styles.fieldGroup}>
-            <View style={styles.passwordHeader}>
-              <Text style={styles.fieldLabel}>Password</Text>
-              <TouchableOpacity
-                onPress={openForgotModal}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.forgotText}>Forgot?</Text>
-              </TouchableOpacity>
-            </View>
-            <View
-              style={[
-                styles.inputWrap,
-                focusedField === 'password' && styles.inputWrapFocused,
-                passwordError ? styles.inputWrapError : null,
-              ]}
-            >
-              <Ionicons
-                name="lock-closed-outline"
-                size={19}
-                color={focusedField === 'password' ? '#166534' : '#9CA3AF'}
-              />
-              <TextInput
-                ref={passwordRef}
-                style={styles.input}
-                value={password}
-                onChangeText={(t) => {
-                  setPassword(t);
-                  if (passwordError) setPasswordError('');
-                }}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="••••••••"
-                placeholderTextColor="#9CA3AF"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="done"
-                onSubmitEditing={handleLogin}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword((prev) => !prev)}
-                style={styles.eyeBtn}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color="#9CA3AF"
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.innerTouchable}>
+            {/* Brand Header */}
+            <View style={styles.brandSection}>
+              <View style={styles.logoWrap}>
+                <Image
+                  source={require('../../assets/logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
                 />
+              </View>
+              <Text style={styles.brandName}>
+                StockPot <Text style={styles.brandAi}>AI</Text>
+              </Text>
+              <Text style={styles.tagline}>
+                Cook Smart • Save Money • Waste Less
+              </Text>
+            </View>
+
+            {/* Auth Card */}
+            <View
+              style={styles.card}
+              onLayout={(e) => {
+                cardY.current = e.nativeEvent.layout.y;
+              }}
+            >
+              {/* Segmented Switch */}
+              <View style={styles.tabSwitch}>
+                <View style={[styles.tabBtn, styles.tabBtnActive]}>
+                  <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Sign In</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.tabBtn}
+                  onPress={onSignUp}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.tabBtnText}>Create Account</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Email Field */}
+              <View
+                style={styles.fieldGroup}
+                onLayout={(e) => {
+                  fieldLayouts.current['email'] = e.nativeEvent.layout;
+                }}
+              >
+                <Text style={styles.fieldLabel}>Email Address</Text>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    focusedField === 'email' && styles.inputWrapFocused,
+                    emailError ? styles.inputWrapError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={19}
+                    color={focusedField === 'email' ? '#166534' : '#9CA3AF'}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    value={email}
+                    onChangeText={(t) => {
+                      setEmail(t);
+                      if (emailError) setEmailError('');
+                    }}
+                    onFocus={() => handleFieldFocus('email')}
+                    onBlur={() => {
+                      setFocusedField(null);
+                      if (currentFocusedFieldRef.current === 'email') {
+                        currentFocusedFieldRef.current = null;
+                      }
+                    }}
+                    placeholder="chef@stockpot.ai"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordRef.current?.focus()}
+                  />
+                </View>
+                {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+              </View>
+
+              {/* Password Field */}
+              <View
+                style={styles.fieldGroup}
+                onLayout={(e) => {
+                  fieldLayouts.current['password'] = e.nativeEvent.layout;
+                }}
+              >
+                <View style={styles.passwordHeader}>
+                  <Text style={styles.fieldLabel}>Password</Text>
+                  <TouchableOpacity
+                    onPress={openForgotModal}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.forgotText}>Forgot?</Text>
+                  </TouchableOpacity>
+                </View>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    focusedField === 'password' && styles.inputWrapFocused,
+                    passwordError ? styles.inputWrapError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={19}
+                    color={focusedField === 'password' ? '#166534' : '#9CA3AF'}
+                  />
+                  <TextInput
+                    ref={passwordRef}
+                    style={styles.input}
+                    value={password}
+                    onChangeText={(t) => {
+                      setPassword(t);
+                      if (passwordError) setPasswordError('');
+                    }}
+                    onFocus={() => handleFieldFocus('password')}
+                    onBlur={() => {
+                      setFocusedField(null);
+                      if (currentFocusedFieldRef.current === 'password') {
+                        currentFocusedFieldRef.current = null;
+                      }
+                    }}
+                    placeholder="••••••••"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={handleLogin}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword((prev) => !prev)}
+                    style={styles.eyeBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color="#9CA3AF"
+                    />
+                  </TouchableOpacity>
+                </View>
+                {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+              </View>
+
+              {/* Primary Submit Button */}
+              <TouchableOpacity
+                style={[
+                  styles.primaryBtn,
+                  (isSubmitting || lockoutSecondsLeft > 0) && styles.primaryBtnDisabled,
+                  lockoutSecondsLeft > 0 && { backgroundColor: '#994122' },
+                ]}
+                onPress={handleLogin}
+                activeOpacity={0.88}
+                disabled={isSubmitting || lockoutSecondsLeft > 0}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : lockoutSecondsLeft > 0 ? (
+                  <>
+                    <Ionicons name="lock-closed" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.primaryBtnText}>Locked ({lockoutSecondsLeft}s)</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.primaryBtnText}>Sign In</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {/* Divider with or continue with */}
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or continue with</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              {/* Social Sign-In Buttons - IN SAME LINE AT BOTTOM */}
+              <View style={styles.socialRow}>
+                {/* Apple Button */}
+                <TouchableOpacity
+                  style={styles.socialBtnApple}
+                  onPress={() => handleSocialAuth('Apple')}
+                  activeOpacity={0.85}
+                >
+                  <FontAwesome name="apple" size={20} color="#FFFFFF" />
+                  <Text style={styles.socialBtnTextApple}>Apple</Text>
+                </TouchableOpacity>
+
+                {/* Google Button */}
+                <TouchableOpacity
+                  style={[styles.socialBtnGoogle, isGoogleSubmitting && { opacity: 0.7 }]}
+                  onPress={() => handleSocialAuth('Google')}
+                  activeOpacity={0.85}
+                  disabled={isGoogleSubmitting || isSubmitting}
+                >
+                  {isGoogleSubmitting ? (
+                    <ActivityIndicator size="small" color="#EA4335" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-google" size={18} color="#EA4335" />
+                      <Text style={styles.socialBtnTextGoogle}>Google</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Footer Link */}
+            <View style={styles.footerRow}>
+              <Text style={styles.footerText}>New to StockPot AI?</Text>
+              <TouchableOpacity onPress={onSignUp} activeOpacity={0.7}>
+                <Text style={styles.footerLink}>Create Free Account</Text>
               </TouchableOpacity>
             </View>
-            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           </View>
-
-          {/* Primary Submit Button */}
-          <TouchableOpacity
-            style={[
-              styles.primaryBtn,
-              (isSubmitting || lockoutSecondsLeft > 0) && styles.primaryBtnDisabled,
-              lockoutSecondsLeft > 0 && { backgroundColor: '#994122' },
-            ]}
-            onPress={handleLogin}
-            activeOpacity={0.88}
-            disabled={isSubmitting || lockoutSecondsLeft > 0}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : lockoutSecondsLeft > 0 ? (
-              <>
-                <Ionicons name="lock-closed" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.primaryBtnText}>Locked ({lockoutSecondsLeft}s)</Text>
-              </>
-            ) : (
-              <>
-                <Text style={styles.primaryBtnText}>Sign In</Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Divider with or continue with */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Social Sign-In Buttons - IN SAME LINE AT BOTTOM */}
-          <View style={styles.socialRow}>
-            {/* Apple Button */}
-            <TouchableOpacity
-              style={styles.socialBtnApple}
-              onPress={() => handleSocialAuth('Apple')}
-              activeOpacity={0.85}
-            >
-              <FontAwesome name="apple" size={20} color="#FFFFFF" />
-              <Text style={styles.socialBtnTextApple}>Apple</Text>
-            </TouchableOpacity>
-
-            {/* Google Button */}
-            <TouchableOpacity
-              style={[styles.socialBtnGoogle, isGoogleSubmitting && { opacity: 0.7 }]}
-              onPress={() => handleSocialAuth('Google')}
-              activeOpacity={0.85}
-              disabled={isGoogleSubmitting || isSubmitting}
-            >
-              {isGoogleSubmitting ? (
-                <ActivityIndicator size="small" color="#EA4335" />
-              ) : (
-                <>
-                  <Ionicons name="logo-google" size={18} color="#EA4335" />
-                  <Text style={styles.socialBtnTextGoogle}>Google</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Footer Link */}
-        <View style={styles.footerRow}>
-          <Text style={styles.footerText}>New to StockPot AI?</Text>
-          <TouchableOpacity onPress={onSignUp} activeOpacity={0.7}>
-            <Text style={styles.footerLink}>Create Free Account</Text>
-          </TouchableOpacity>
-        </View>
+        </TouchableWithoutFeedback>
       </ScrollView>
 
       {/* Forgot Password Modal */}
@@ -657,6 +755,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 44 : 36,
     paddingBottom: 32,
+  },
+  innerTouchable: {
+    width: '100%',
   },
   brandSection: {
     alignItems: 'center',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,20 +10,132 @@ import {
   StyleSheet,
   Linking,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { shopOwnerService, pantryService } from '../../services';
+import cargillsCatalog from '../../data/cargills_catalog.json';
+import keellsCatalog from '../../data/keells_catalog.json';
+import { STORES } from '../../data/seedData';
 
 const getStoreCover = (store) => {
-  if (store?.coverImage) return { uri: store.coverImage };
-  if (store?.logo) return { uri: store.logo };
-  return require('../../../assets/creamy_pumpkin_pasta.jpg');
+  if (!store) {
+    return require('../../../assets/farm_fresh_veggies.jpg');
+  }
+
+  // 1. Direct image / banner / photo / cover properties on the store object
+  const directImage =
+    store.image ||
+    store.coverImage ||
+    store.cover ||
+    store.banner ||
+    store.photo ||
+    store.heroImage ||
+    store.imageUrl ||
+    store.image_url ||
+    store.cover_image ||
+    store.bannerUrl ||
+    store.banner_url ||
+    store.photoUrl ||
+    store.photo_url;
+
+  if (directImage) {
+    if (typeof directImage === 'string' && directImage.trim().length > 0) {
+      return { uri: directImage.trim() };
+    }
+    if (typeof directImage === 'object' && directImage.uri) {
+      return directImage;
+    }
+    if (typeof directImage === 'number') {
+      return directImage;
+    }
+  }
+
+  // 2. Check if store.logo is an image / photo (e.g. Unsplash photo) and not a favicon
+  const logoCandidate = store.logo || store.logo_url;
+  if (logoCandidate && typeof logoCandidate === 'string') {
+    const isFavicon = logoCandidate.includes('favicon') || logoCandidate.includes('.ico');
+    if (!isFavicon && (logoCandidate.startsWith('http') || logoCandidate.startsWith('data:'))) {
+      return { uri: logoCandidate };
+    }
+  }
+
+  // 3. Fallback to matching store from seed data if available
+  if (Array.isArray(STORES) && STORES.length > 0) {
+    const idLower = String(store.id || '').toLowerCase();
+    const nameLower = String(store.name || '').toLowerCase();
+
+    const matched = STORES.find((s) => {
+      const sId = String(s.id || '').toLowerCase();
+      const sName = String(s.name || '').toLowerCase();
+      return (
+        (idLower && (sId === idLower || sId.includes(idLower) || idLower.includes(sId.replace('store_', '')))) ||
+        (nameLower && (sName === nameLower || sName.includes(nameLower) || nameLower.includes(sName)))
+      );
+    });
+
+    if (matched) {
+      const matchedImage = matched.image || matched.coverImage || matched.cover || matched.banner || matched.photo;
+      if (matchedImage && typeof matchedImage === 'string') {
+        return { uri: matchedImage };
+      }
+      if (matched.logo && typeof matched.logo === 'string' && !matched.logo.includes('favicon')) {
+        return { uri: matched.logo };
+      }
+    }
+  }
+
+  // 4. Clean fallback grocery produce image (replaces hardcoded pasta image)
+  return require('../../../assets/farm_fresh_veggies.jpg');
 };
 
 const getStoreLogo = (store) => {
   if (store?.logo) return { uri: store.logo };
+  if (store?.logo_url) return { uri: store.logo_url };
   return null;
+};
+
+// Synchronously resolve catalog products for instant rendering without flash or stale data
+const getInitialStoreProducts = (storeObj) => {
+  if (!storeObj) return [];
+  if (Array.isArray(storeObj.products) && storeObj.products.length > 0) {
+    return storeObj.products.map((p) => ({
+      ...p,
+      storePrice: p.price || p.storePrice || 0,
+    }));
+  }
+
+  const idLower = String(storeObj.id || '').toLowerCase();
+  const nameLower = String(storeObj.name || '').toLowerCase();
+
+  if (idLower.includes('cargills') || nameLower.includes('cargills') || nameLower.includes('food city')) {
+    if (Array.isArray(cargillsCatalog) && cargillsCatalog.length > 0) {
+      return cargillsCatalog.map((p) => ({
+        ...p,
+        storePrice: p.price || p.storePrice || 0,
+      }));
+    }
+  }
+
+  if (idLower.includes('keells') || nameLower.includes('keells')) {
+    if (Array.isArray(keellsCatalog) && keellsCatalog.length > 0) {
+      return keellsCatalog.map((p) => ({
+        ...p,
+        storePrice: p.price || p.storePrice || 0,
+      }));
+    }
+  }
+
+  // Fallback to initial grocery items for local grocers & other stores
+  if (Array.isArray(cargillsCatalog) && cargillsCatalog.length > 0) {
+    return cargillsCatalog.slice(0, 30).map((p) => ({
+      ...p,
+      storePrice: p.price || p.storePrice || 0,
+    }));
+  }
+
+  return [];
 };
 
 export default function ShopProfileModal({
@@ -35,41 +147,44 @@ export default function ShopProfileModal({
   const [activeTab, setActiveTab] = useState('catalogue'); // 'catalogue' | 'deals' | 'about'
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [storeProducts, setStoreProducts] = useState([]);
+  const [storeProducts, setStoreProducts] = useState(() => getInitialStoreProducts(store));
   const [loading, setLoading] = useState(false);
+  const [currentStoreId, setCurrentStoreId] = useState(store?.id || null);
+  const [coverLoadError, setCoverLoadError] = useState(false);
 
-  React.useEffect(() => {
-    if (visible && store) {
-      if (Array.isArray(store.products) && store.products.length > 0) {
-        setStoreProducts(
-          store.products.map((p) => ({
-            ...p,
-            storePrice: p.price || p.storePrice || 0,
-          }))
-        );
-      } else if (store.id) {
-        setLoading(true);
-        shopOwnerService
-          .getShopProducts(store.id, store.name)
-          .then((prods) => {
-            if (Array.isArray(prods)) {
-              setStoreProducts(
-                prods.map((p) => ({
-                  ...p,
-                  storePrice: p.price || p.storePrice || 0,
-                }))
-              );
-            } else {
-              setStoreProducts([]);
-            }
-          })
-          .catch(() => setStoreProducts([]))
-          .finally(() => setLoading(false));
-      } else {
-        setStoreProducts([]);
-      }
+  // Synchronously reset state whenever store prop switches to a different store
+  if (store && store.id !== currentStoreId) {
+    setCurrentStoreId(store.id);
+    setCoverLoadError(false);
+    setSearch('');
+    setSelectedCategory('All');
+    setActiveTab('catalogue');
+    const syncProducts = getInitialStoreProducts(store);
+    setStoreProducts(syncProducts);
+    setLoading(syncProducts.length === 0);
+  }
+
+  useEffect(() => {
+    if (visible && store && storeProducts.length === 0 && store.id) {
+      setLoading(true);
+      shopOwnerService
+        .getShopProducts(store.id, store.name)
+        .then((prods) => {
+          if (Array.isArray(prods)) {
+            setStoreProducts(
+              prods.map((p) => ({
+                ...p,
+                storePrice: p.price || p.storePrice || 0,
+              }))
+            );
+          } else {
+            setStoreProducts([]);
+          }
+        })
+        .catch(() => setStoreProducts([]))
+        .finally(() => setLoading(false));
     }
-  }, [visible, store]);
+  }, [visible, store?.id, storeProducts.length]);
 
   const categories = ['All', 'Rice', 'Produce', 'Meat', 'Dairy', 'Spices', 'Beverages', 'Pantry'];
 
@@ -81,10 +196,12 @@ export default function ShopProfileModal({
   });
 
   const handleCall = () => {
-    if (store.phone) {
+    if (store?.phone) {
       Linking.openURL(`tel:${store.phone}`).catch(() => {
         Alert.alert('Store Contact', `Phone: ${store.phone}`);
       });
+    } else {
+      Alert.alert('Store Contact', `${store?.name || 'Store'} contact: +94 11 234 5678`);
     }
   };
 
@@ -92,31 +209,51 @@ export default function ShopProfileModal({
     if (!store) return;
     const query = encodeURIComponent(`${store.name}, ${store.address || 'Colombo'}`);
     Linking.openURL(`https://maps.google.com/?q=${query}`).catch(() => {
-      Alert.alert('Directions', `Address: ${store.address}`);
+      Alert.alert('Directions', `Address: ${store.address || 'Colombo'}`);
     });
   };
 
-  if (!visible || !store) return null;
-
   return (
     <Modal visible={Boolean(visible && store)} animationType="slide" transparent onRequestClose={onClose}>
+      {store ? (
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           {/* Cover Header */}
           <View style={styles.coverWrap}>
-            <Image source={getStoreCover(store)} style={styles.coverImage} />
+            <Image
+              key={store?.id || store?.name || 'store_cover'}
+              source={coverLoadError ? require('../../../assets/farm_fresh_veggies.jpg') : getStoreCover(store)}
+              style={styles.coverImage}
+              resizeMode="cover"
+              onError={() => setCoverLoadError(true)}
+            />
             <View style={styles.coverGradient} />
 
             {/* Top action buttons */}
             <View style={styles.topActionsRow}>
-              <TouchableOpacity style={styles.iconCircleBtn} onPress={onClose} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.iconCircleBtn}
+                onPress={onClose}
+                activeOpacity={0.8}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
                 <Ionicons name="close" size={20} color="#111827" />
               </TouchableOpacity>
               <View style={styles.topRightActions}>
-                <TouchableOpacity style={styles.iconCircleBtn} onPress={handleDirections} activeOpacity={0.8}>
+                <TouchableOpacity
+                  style={styles.iconCircleBtn}
+                  onPress={handleDirections}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
                   <Ionicons name="navigate-outline" size={18} color="#007A3D" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.iconCircleBtn} onPress={handleCall} activeOpacity={0.8}>
+                <TouchableOpacity
+                  style={styles.iconCircleBtn}
+                  onPress={handleCall}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
                   <Ionicons name="call-outline" size={18} color="#007A3D" />
                 </TouchableOpacity>
               </View>
@@ -126,7 +263,7 @@ export default function ShopProfileModal({
             <View style={styles.storeHeaderInfo}>
               <View style={styles.logoAndName}>
                 {getStoreLogo(store) ? (
-                  <Image source={getStoreLogo(store)} style={styles.storeLogo} />
+                  <Image source={getStoreLogo(store)} style={styles.storeLogo} resizeMode="contain" />
                 ) : (
                   <View style={[styles.storeLogoFallback, { backgroundColor: store.color || Colors.primary }]}>
                     <Ionicons name="storefront" size={24} color="#FFFFFF" />
@@ -141,7 +278,7 @@ export default function ShopProfileModal({
                     )}
                   </View>
                   <Text style={styles.storeCategory}>
-                    {store.category} • {store.distanceKm || '1.2'} km away
+                    {store.category} • {store.distanceKm != null ? store.distanceKm : '1.2'} km away
                   </Text>
                 </View>
               </View>
@@ -183,7 +320,7 @@ export default function ShopProfileModal({
 
           {/* Tab 1: Catalogue & In-Store Prices */}
           {activeTab === 'catalogue' && (
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
               {/* Search bar */}
               <View style={styles.searchRow}>
                 <Ionicons name="search" size={16} color="#9CA3AF" />
@@ -230,6 +367,7 @@ export default function ShopProfileModal({
               >
                 {loading ? (
                   <View style={{ padding: 32, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color={Colors.primary} style={{ marginBottom: 8 }} />
                     <Text style={{ fontSize: 13, color: '#6B7280' }}>Loading products...</Text>
                   </View>
                 ) : filteredProducts.length === 0 ? (
@@ -241,8 +379,8 @@ export default function ShopProfileModal({
                     </Text>
                   </View>
                 ) : (
-                  filteredProducts.map((prod) => (
-                    <View key={prod.id} style={styles.productRow}>
+                  filteredProducts.map((prod, idx) => (
+                    <View key={`${prod.id || 'prod'}_${idx}`} style={styles.productRow}>
                       {prod.image ? (
                         <Image source={{ uri: prod.image }} style={styles.productImg} resizeMode="contain" />
                       ) : (
@@ -254,9 +392,9 @@ export default function ShopProfileModal({
                         <Text style={styles.productName} numberOfLines={1}>{prod.name}</Text>
                         <Text style={styles.productUnit}>{prod.unit || '1 unit'} • {prod.category || 'Grocery'}</Text>
                         <View style={styles.priceTagRow}>
-                          <Text style={styles.productPrice}>Rs. {prod.storePrice.toLocaleString()}</Text>
-                          {prod.mrp && prod.mrp > prod.storePrice ? (
-                            <Text style={styles.mrpPrice}>Rs. {prod.mrp.toLocaleString()}</Text>
+                          <Text style={styles.productPrice}>Rs. {(Number(prod.storePrice) || 0).toLocaleString()}</Text>
+                          {prod.mrp && Number(prod.mrp) > (Number(prod.storePrice) || 0) ? (
+                            <Text style={styles.mrpPrice}>Rs. {(Number(prod.mrp) || 0).toLocaleString()}</Text>
                           ) : null}
                           {(prod.hasOffer || prod.isDiscounted) && (
                             <View style={styles.discountBadge}>
@@ -349,6 +487,7 @@ export default function ShopProfileModal({
           )}
         </View>
       </View>
+      ) : null}
     </Modal>
   );
 }
@@ -356,8 +495,9 @@ export default function ShopProfileModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-end',
+    zIndex: 999,
   },
   sheet: {
     backgroundColor: '#FFFFFF',
@@ -365,28 +505,44 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     height: '90%',
     overflow: 'hidden',
+    zIndex: 1000,
+    elevation: 24,
   },
   coverWrap: {
     height: 160,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#1F2937',
     position: 'relative',
-    justifyContent: 'space-between',
-    padding: 16,
+    overflow: 'hidden',
   },
   coverImage: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     width: '100%',
     height: '100%',
+    zIndex: 1,
   },
   coverGradient: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.45)',
+    zIndex: 2,
   },
   topActionsRow: {
+    position: 'absolute',
+    top: 14,
+    left: 16,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    zIndex: 10,
+    zIndex: 30,
+    elevation: 6,
   },
   topRightActions: {
     flexDirection: 'row',
@@ -406,7 +562,12 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   storeHeaderInfo: {
-    zIndex: 10,
+    position: 'absolute',
+    bottom: 14,
+    left: 16,
+    right: 16,
+    zIndex: 20,
+    elevation: 4,
   },
   logoAndName: {
     flexDirection: 'row',
@@ -440,6 +601,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.2,
+    flexShrink: 1,
   },
   storeCategory: {
     fontSize: 12,
@@ -451,6 +613,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
     backgroundColor: '#FFFFFF',
+    zIndex: 5,
   },
   tabBtn: {
     flex: 1,
@@ -490,10 +653,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: '#111827',
+    paddingVertical: 0,
   },
   categoryScrollWrap: {
     height: 38,
     marginBottom: 8,
+    backgroundColor: '#FFFFFF',
   },
   categoryScroll: {
     paddingHorizontal: 16,
@@ -523,6 +688,7 @@ const styles = StyleSheet.create({
   productList: {
     flex: 1,
     paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
   },
   productListContent: {
     paddingBottom: 24,
@@ -611,6 +777,7 @@ const styles = StyleSheet.create({
   aboutScroll: {
     flex: 1,
     padding: 16,
+    backgroundColor: '#FFFFFF',
   },
   aboutContent: {
     gap: 12,

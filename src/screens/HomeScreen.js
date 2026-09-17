@@ -21,7 +21,6 @@ import Colors from '../constants/colors';
 import AIChatModal from '../components/AIChatModal';
 import CreateRecipeModal from '../components/recipe/CreateRecipeModal';
 import ShopDiscoveryModal from '../components/store/ShopDiscoveryModal';
-import GroceryCatalogueModal from '../components/store/GroceryCatalogueModal';
 import ShopOwnerModal from '../components/store/ShopOwnerModal';
 import PremiumUpgradeModal from '../components/account/PremiumUpgradeModal';
 import ShopOwnerPortalScreen from './ShopOwnerPortalScreen';
@@ -883,7 +882,7 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress, onOpenProfile }) => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <View style={{ flex: 1 }}>
         <ScrollView
@@ -940,44 +939,6 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress, onOpenProfile }) => {
             t={t}
           />
 
-          {/* Supermarket Catalogue & Meal Suggester Banner */}
-          <TouchableOpacity
-            style={styles.catalogueBannerCard}
-            onPress={() => setGroceryCatalogueVisible(true)}
-            activeOpacity={0.88}
-          >
-            <View style={styles.catalogueBannerContent}>
-              <View style={styles.catalogueBannerTopRow}>
-                <View style={styles.catalogueBadge}>
-                  <Ionicons name="sparkles" size={11} color="#007A3D" />
-                  <Text style={styles.catalogueBadgeText}>SUPERMARKET CATALOGUE</Text>
-                </View>
-                <View style={styles.catalogueStoresPill}>
-                  <Text style={styles.catalogueStoresText}>🔴 Cargills • 🟢 Keells (224)</Text>
-                </View>
-              </View>
-
-              <Text style={styles.catalogueBannerTitle}>
-                🛒 Supermarket Ingredients & Meal Ideas
-              </Text>
-              <Text style={styles.catalogueBannerSubtitle}>
-                Add ingredients you have or want from real supermarket stocks. We'll instantly match meals you can cook!
-              </Text>
-
-              <View style={styles.catalogueBannerActionRow}>
-                <View style={styles.cataloguePillsRow}>
-                  <View style={styles.catalogueMiniPill}><Text style={styles.catalogueMiniPillText}>🍚 Rice & Grains</Text></View>
-                  <View style={styles.catalogueMiniPill}><Text style={styles.catalogueMiniPillText}>🥦 Produce</Text></View>
-                  <View style={styles.catalogueMiniPill}><Text style={styles.catalogueMiniPillText}>🍗 Meat & Fish</Text></View>
-                </View>
-                <View style={styles.catalogueBannerBtn}>
-                  <Text style={styles.catalogueBannerBtnText}>Browse</Text>
-                  <Ionicons name="arrow-forward" size={13} color="#FFFFFF" />
-                </View>
-              </View>
-            </View>
-          </TouchableOpacity>
-
           <PopularDishes
             recipes={recipes}
             loading={loadingRecipes}
@@ -988,7 +949,6 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress, onOpenProfile }) => {
           />
 
           <TopContributorsSection />
-          <View style={{ height: 28 }} />
         </ScrollView>
 
         {/* AI Chat Modal */}
@@ -1018,19 +978,10 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress, onOpenProfile }) => {
 
         {/* Shop Profile & In-Store Catalogue Modal */}
         <ShopProfileModal
+          key={selectedShopProfile?.id || 'shop_profile'}
           visible={shopProfileVisible}
           store={selectedShopProfile}
           onClose={() => setShopProfileVisible(false)}
-        />
-
-        {/* Grocery Supermarket Catalogue & Meal Suggester Modal */}
-        <GroceryCatalogueModal
-          visible={groceryCatalogueVisible}
-          onClose={() => setGroceryCatalogueVisible(false)}
-          onCookRecipe={(recipe) => {
-            setGroceryCatalogueVisible(false);
-            if (onSelectRecipe) onSelectRecipe(recipe);
-          }}
         />
 
         {/* Customer Premium Upgrade Modal */}
@@ -1178,7 +1129,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: CARD_PADDING,
-    paddingBottom: Platform.OS === 'ios' ? 100 : 80,
+    paddingBottom: Platform.OS === 'ios' ? 76 : 70,
   },
   header: {
     flexDirection: 'row',
@@ -1529,9 +1480,10 @@ const styles = StyleSheet.create({
   // ── Floating AI Chef FAB ──
   floatingAiFabWrap: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 16,
+    bottom: Platform.OS === 'ios' ? 20 : 16,
     right: 16,
     zIndex: 999,
+    elevation: 6,
   },
   floatingAiFab: {
     flexDirection: 'row',
@@ -2364,112 +2316,6 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '700',
     color: '#FFFFFF',
-  },
-  catalogueBannerCard: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#BBF7D0',
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: '#007A3D',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  catalogueBannerContent: {
-    width: '100%',
-  },
-  catalogueBannerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  catalogueBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 99,
-    gap: 4,
-  },
-  catalogueBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#007A3D',
-    letterSpacing: 0.5,
-  },
-  catalogueStoresPill: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  catalogueStoresText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#374151',
-  },
-  catalogueBannerTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  catalogueBannerSubtitle: {
-    fontSize: 12.5,
-    color: '#4B5563',
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  catalogueBannerActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  cataloguePillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    flex: 1,
-  },
-  catalogueMiniPill: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D1FAE5',
-  },
-  catalogueMiniPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#065F46',
-  },
-  catalogueBannerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#007A3D',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    gap: 4,
-    shadowColor: '#007A3D',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  catalogueBannerBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12.5,
-    fontWeight: '700',
   },
 });
 

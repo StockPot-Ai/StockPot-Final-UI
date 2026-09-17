@@ -5,7 +5,7 @@ import {
   BackHandler,
   StyleSheet,
 } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeScreen from './src/screens/HomeScreen';
 import SplashScreen from './src/screens/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -26,6 +26,14 @@ import NotificationCenterModal from './src/components/notification/NotificationC
 
 function AppContent() {
   const { isLoggedIn } = useAccount();
+  const insets = useSafeAreaInsets();
+  const mainScreenInsets = React.useMemo(
+    () => ({
+      ...insets,
+      bottom: 0,
+    }),
+    [insets]
+  );
   const [isSplashing, setIsSplashing] = React.useState(true);
   const [hasOnboarded, setHasOnboarded] = React.useState(null);
   const [authView, setAuthView] = React.useState('login');
@@ -201,10 +209,14 @@ function AppContent() {
     }
 
     return (
-      <>
-        {renderMainScreen()}
+      <View style={styles.tabShell}>
+        <SafeAreaInsetsContext.Provider value={mainScreenInsets}>
+          <SafeAreaProvider style={styles.mainScreenWrapper} initialSafeAreaInsets={mainScreenInsets}>
+            {renderMainScreen()}
+          </SafeAreaProvider>
+        </SafeAreaInsetsContext.Provider>
         <BottomNav activeNav={renderActiveNav()} onNavChange={handleNavChange} />
-      </>
+      </View>
     );
   };
 
@@ -237,6 +249,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   shell: {
+    flex: 1,
+  },
+  tabShell: {
+    flex: 1,
+  },
+  mainScreenWrapper: {
     flex: 1,
   },
 });

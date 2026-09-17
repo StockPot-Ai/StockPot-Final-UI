@@ -84,6 +84,16 @@ export default function RetailComparingScreen({ items = [], onBack }) {
     return sortedSingleStores;
   }, [sortedSingleStores, storeFilter]);
 
+  const totalStoresCount = sortedSingleStores ? sortedSingleStores.length : 0;
+  const supermarketCount = sortedSingleStores ? sortedSingleStores.filter((s) => !s.store.isLocalShop).length : 0;
+  const localCount = sortedSingleStores ? sortedSingleStores.filter((s) => s.store.isLocalShop).length : 0;
+
+  const storeFilterOptions = [
+    { key: 'all', label: `All Stores (${totalStoresCount})` },
+    { key: 'supermarkets', label: `Supermarkets (${supermarketCount})` },
+    { key: 'local', label: `Local Shops (${localCount})` },
+  ];
+
   const handleOpenStoreProfile = (store) => {
     if (!store) return;
     setSelectedShopProfile(store);
@@ -140,7 +150,14 @@ export default function RetailComparingScreen({ items = [], onBack }) {
 
       {/* Top App Bar */}
       <View style={styles.appBar}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.backBtn}
+          activeOpacity={0.7}
+          hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="arrow-back" size={22} color="#2B2420" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -157,17 +174,25 @@ export default function RetailComparingScreen({ items = [], onBack }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Strategy Switcher Tab */}
         <View style={styles.strategyTabs}>
           <TouchableOpacity
-            style={[styles.strategyTab, activeStrategy === 'single' && styles.strategyTabActive]}
+            style={[
+              styles.strategyTab,
+              styles.strategyTabSingle,
+              activeStrategy === 'single' && styles.strategyTabActive,
+            ]}
             onPress={() => setActiveStrategy('single')}
             activeOpacity={0.8}
           >
             <Ionicons
               name="storefront-outline"
-              size={17}
+              size={15}
               color={activeStrategy === 'single' ? '#3A6847' : '#968880'}
             />
             <Text
@@ -175,19 +200,24 @@ export default function RetailComparingScreen({ items = [], onBack }) {
                 styles.strategyTabText,
                 activeStrategy === 'single' && styles.strategyTabTextActive,
               ]}
+              numberOfLines={1}
             >
               Cheapest Single Store
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.strategyTab, activeStrategy === 'split' && styles.strategyTabActive]}
+            style={[
+              styles.strategyTab,
+              styles.strategyTabSplit,
+              activeStrategy === 'split' && styles.strategyTabActive,
+            ]}
             onPress={() => setActiveStrategy('split')}
             activeOpacity={0.8}
           >
             <Ionicons
               name="git-merge-outline"
-              size={17}
+              size={15}
               color={activeStrategy === 'split' ? '#3A6847' : '#968880'}
             />
             <Text
@@ -195,12 +225,13 @@ export default function RetailComparingScreen({ items = [], onBack }) {
                 styles.strategyTabText,
                 activeStrategy === 'split' && styles.strategyTabTextActive,
               ]}
+              numberOfLines={1}
             >
               Split-Basket Optimizer
             </Text>
             {!isPremium ? (
               <View style={styles.lockPill}>
-                <Ionicons name="lock-closed" size={9} color="#FFFFFF" />
+                <Ionicons name="lock-closed" size={8} color="#FFFFFF" />
                 <Text style={styles.lockPillText}>Smart</Text>
               </View>
             ) : splitStrategy?.potentialSavings > 0 ? (
@@ -223,8 +254,8 @@ export default function RetailComparingScreen({ items = [], onBack }) {
             </View>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.discountScroll}>
-              {discounts.map((d) => (
-                <View key={d.id} style={styles.dealCard}>
+              {discounts.map((d, idx) => (
+                <View key={`${d.id || 'deal'}_${d.storeId || idx}`} style={styles.dealCard}>
                   <View style={styles.dealBadge}>
                     <Text style={styles.dealBadgeText}>{d.discountPercent}% OFF</Text>
                   </View>
@@ -252,11 +283,7 @@ export default function RetailComparingScreen({ items = [], onBack }) {
           <View style={styles.contentSection}>
             {/* Store Type Filter */}
             <View style={styles.storeTypeRow}>
-              {[
-                { key: 'all', label: 'All Stores (7)' },
-                { key: 'supermarkets', label: 'Supermarkets (5)' },
-                { key: 'local', label: 'Local Shops (2)' },
-              ].map((f) => (
+              {storeFilterOptions.map((f) => (
                 <TouchableOpacity
                   key={f.key}
                   style={[styles.typeChip, storeFilter === f.key && styles.typeChipActive]}
@@ -272,8 +299,19 @@ export default function RetailComparingScreen({ items = [], onBack }) {
               ))}
             </View>
 
+            {/* Empty Basket State */}
+            {basketItems.length === 0 && (
+              <View style={styles.emptyBasketCard}>
+                <Ionicons name="basket-outline" size={36} color="#968880" />
+                <Text style={styles.emptyBasketTitle}>Your Basket is Empty</Text>
+                <Text style={styles.emptyBasketSubtitle}>
+                  Please select ingredients from a recipe or meal plan to compare prices across stores.
+                </Text>
+              </View>
+            )}
+
             {/* Cheapest Store Highlight Hero */}
-            {cheapestSingleStore && (
+            {cheapestSingleStore && basketItems.length > 0 && (
               <TouchableOpacity
                 style={styles.heroStoreCard}
                 onPress={() => handleOpenStoreProfile(cheapestSingleStore.store)}
@@ -297,10 +335,10 @@ export default function RetailComparingScreen({ items = [], onBack }) {
                   )}
                   <View style={{ flex: 1 }}>
                     <View style={styles.storeNameRow}>
-                      <Text style={styles.heroStoreName}>{cheapestSingleStore.store.name}</Text>
+                      <Text style={styles.heroStoreName} numberOfLines={1}>{cheapestSingleStore.store.name}</Text>
                       <Ionicons name="checkmark-circle" size={16} color="#10B981" />
                     </View>
-                    <Text style={styles.heroStoreAddress}>
+                    <Text style={styles.heroStoreAddress} numberOfLines={1}>
                       {cheapestSingleStore.store.address} • {cheapestSingleStore.store.isLocalShop ? 'Local Grocer' : 'Supermarket'}
                     </Text>
                   </View>
@@ -320,9 +358,50 @@ export default function RetailComparingScreen({ items = [], onBack }) {
                 </View>
 
                 <View style={styles.heroActionFooter}>
-                  <Text style={styles.heroActionPrompt}>Tap to view in-store catalogue & menu →</Text>
+                  <Text style={styles.heroActionPrompt}>Tap to view store details →</Text>
                 </View>
               </TouchableOpacity>
+            )}
+
+            {/* Basket Ingredients Breakdown */}
+            {basketItems.length > 0 && (
+              <View style={styles.basketBreakdownCard}>
+                <View style={styles.basketBreakdownHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 }}>
+                    <Ionicons name="cart-outline" size={17} color="#3A6847" />
+                    <Text style={styles.basketBreakdownTitle} numberOfLines={1}>
+                      Basket Ingredients ({basketItems.length})
+                    </Text>
+                  </View>
+                  <Text style={styles.basketBreakdownEst}>
+                    Est. Total: {formatPrice(basketItems.reduce((sum, b) => sum + (Number(b.estimatedCost) || 0), 0))}
+                  </Text>
+                </View>
+                <View style={styles.basketItemsContainer}>
+                  {basketItems.map((item, idx) => (
+                    <View
+                      key={`${item.id || item.productId || 'basket_item'}_${idx}`}
+                      style={[
+                        styles.basketItemRow,
+                        idx === basketItems.length - 1 && { borderBottomWidth: 0 },
+                      ]}
+                    >
+                      <View style={styles.basketItemDot} />
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.basketItemName} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        <Text style={styles.basketItemQty}>
+                          Quantity: {item.quantity}
+                        </Text>
+                      </View>
+                      <Text style={styles.basketItemPrice}>
+                        {formatPrice(item.estimatedCost)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
             )}
 
             {/* Ranked Store List */}
@@ -331,7 +410,7 @@ export default function RetailComparingScreen({ items = [], onBack }) {
               const priceDiff = st.totalCost - (cheapestSingleStore?.totalCost || 0);
               return (
                 <TouchableOpacity
-                  key={st.store.id}
+                  key={st.store?.id ? `${st.store.id}_${idx}` : `store_${idx}`}
                   style={styles.storeComparisonCard}
                   onPress={() => handleOpenStoreProfile(st.store)}
                   activeOpacity={0.8}
@@ -353,9 +432,9 @@ export default function RetailComparingScreen({ items = [], onBack }) {
                     </View>
                   )}
 
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, marginRight: 6 }}>
                     <View style={styles.storeNameRow}>
-                      <Text style={styles.storeTitle}>{st.store.name}</Text>
+                      <Text style={styles.storeTitle} numberOfLines={1}>{st.store.name}</Text>
                       {st.store.isVerified && (
                         <View style={styles.verifiedMiniBadge}>
                           <Ionicons name="checkmark-circle" size={11} color="#166534" />
@@ -363,7 +442,7 @@ export default function RetailComparingScreen({ items = [], onBack }) {
                         </View>
                       )}
                     </View>
-                    <Text style={styles.storeCatText}>
+                    <Text style={styles.storeCatText} numberOfLines={1}>
                       {st.store.category} • {st.store.openingHours}
                     </Text>
                   </View>
@@ -479,9 +558,9 @@ export default function RetailComparingScreen({ items = [], onBack }) {
             {/* Split Items Breakdown */}
             <Text style={styles.rankedTitle}>Item-by-Item Optimized Routing</Text>
             {splitStrategy.items.map((it, idx) => (
-              <View key={idx} style={styles.splitItemCard}>
+              <View key={`${it.product?.id || 'split'}_${it.bestStore?.id || 'store'}_${idx}`} style={styles.splitItemCard}>
                 <View style={styles.splitItemLeft}>
-                  <Text style={styles.splitItemName}>{it.product.name}</Text>
+                  <Text style={styles.splitItemName} numberOfLines={1}>{it.product.name}</Text>
                   <Text style={styles.splitItemQty}>Quantity: {it.quantity}</Text>
                   <TouchableOpacity
                     style={[styles.storePill, { backgroundColor: it.bestStore.color + '15' }]}
@@ -489,7 +568,7 @@ export default function RetailComparingScreen({ items = [], onBack }) {
                     activeOpacity={0.7}
                   >
                     <Ionicons name="cart" size={12} color={it.bestStore.color} />
-                    <Text style={[styles.storePillText, { color: it.bestStore.color }]}>
+                    <Text style={[styles.storePillText, { color: it.bestStore.color }]} numberOfLines={1}>
                       Buy at {it.bestStore.name} →
                     </Text>
                   </TouchableOpacity>
@@ -525,8 +604,6 @@ export default function RetailComparingScreen({ items = [], onBack }) {
             <Text style={styles.shopOwnerBtnText}>Register Shop →</Text>
           </TouchableOpacity>
         </View>
-
-        <View style={{ height: 30 }} />
       </ScrollView>
 
       {/* Shop Discovery Modal */}
@@ -540,6 +617,7 @@ export default function RetailComparingScreen({ items = [], onBack }) {
 
       {/* Interactive Shop Profile & Live Catalogue Modal */}
       <ShopProfileModal
+        key={selectedShopProfile?.id || 'shop_profile'}
         visible={shopProfileVisible}
         store={selectedShopProfile}
         onClose={() => setShopProfileVisible(false)}
@@ -648,26 +726,38 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
+    paddingBottom: 40,
   },
   strategyTabs: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#F5EFEB',
     borderRadius: 14,
-    padding: 4,
+    padding: 3,
     marginBottom: 14,
     gap: 4,
+    overflow: 'hidden',
   },
   strategyTab: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    gap: 5,
+    paddingVertical: 9,
+    paddingHorizontal: 5,
+    borderRadius: 11,
+    gap: 4,
+    overflow: 'hidden',
+    minWidth: 0,
+  },
+  strategyTabSingle: {
+    flex: 1,
+  },
+  strategyTabSplit: {
+    flex: 1.25,
   },
   strategyTabActive: {
     backgroundColor: '#FFFFFF',
@@ -681,6 +771,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#968880',
+    letterSpacing: -0.25,
+    flexShrink: 1,
   },
   strategyTabTextActive: {
     color: '#3A6847',
@@ -690,26 +782,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#994122',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
     borderRadius: 6,
     marginLeft: 3,
-    gap: 3,
+    gap: 2.5,
+    flexShrink: 0,
   },
   lockPillText: {
-    fontSize: 9.5,
+    fontSize: 9,
     fontWeight: '800',
     color: '#FFFFFF',
   },
   savePill: {
     backgroundColor: '#3A6847',
     paddingHorizontal: 5,
-    paddingVertical: 2,
+    paddingVertical: 1.5,
     borderRadius: 6,
-    marginLeft: 2,
+    marginLeft: 3,
+    flexShrink: 0,
   },
   savePillText: {
-    fontSize: 9.5,
+    fontSize: 9,
     fontWeight: '800',
     color: '#FFFFFF',
   },
@@ -803,6 +897,7 @@ const styles = StyleSheet.create({
   },
   storeTypeRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 12,
   },
@@ -927,6 +1022,96 @@ const styles = StyleSheet.create({
     color: '#6B5E57',
     fontWeight: '500',
   },
+  emptyBasketCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E8DFD8',
+    marginBottom: 16,
+  },
+  emptyBasketTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2B2420',
+    marginTop: 10,
+  },
+  emptyBasketSubtitle: {
+    fontSize: 12.5,
+    color: '#968880',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  basketBreakdownCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E8DFD8',
+    marginBottom: 16,
+    shadowColor: '#2B2420',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  basketBreakdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5EFEB',
+    marginBottom: 8,
+  },
+  basketBreakdownTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#2B2420',
+    flexShrink: 1,
+  },
+  basketBreakdownEst: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#3A6847',
+    flexShrink: 0,
+  },
+  basketItemsContainer: {
+    gap: 0,
+  },
+  basketItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FAF8F5',
+  },
+  basketItemDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#3A6847',
+    marginRight: 10,
+  },
+  basketItemName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2B2420',
+  },
+  basketItemQty: {
+    fontSize: 11,
+    color: '#968880',
+    marginTop: 1,
+  },
+  basketItemPrice: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2B2420',
+    marginLeft: 8,
+  },
   rankedTitle: {
     fontSize: 14.5,
     fontWeight: '800',
@@ -1013,6 +1198,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     minWidth: 90,
     marginLeft: 8,
+    flexShrink: 0,
   },
   storeTotalText: {
     fontSize: 14.5,
@@ -1250,6 +1436,7 @@ const styles = StyleSheet.create({
   },
   splitItemLeft: {
     flex: 1,
+    marginRight: 8,
   },
   splitItemName: {
     fontSize: 13.5,
@@ -1277,6 +1464,7 @@ const styles = StyleSheet.create({
   },
   splitItemRight: {
     alignItems: 'flex-end',
+    flexShrink: 0,
   },
   splitItemPrice: {
     fontSize: 14,

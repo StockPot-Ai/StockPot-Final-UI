@@ -7,14 +7,18 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '../../constants/colors';
 
 export default function AddToMealPlanBar({
   cost = 780,
   onPress,
 }) {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max((insets?.bottom || 0) + 12, Platform.OS === 'ios' ? 24 : 16);
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: bottomPadding }]}>
       <TouchableOpacity
         style={styles.button}
         onPress={onPress}
@@ -46,7 +50,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     shadowColor: '#000000',

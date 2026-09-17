@@ -61,7 +61,7 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.accountBg} />
 
       {/* Header */}
@@ -188,9 +188,6 @@ const AccountScreen = ({ onBack, onNavigateHome }) => {
           <Feather name="log-out" size={19} color={Colors.terracotta} />
           <Text style={styles.logoutText}>{t ? t('log_out', 'Log Out') : 'Log Out'}</Text>
         </TouchableOpacity>
-
-        {/* Bottom spacing */}
-        <View style={{ height: 28 }} />
       </ScrollView>
 
       {/* ── Interactive Modals ── */}
@@ -273,7 +270,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accountBg,
   },
   scrollContent: {
-    paddingBottom: 10,
+    paddingBottom: 20,
   },
   logoutRow: {
     flexDirection: 'row',

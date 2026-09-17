@@ -1,9 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
+  Keyboard,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -60,6 +62,65 @@ const SignUpScreen = ({ onSignIn }) => {
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
   const confirmPasswordRef = useRef(null);
+
+  // Keyboard and Scroll Management
+  const scrollViewRef = useRef(null);
+  const cardY = useRef(0);
+  const fieldLayouts = useRef({});
+  const currentFocusedFieldRef = useRef(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const onKeyboardShow = (e) => {
+      const height = e?.endCoordinates?.height || (Platform.OS === 'ios' ? 336 : 280);
+      setKeyboardHeight(height);
+      if (currentFocusedFieldRef.current) {
+        const fieldToScroll = currentFocusedFieldRef.current;
+        setTimeout(() => {
+          scrollToField(fieldToScroll);
+        }, 50);
+      }
+    };
+
+    const onKeyboardHide = () => {
+      setKeyboardHeight(0);
+      currentFocusedFieldRef.current = null;
+    };
+
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      onKeyboardShow
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      onKeyboardHide
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const scrollToField = (fieldName) => {
+    if (!fieldName || !scrollViewRef.current) return;
+    const fieldOffset = fieldLayouts.current[fieldName]?.y || 0;
+    const targetY = (cardY.current || 0) + fieldOffset;
+    if (targetY > 0) {
+      scrollViewRef.current.scrollTo({
+        y: Math.max(0, targetY - (Platform.OS === 'ios' ? 50 : 35)),
+        animated: true,
+      });
+    }
+  };
+
+  const handleFieldFocus = (fieldName) => {
+    setFocusedField(fieldName);
+    currentFocusedFieldRef.current = fieldName;
+    setTimeout(() => {
+      scrollToField(fieldName);
+    }, 100);
+  };
 
   const validate = () => {
     const newErrors = {};
@@ -197,274 +258,331 @@ const SignUpScreen = ({ onSignIn }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          keyboardHeight > 0 && {
+            paddingBottom: Math.max(keyboardHeight + 24, 220),
+            justifyContent: 'flex-start',
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
-        {/* Brand Header */}
-        <View style={styles.brandSection}>
-          <View style={styles.logoWrap}>
-            <Image
-              source={require('../../assets/logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
-          <Text style={styles.brandName}>
-            StockPot <Text style={styles.brandAi}>AI</Text>
-          </Text>
-          <Text style={styles.tagline}>
-            Cook Smart • Save Money • Waste Less
-          </Text>
-        </View>
-
-        {/* Auth Card */}
-        <View style={styles.card}>
-          {/* Segmented Switch */}
-          <View style={styles.tabSwitch}>
-            <TouchableOpacity
-              style={styles.tabBtn}
-              onPress={onSignIn}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.tabBtnText}>Sign In</Text>
-            </TouchableOpacity>
-            <View style={[styles.tabBtn, styles.tabBtnActive]}>
-              <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Create Account</Text>
-            </View>
-          </View>
-
-          {/* Full Name */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Full Name</Text>
-            <View
-              style={[
-                styles.inputWrap,
-                focusedField === 'fullName' && styles.inputWrapFocused,
-                errors.fullName ? styles.inputWrapError : null,
-              ]}
-            >
-              <Ionicons
-                name="person-outline"
-                size={19}
-                color={focusedField === 'fullName' ? '#166534' : '#9CA3AF'}
-              />
-              <TextInput
-                style={styles.input}
-                value={fullName}
-                onChangeText={(t) => {
-                  setFullName(t);
-                  if (errors.fullName) setErrors((prev) => ({ ...prev, fullName: null }));
-                }}
-                onFocus={() => setFocusedField('fullName')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="Ammar Dharma"
-                placeholderTextColor="#9CA3AF"
-                autoCapitalize="words"
-                autoCorrect={false}
-                returnKeyType="next"
-                onSubmitEditing={() => emailRef.current?.focus()}
-              />
-            </View>
-            {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
-          </View>
-
-          {/* Email Address */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Email Address</Text>
-            <View
-              style={[
-                styles.inputWrap,
-                focusedField === 'email' && styles.inputWrapFocused,
-                errors.email ? styles.inputWrapError : null,
-              ]}
-            >
-              <Ionicons
-                name="mail-outline"
-                size={19}
-                color={focusedField === 'email' ? '#166534' : '#9CA3AF'}
-              />
-              <TextInput
-                ref={emailRef}
-                style={styles.input}
-                value={email}
-                onChangeText={(t) => {
-                  setEmail(t);
-                  if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
-                }}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="chef@stockpot.ai"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="next"
-                onSubmitEditing={() => passwordRef.current?.focus()}
-              />
-            </View>
-            {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
-          </View>
-
-          {/* Password */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Password</Text>
-            <View
-              style={[
-                styles.inputWrap,
-                focusedField === 'password' && styles.inputWrapFocused,
-                errors.password ? styles.inputWrapError : null,
-              ]}
-            >
-              <Ionicons
-                name="lock-closed-outline"
-                size={19}
-                color={focusedField === 'password' ? '#166534' : '#9CA3AF'}
-              />
-              <TextInput
-                ref={passwordRef}
-                style={styles.input}
-                value={password}
-                onChangeText={(t) => {
-                  setPassword(t);
-                  if (errors.password) setErrors((prev) => ({ ...prev, password: null }));
-                }}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="At least 6 characters"
-                placeholderTextColor="#9CA3AF"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="next"
-                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword((prev) => !prev)}
-                style={styles.eyeBtn}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color="#9CA3AF"
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.innerTouchable}>
+            {/* Brand Header */}
+            <View style={styles.brandSection}>
+              <View style={styles.logoWrap}>
+                <Image
+                  source={require('../../assets/logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
                 />
+              </View>
+              <Text style={styles.brandName}>
+                StockPot <Text style={styles.brandAi}>AI</Text>
+              </Text>
+              <Text style={styles.tagline}>
+                Cook Smart • Save Money • Waste Less
+              </Text>
+            </View>
+
+            {/* Auth Card */}
+            <View
+              style={styles.card}
+              onLayout={(e) => {
+                cardY.current = e.nativeEvent.layout.y;
+              }}
+            >
+              {/* Segmented Switch */}
+              <View style={styles.tabSwitch}>
+                <TouchableOpacity
+                  style={styles.tabBtn}
+                  onPress={onSignIn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.tabBtnText}>Sign In</Text>
+                </TouchableOpacity>
+                <View style={[styles.tabBtn, styles.tabBtnActive]}>
+                  <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Create Account</Text>
+                </View>
+              </View>
+
+              {/* Full Name */}
+              <View
+                style={styles.fieldGroup}
+                onLayout={(e) => {
+                  fieldLayouts.current['fullName'] = e.nativeEvent.layout;
+                }}
+              >
+                <Text style={styles.fieldLabel}>Full Name</Text>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    focusedField === 'fullName' && styles.inputWrapFocused,
+                    errors.fullName ? styles.inputWrapError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={19}
+                    color={focusedField === 'fullName' ? '#166534' : '#9CA3AF'}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    value={fullName}
+                    onChangeText={(t) => {
+                      setFullName(t);
+                      if (errors.fullName) setErrors((prev) => ({ ...prev, fullName: null }));
+                    }}
+                    onFocus={() => handleFieldFocus('fullName')}
+                    onBlur={() => {
+                      setFocusedField(null);
+                      if (currentFocusedFieldRef.current === 'fullName') {
+                        currentFocusedFieldRef.current = null;
+                      }
+                    }}
+                    placeholder="Ammar Dharma"
+                    placeholderTextColor="#9CA3AF"
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    onSubmitEditing={() => emailRef.current?.focus()}
+                  />
+                </View>
+                {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
+              </View>
+
+              {/* Email Address */}
+              <View
+                style={styles.fieldGroup}
+                onLayout={(e) => {
+                  fieldLayouts.current['email'] = e.nativeEvent.layout;
+                }}
+              >
+                <Text style={styles.fieldLabel}>Email Address</Text>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    focusedField === 'email' && styles.inputWrapFocused,
+                    errors.email ? styles.inputWrapError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={19}
+                    color={focusedField === 'email' ? '#166534' : '#9CA3AF'}
+                  />
+                  <TextInput
+                    ref={emailRef}
+                    style={styles.input}
+                    value={email}
+                    onChangeText={(t) => {
+                      setEmail(t);
+                      if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
+                    }}
+                    onFocus={() => handleFieldFocus('email')}
+                    onBlur={() => {
+                      setFocusedField(null);
+                      if (currentFocusedFieldRef.current === 'email') {
+                        currentFocusedFieldRef.current = null;
+                      }
+                    }}
+                    placeholder="chef@stockpot.ai"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordRef.current?.focus()}
+                  />
+                </View>
+                {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+              </View>
+
+              {/* Password */}
+              <View
+                style={styles.fieldGroup}
+                onLayout={(e) => {
+                  fieldLayouts.current['password'] = e.nativeEvent.layout;
+                }}
+              >
+                <Text style={styles.fieldLabel}>Password</Text>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    focusedField === 'password' && styles.inputWrapFocused,
+                    errors.password ? styles.inputWrapError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={19}
+                    color={focusedField === 'password' ? '#166534' : '#9CA3AF'}
+                  />
+                  <TextInput
+                    ref={passwordRef}
+                    style={styles.input}
+                    value={password}
+                    onChangeText={(t) => {
+                      setPassword(t);
+                      if (errors.password) setErrors((prev) => ({ ...prev, password: null }));
+                    }}
+                    onFocus={() => handleFieldFocus('password')}
+                    onBlur={() => {
+                      setFocusedField(null);
+                      if (currentFocusedFieldRef.current === 'password') {
+                        currentFocusedFieldRef.current = null;
+                      }
+                    }}
+                    placeholder="At least 6 characters"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword((prev) => !prev)}
+                    style={styles.eyeBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color="#9CA3AF"
+                    />
+                  </TouchableOpacity>
+                </View>
+                {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+              </View>
+
+              {/* Confirm Password */}
+              <View
+                style={styles.fieldGroup}
+                onLayout={(e) => {
+                  fieldLayouts.current['confirmPassword'] = e.nativeEvent.layout;
+                }}
+              >
+                <Text style={styles.fieldLabel}>Confirm Password</Text>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    focusedField === 'confirmPassword' && styles.inputWrapFocused,
+                    errors.confirmPassword ? styles.inputWrapError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={19}
+                    color={focusedField === 'confirmPassword' ? '#166534' : '#9CA3AF'}
+                  />
+                  <TextInput
+                    ref={confirmPasswordRef}
+                    style={styles.input}
+                    value={confirmPassword}
+                    onChangeText={(t) => {
+                      setConfirmPassword(t);
+                      if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: null }));
+                    }}
+                    onFocus={() => handleFieldFocus('confirmPassword')}
+                    onBlur={() => {
+                      setFocusedField(null);
+                      if (currentFocusedFieldRef.current === 'confirmPassword') {
+                        currentFocusedFieldRef.current = null;
+                      }
+                    }}
+                    placeholder="Re-enter password"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={handleSignUp}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowConfirmPassword((prev) => !prev)}
+                    style={styles.eyeBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color="#9CA3AF"
+                    />
+                  </TouchableOpacity>
+                </View>
+                {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
+              </View>
+
+              {/* Create Account Button */}
+              <TouchableOpacity
+                style={[styles.primaryBtn, isSubmitting && styles.primaryBtnDisabled]}
+                onPress={handleSignUp}
+                activeOpacity={0.88}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.primaryBtnText}>Create Account</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {/* Divider */}
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or register with</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              {/* Social Sign-In Buttons - IN SAME LINE AT BOTTOM */}
+              <View style={styles.socialRow}>
+                {/* Apple Button */}
+                <TouchableOpacity
+                  style={styles.socialBtnApple}
+                  onPress={() => handleSocialAuth('Apple')}
+                  activeOpacity={0.85}
+                >
+                  <FontAwesome name="apple" size={20} color="#FFFFFF" />
+                  <Text style={styles.socialBtnTextApple}>Apple</Text>
+                </TouchableOpacity>
+
+                {/* Google Button */}
+                <TouchableOpacity
+                  style={[styles.socialBtnGoogle, isGoogleSubmitting && { opacity: 0.7 }]}
+                  onPress={() => handleSocialAuth('Google')}
+                  activeOpacity={0.85}
+                  disabled={isGoogleSubmitting || isSubmitting}
+                >
+                  {isGoogleSubmitting ? (
+                    <ActivityIndicator size="small" color="#EA4335" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-google" size={18} color="#EA4335" />
+                      <Text style={styles.socialBtnTextGoogle}>Google</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Footer info */}
+            <View style={styles.footerRow}>
+              <Text style={styles.footerText}>Already have an account?</Text>
+              <TouchableOpacity onPress={onSignIn} activeOpacity={0.7}>
+                <Text style={styles.footerLink}>Sign In</Text>
               </TouchableOpacity>
             </View>
-            {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
           </View>
-
-          {/* Confirm Password */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Confirm Password</Text>
-            <View
-              style={[
-                styles.inputWrap,
-                focusedField === 'confirmPassword' && styles.inputWrapFocused,
-                errors.confirmPassword ? styles.inputWrapError : null,
-              ]}
-            >
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={19}
-                color={focusedField === 'confirmPassword' ? '#166534' : '#9CA3AF'}
-              />
-              <TextInput
-                ref={confirmPasswordRef}
-                style={styles.input}
-                value={confirmPassword}
-                onChangeText={(t) => {
-                  setConfirmPassword(t);
-                  if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: null }));
-                }}
-                onFocus={() => setFocusedField('confirmPassword')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="Re-enter password"
-                placeholderTextColor="#9CA3AF"
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="done"
-                onSubmitEditing={handleSignUp}
-              />
-              <TouchableOpacity
-                onPress={() => setShowConfirmPassword((prev) => !prev)}
-                style={styles.eyeBtn}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color="#9CA3AF"
-                />
-              </TouchableOpacity>
-            </View>
-            {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
-          </View>
-
-          {/* Create Account Button */}
-          <TouchableOpacity
-            style={[styles.primaryBtn, isSubmitting && styles.primaryBtnDisabled]}
-            onPress={handleSignUp}
-            activeOpacity={0.88}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <>
-                <Text style={styles.primaryBtnText}>Create Account</Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or register with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Social Sign-In Buttons - IN SAME LINE AT BOTTOM */}
-          <View style={styles.socialRow}>
-            {/* Apple Button */}
-            <TouchableOpacity
-              style={styles.socialBtnApple}
-              onPress={() => handleSocialAuth('Apple')}
-              activeOpacity={0.85}
-            >
-              <FontAwesome name="apple" size={20} color="#FFFFFF" />
-              <Text style={styles.socialBtnTextApple}>Apple</Text>
-            </TouchableOpacity>
-
-            {/* Google Button */}
-            <TouchableOpacity
-              style={[styles.socialBtnGoogle, isGoogleSubmitting && { opacity: 0.7 }]}
-              onPress={() => handleSocialAuth('Google')}
-              activeOpacity={0.85}
-              disabled={isGoogleSubmitting || isSubmitting}
-            >
-              {isGoogleSubmitting ? (
-                <ActivityIndicator size="small" color="#EA4335" />
-              ) : (
-                <>
-                  <Ionicons name="logo-google" size={18} color="#EA4335" />
-                  <Text style={styles.socialBtnTextGoogle}>Google</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Footer info */}
-        <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Already have an account?</Text>
-          <TouchableOpacity onPress={onSignIn} activeOpacity={0.7}>
-            <Text style={styles.footerLink}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
+        </TouchableWithoutFeedback>
       </ScrollView>
 
       {/* Custom Alert Modal */}
@@ -495,6 +613,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 44 : 36,
     paddingBottom: 32,
+  },
+  innerTouchable: {
+    width: '100%',
   },
   brandSection: {
     alignItems: 'center',

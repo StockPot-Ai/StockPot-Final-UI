@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   Dimensions,
   Platform,
+  Alert,
+  PermissionsAndroid,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { isRunningInExpoGo } from 'expo';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import AsyncStorage from '../utils/safeStorage';
 import { useAccount } from '../context/AccountContext';
 import locationService from '../services/locationService';
@@ -19,13 +23,120 @@ import { LANGUAGES } from '../i18n/translations';
 const ONBOARDING_STORAGE_KEY = '@stockpot_has_onboarded';
 const { width } = Dimensions.get('window');
 
+// Detect if running inside Expo Go client
+const isExpoGo = () => {
+  try {
+    if (typeof isRunningInExpoGo === 'function' && isRunningInExpoGo()) {
+      return true;
+    }
+  } catch (_) {}
+  try {
+    if (Constants?.appOwnership === 'expo') {
+      return true;
+    }
+    if (
+      Constants?.executionEnvironment === ExecutionEnvironment?.StoreClient ||
+      Constants?.executionEnvironment === 'storeClient'
+    ) {
+      return true;
+    }
+  } catch (_) {}
+  return false;
+};
+
+// Safe dynamic accessor for expo-notifications.
+// Note: Android remote push notifications were removed from Expo Go in SDK 53+.
+// Statically importing expo-notifications triggers an unhandled fatal error on Android Expo Go.
+// In development builds (or standalone builds) and on iOS, it loads and functions normally.
+let cachedNotificationsModule = undefined;
+const getNotificationsModule = () => {
+  if (cachedNotificationsModule !== undefined) {
+    return cachedNotificationsModule;
+  }
+  if (Platform.OS === 'android' && isExpoGo()) {
+    cachedNotificationsModule = null;
+    return null;
+  }
+  try {
+    cachedNotificationsModule = require('expo-notifications');
+    return cachedNotificationsModule;
+  } catch (err) {
+    cachedNotificationsModule = null;
+    return null;
+  }
+};
+
+// Check whether notification permission has been granted
+const checkNotificationPermission = async () => {
+  const notif = getNotificationsModule();
+  if (notif?.getPermissionsAsync) {
+    try {
+      const res = await notif.getPermissionsAsync();
+      return res?.status === 'granted';
+    } catch (_) {}
+  }
+  if (Platform.OS === 'android') {
+    if (Platform.Version >= 33 && PermissionsAndroid?.check) {
+      try {
+        return await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      } catch (_) {
+        return false;
+      }
+    }
+    // Android < 33 has notification permissions granted by default on install
+    return true;
+  }
+  return false;
+};
+
+// Request notification permission from the user
+const requestNotificationPermission = async () => {
+  const notif = getNotificationsModule();
+  if (notif?.requestPermissionsAsync) {
+    try {
+      const existing = notif.getPermissionsAsync ? await notif.getPermissionsAsync() : null;
+      if (existing?.status === 'granted') return true;
+      const res = await notif.requestPermissionsAsync();
+      if (res?.status === 'granted') return true;
+    } catch (_) {}
+  }
+  if (Platform.OS === 'android') {
+    if (Platform.Version >= 33 && PermissionsAndroid?.request) {
+      try {
+        const res = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+        );
+        return res === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (_) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
+};
+
 const OnboardingScreen = ({ onComplete }) => {
+  const insets = useSafeAreaInsets();
   const { language, setLanguage, t } = useAccount();
   const [step, setStep] = useState(1);
   const [locationGranted, setLocationGranted] = useState(false);
   const [notifGranted, setNotifGranted] = useState(false);
   const [detectedTown, setDetectedTown] = useState('');
   const [requestingLoc, setRequestingLoc] = useState(false);
+  const [requestingNotif, setRequestingNotif] = useState(false);
+
+  // Check notification permission status on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const granted = await checkNotificationPermission();
+        if (granted) {
+          setNotifGranted(true);
+        }
+      } catch (_) {}
+    })();
+  }, []);
 
   // Handle Location Permission Request
   const handleRequestLocation = async () => {
@@ -47,7 +158,23 @@ const OnboardingScreen = ({ onComplete }) => {
 
   // Handle Notifications Permission Request
   const handleRequestNotifications = async () => {
-    setNotifGranted(true);
+    setRequestingNotif(true);
+    try {
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        setNotifGranted(true);
+      } else {
+        setNotifGranted(false);
+        Alert.alert(
+          'Notifications Disabled',
+          'Notification permission was not granted. You can enable notifications anytime in your device settings to receive price alerts.'
+        );
+      }
+    } catch (err) {
+      console.warn('[OnboardingScreen] Notifications permission request error:', err);
+    } finally {
+      setRequestingNotif(false);
+    }
   };
 
   const handleFinish = async () => {
@@ -65,7 +192,7 @@ const OnboardingScreen = ({ onComplete }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Top Bar with Step Indicators */}
@@ -265,9 +392,12 @@ const OnboardingScreen = ({ onComplete }) => {
                   <TouchableOpacity
                     style={styles.permActionBtn}
                     onPress={handleRequestNotifications}
+                    disabled={requestingNotif}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.permActionBtnText}>Allow Alerts 🔔</Text>
+                    <Text style={styles.permActionBtnText}>
+                      {requestingNotif ? 'Allowing...' : 'Allow Alerts 🔔'}
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -311,7 +441,14 @@ const OnboardingScreen = ({ onComplete }) => {
       </ScrollView>
 
       {/* Bottom Action Footer */}
-      <View style={styles.footer}>
+      <View
+        style={[
+          styles.footer,
+          {
+            paddingBottom: Math.max((insets?.bottom || 0) + 12, 18),
+          },
+        ]}
+      >
         {step < 4 ? (
           <TouchableOpacity
             style={styles.continueBtn}
@@ -600,8 +737,8 @@ const styles = StyleSheet.create({
 
   // Footer
   footer: {
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 24,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 18,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',

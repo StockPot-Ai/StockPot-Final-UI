@@ -4,6 +4,7 @@ import subscriptionService from './subscriptionService';
 import locationService, { isValidSriLankaCoords } from './locationService';
 import cargillsCatalog from '../data/cargills_catalog.json';
 import keellsCatalog from '../data/keells_catalog.json';
+import { RECIPES as SEED_RECIPES } from '../data/seedData';
 
 const AUTH_TOKEN_KEY = '@stockpot_auth_token';
 const CUSTOM_RECIPES_KEY = '@stockpot_custom_recipes';
@@ -235,26 +236,38 @@ export const recipeService = {
       const res = await apiClient.get('/recipes', { params });
       const apiRecipes = Array.isArray(res?.data) ? res.data : (res?.data?.recipes || (Array.isArray(res) ? res : []));
       if (apiRecipes && apiRecipes.length > 0) {
-        combined = apiRecipes.map((r) => ({
-          ...r,
-          id: r.id,
-          title: r.title || r.name,
-          name: r.name || r.title,
-          cookTime: r.cookTime || (r.prep_time ? `${r.prep_time} mins` : '25 mins'),
-          prepTime: r.prepTime || (r.prep_time ? `${r.prep_time} mins` : '25 mins'),
-          estimatedCost: r.estimatedCost ?? r.estimated_cost ?? r.base_cost ?? 450,
-          image: r.image || r.image_url,
-          image_url: r.image_url || r.image,
-          rating: r.rating || 4.8,
-          likesCount: r.likesCount || 140,
-          cooksCount: r.cooksCount || 85,
-          servings: r.servings || r.base_servings || 2,
-          category: r.category || 'lunch',
-        }));
+        combined = apiRecipes.map((r) => {
+          const seedMatch = SEED_RECIPES.find((sr) =>
+            sr.id === r.id ||
+            (sr.title && r.name && sr.title.toLowerCase().includes(r.name.toLowerCase().split(' ')[0])) ||
+            (sr.name && r.name && sr.name.toLowerCase().includes(r.name.toLowerCase().split(' ')[0]))
+          );
+          return {
+            ...r,
+            id: r.id,
+            title: r.title || r.name,
+            name: r.name || r.title,
+            cookTime: r.cookTime || (r.prep_time ? `${r.prep_time} mins` : '25 mins'),
+            prepTime: r.prepTime || (r.prep_time ? `${r.prep_time} mins` : '25 mins'),
+            estimatedCost: r.estimatedCost ?? r.estimated_cost ?? r.base_cost ?? 450,
+            image: r.image || r.image_url,
+            image_url: r.image_url || r.image,
+            rating: r.rating || 4.8,
+            likesCount: r.likesCount || 140,
+            cooksCount: r.cooksCount || 85,
+            servings: r.servings || r.base_servings || 2,
+            category: r.category || 'lunch',
+            ingredients: r.ingredients || seedMatch?.ingredients,
+            steps: r.steps || seedMatch?.steps,
+          };
+        });
       }
     } catch (_) { }
 
-    // API returned no recipes — show empty, don't lie with mock data
+    // If API returned no recipes or is offline, populate with existing seed recipes
+    if (combined.length === 0) {
+      combined = [...SEED_RECIPES];
+    }
 
     // Load custom community recipes from local storage
     try {
@@ -325,10 +338,27 @@ export const recipeService = {
   },
 
   getRecipeById: async (id) => {
+    // 1. Try fetching live recipe from Flask backend API
     try {
       const res = await apiClient.get(`/recipes/${id}`);
       const r = res.data || res;
       if (r && (r.name || r.title)) {
+        const hasIngredients = Array.isArray(r.ingredients) && r.ingredients.length > 0;
+        let matchedIngredients = r.ingredients;
+        let matchedSteps = r.steps;
+
+        if (!hasIngredients) {
+          const seedMatch = SEED_RECIPES.find((sr) =>
+            sr.id === id ||
+            (sr.title && r.name && sr.title.toLowerCase().includes(r.name.toLowerCase().split(' ')[0])) ||
+            (sr.name && r.name && sr.name.toLowerCase().includes(r.name.toLowerCase().split(' ')[0]))
+          );
+          if (seedMatch && Array.isArray(seedMatch.ingredients)) {
+            matchedIngredients = seedMatch.ingredients;
+            matchedSteps = seedMatch.steps || matchedSteps;
+          }
+        }
+
         return {
           ...r,
           title: r.title || r.name,
@@ -339,9 +369,13 @@ export const recipeService = {
           image_url: r.image_url || r.image,
           rating: r.rating || 4.8,
           servings: r.servings || r.base_servings || 2,
+          ingredients: matchedIngredients,
+          steps: matchedSteps,
         };
       }
     } catch (_) { }
+
+    // 2. Check locally saved custom recipes
     let all = [];
     try {
       const stored = await AsyncStorage.getItem(CUSTOM_RECIPES_KEY);
@@ -349,7 +383,21 @@ export const recipeService = {
         all = [...JSON.parse(stored), ...all];
       }
     } catch (_) { }
-    return all.find((r) => r.id === id) || null;
+
+    const customMatch = all.find((r) => r.id === id || r.title === id || r.name === id);
+    if (customMatch) return customMatch;
+
+    // 3. Check existing seed recipes by ID or by title/name match
+    const seedMatch = SEED_RECIPES.find((r) =>
+      r.id === id ||
+      (r.title && r.title.toLowerCase() === String(id).toLowerCase()) ||
+      (r.name && r.name.toLowerCase() === String(id).toLowerCase()) ||
+      (r.title && String(id).toLowerCase().includes(r.title.toLowerCase())) ||
+      (r.name && String(id).toLowerCase().includes(r.name.toLowerCase()))
+    );
+    if (seedMatch) return seedMatch;
+
+    return null;
   },
 
   likeRecipe: async (id) => {
@@ -759,21 +807,38 @@ export const smartBasketService = {
   // Build basket from selected recipes or ingredients
   buildBasketFromIngredients: (ingredients = []) => {
     const basketItems = [];
+    const allProducts = [
+      ...(Array.isArray(cargillsCatalog) ? cargillsCatalog : []),
+      ...(Array.isArray(keellsCatalog) ? keellsCatalog : []),
+    ];
 
-    ingredients.forEach((ing) => {
-      // Try matching from Cargills catalog first, then Keells
-      const allProducts = [
-        ...(Array.isArray(cargillsCatalog) ? cargillsCatalog : []),
-        ...(Array.isArray(keellsCatalog) ? keellsCatalog : []),
-      ];
+    const seenIds = new Set();
 
+    (Array.isArray(ingredients) ? ingredients : []).forEach((ing, index) => {
+      const ingNameClean = (ing.name || '').trim().toLowerCase();
+      const firstWord = ingNameClean.split(/\s+/)[0];
+
+      // Match product: first by productId, then exact name, then substring, then first word
       const matchedProduct =
-        allProducts.find((p) => p.id === ing.productId) ||
-        allProducts.find((p) => ing.name && (p.name || '').toLowerCase().includes((ing.name || '').toLowerCase().split(' ')[0])) ||
+        (ing.productId ? allProducts.find((p) => p.id === ing.productId) : null) ||
+        (ing.id ? allProducts.find((p) => p.id === ing.id) : null) ||
+        (ingNameClean ? allProducts.find((p) => (p.name || '').toLowerCase() === ingNameClean) : null) ||
+        (ingNameClean.length > 3 ? allProducts.find((p) => (p.name || '').toLowerCase().includes(ingNameClean)) : null) ||
+        (ingNameClean.length > 3 ? allProducts.find((p) => ingNameClean.includes((p.name || '').toLowerCase())) : null) ||
+        (firstWord.length > 3 ? allProducts.find((p) => (p.name || '').toLowerCase().includes(firstWord)) : null) ||
         null;
 
+      // Ensure stable and unique item identifier:
+      // Preserves ing.id if provided; disambiguates duplicates with stable index suffix.
+      let uniqueId = ing.id || ing.productId || (matchedProduct ? matchedProduct.id : null);
+      if (!uniqueId || seenIds.has(uniqueId)) {
+        uniqueId = uniqueId ? `${uniqueId}_${index}` : `basket_item_${index}`;
+      }
+      seenIds.add(uniqueId);
+
       basketItems.push({
-        id: ing.productId || matchedProduct?.id || `item_${Math.random().toString(36).substr(2, 6)}`,
+        id: String(uniqueId),
+        productId: ing.productId || matchedProduct?.id || null,
         name: ing.name || matchedProduct?.name || 'Grocery Item',
         quantity: ing.quantity || '1 unit',
         estimatedCost: ing.estimatedPrice || ing.cost || matchedProduct?.price || 350,
@@ -787,12 +852,68 @@ export const smartBasketService = {
   // Calculate cheapest single store vs split multi-store strategy
   // liveDiscounts: optional array of discounts fetched from API (overrides seed DISCOUNTS)
   optimizeBasket: (basketItems = [], preferences = { maxStores: 3, minSavings: 150 }, liveDiscounts = null) => {
-    // Inline store definitions — no longer depends on deleted STORES constant
+    // Inline store definitions with complete metadata
     const INLINE_STORES = [
-      { id: 'cargills', name: 'Cargills Food City', color: '#DC2626', isLocalShop: false, logo: 'https://www.google.com/s2/favicons?domain=cargillsceylon.com&sz=128' },
-      { id: 'keells', name: 'Keells Super', color: '#16A34A', isLocalShop: false, logo: 'https://www.google.com/s2/favicons?domain=keellssuper.com&sz=128' },
-      { id: 'sathosa', name: 'Lanka Sathosa', color: '#D97706', isLocalShop: true, logo: null },
-      { id: 'glomark', name: 'Softlogic GLOMARK', color: '#4F46E5', isLocalShop: false, logo: null },
+      {
+        id: 'cargills',
+        name: 'Cargills Food City',
+        color: '#DC2626',
+        isLocalShop: false,
+        category: 'Supermarket',
+        openingHours: '8:00 AM – 10:00 PM',
+        address: 'High Level Road, Eheliyagoda',
+        phone: '+94 11 242 7777',
+        distanceKm: 1.2,
+        deliveryAvailable: true,
+        isVerified: true,
+        rating: 4.8,
+        logo: 'https://www.google.com/s2/favicons?domain=cargillsceylon.com&sz=128',
+      },
+      {
+        id: 'keells',
+        name: 'Keells Super',
+        color: '#16A34A',
+        isLocalShop: false,
+        category: 'Supermarket',
+        openingHours: '7:30 AM – 10:30 PM',
+        address: 'Station Road, Eheliyagoda',
+        phone: '+94 11 230 3500',
+        distanceKm: 0.8,
+        deliveryAvailable: true,
+        isVerified: true,
+        rating: 4.7,
+        logo: 'https://www.google.com/s2/favicons?domain=keellssuper.com&sz=128',
+      },
+      {
+        id: 'sathosa',
+        name: 'Lanka Sathosa',
+        color: '#D97706',
+        isLocalShop: true,
+        category: 'Local Grocer',
+        openingHours: '8:00 AM – 9:00 PM',
+        address: 'Main Street, Eheliyagoda',
+        phone: '+94 11 243 4567',
+        distanceKm: 1.5,
+        deliveryAvailable: false,
+        isVerified: true,
+        rating: 4.4,
+        logo: null,
+      },
+      {
+        id: 'glomark',
+        name: 'Softlogic GLOMARK',
+        color: '#4F46E5',
+        isLocalShop: false,
+        category: 'Supermarket',
+        openingHours: '8:30 AM – 10:00 PM',
+        address: 'Main Road, Eheliyagoda',
+        phone: '+94 11 511 5555',
+        distanceKm: 2.1,
+        deliveryAvailable: true,
+        isVerified: true,
+        rating: 4.6,
+        logo: null,
+      },
     ];
 
     const discountSource = (liveDiscounts && liveDiscounts.length > 0) ? liveDiscounts : [];
@@ -813,15 +934,19 @@ export const smartBasketService = {
 
     const getItemPriceForStore = (item, storeId) => {
       // Check live discounts first
-      const disc = discountSource.find((d) => d.storeId === storeId && (d.productId === item.id || d.productName?.toLowerCase() === (item.name || '').toLowerCase()));
+      const disc = discountSource.find((d) => d.storeId === storeId && (d.productId === item.id || d.productId === item.productId || d.productName?.toLowerCase() === (item.name || '').toLowerCase()));
       if (disc && disc.discountedPrice) return { price: disc.discountedPrice, hasDiscount: true, discountAmount: (disc.originalPrice || disc.discountedPrice) - disc.discountedPrice };
 
       // Try to find matching product in catalog
       const catalog = storeId === 'cargills' ? cargillsProducts : storeId === 'keells' ? keellsProducts : [];
-      const match = catalog.find((p) =>
-        (item.name || '').toLowerCase().includes((p.name || '').toLowerCase().split(' ')[0]) ||
-        (p.name || '').toLowerCase().includes((item.name || '').toLowerCase().split(' ')[0])
-      );
+      const match =
+        (item.productId ? catalog.find((p) => p.id === item.productId) : null) ||
+        (item.matchedProduct && (item.matchedProduct.store || '').toLowerCase().includes(storeId) ? item.matchedProduct : null) ||
+        catalog.find((p) => (p.name || '').toLowerCase() === (item.name || '').toLowerCase()) ||
+        catalog.find((p) =>
+          (item.name || '').toLowerCase().includes((p.name || '').toLowerCase().split(' ')[0]) ||
+          (p.name || '').toLowerCase().includes((item.name || '').toLowerCase().split(' ')[0])
+        );
       if (match && match.price) {
         // Apply slight variance per store
         const variance = storeId === 'keells' ? 1.02 : storeId === 'sathosa' ? 0.95 : 1.0;
@@ -844,7 +969,7 @@ export const smartBasketService = {
         const { price, hasDiscount, discountAmount } = getItemPriceForStore(item, store.id);
         total += price;
         breakdown.push({
-          productId: item.id,
+          productId: item.productId || item.id,
           productName: item.name,
           price,
           hasDiscount,
@@ -884,7 +1009,7 @@ export const smartBasketService = {
       usedStoresMap[bestStore.id] = bestStore;
 
       splitBasketItems.push({
-        product: { id: item.id, name: item.name },
+        product: { id: item.id, productId: item.productId, name: item.name },
         quantity: item.quantity,
         bestStore,
         price: lowestPrice,

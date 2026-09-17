@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -230,9 +231,9 @@ export default function AIChatModal({ visible, onClose }) {
               <View style={styles.aiBadge}>
                 <MaterialCommunityIcons name="chef-hat" size={18} color="#FFFFFF" />
               </View>
-              <View>
+              <View style={styles.headerTextCol}>
                 <View style={styles.headerTitleRow}>
-                  <Text style={styles.headerTitle}>Chef Tete👨‍🍳</Text>
+                  <Text style={styles.headerTitle} numberOfLines={1}>Chef Tete👨‍🍳</Text>
                   {isPro ? (
                     <View style={styles.planBadgePro}>
                       <FontAwesome5 name="crown" size={9} color="#E8A93F" />
@@ -249,7 +250,7 @@ export default function AIChatModal({ visible, onClose }) {
                     </View>
                   )}
                 </View>
-                <Text style={styles.headerSubtitle}>
+                <Text style={styles.headerSubtitle} numberOfLines={1}>
                   {isPro
                     ? 'Unlimited Questions 👑'
                     : `${Math.max(0, maxQueries - dailyCount)} of ${maxQueries} queries left today`}
@@ -262,11 +263,22 @@ export default function AIChatModal({ visible, onClose }) {
                 style={styles.newChatBtn}
                 activeOpacity={0.75}
                 accessibilityLabel="Start New Chat"
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
               >
                 <Feather name="refresh-cw" size={13} color="#3A6847" />
                 <Text style={styles.newChatBtnText}>New Chat</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => {
+                  Keyboard.dismiss();
+                  if (onClose) onClose();
+                }}
+                style={styles.closeBtn}
+                activeOpacity={0.7}
+                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close AI Chef"
+              >
                 <Feather name="x" size={18} color={Colors.textPrimary} />
               </TouchableOpacity>
             </View>
@@ -424,7 +436,11 @@ export default function AIChatModal({ visible, onClose }) {
               {!isLimitReached && messages.length <= 2 && (
                 <View style={styles.quickPromptsWrap}>
                   <Text style={styles.quickPromptLabel}>Suggested Questions</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickPromptsList}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.quickPromptsList}
+                  >
                     {QUICK_PROMPTS.map((prompt, idx) => (
                       <TouchableOpacity
                         key={idx}
@@ -500,16 +516,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E8DFD8',
+    zIndex: 100,
+    elevation: 4,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  headerTextCol: {
+    flex: 1,
+    minWidth: 0,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -581,6 +605,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   newChatBtn: {
     flexDirection: 'row',
@@ -599,9 +624,9 @@ const styles = StyleSheet.create({
     color: '#3A6847',
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#F5EFEB',
     alignItems: 'center',
     justifyContent: 'center',
@@ -650,6 +675,7 @@ const styles = StyleSheet.create({
   chatContent: {
     padding: 16,
     gap: 12,
+    paddingBottom: 16,
   },
   messageBubble: {
     maxWidth: '82%',
@@ -711,7 +737,7 @@ const styles = StyleSheet.create({
     color: '#6B5E57',
   },
   quickPromptsWrap: {
-    paddingHorizontal: 16,
+    paddingLeft: 16,
     paddingBottom: 8,
   },
   quickPromptLabel: {
@@ -724,6 +750,7 @@ const styles = StyleSheet.create({
   },
   quickPromptsList: {
     gap: 8,
+    paddingRight: 16,
   },
   quickPromptChip: {
     backgroundColor: '#FFFFFF',
@@ -755,10 +782,12 @@ const styles = StyleSheet.create({
     borderColor: '#E8DFD8',
     borderRadius: 20,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: Platform.OS === 'ios' ? 9 : 7,
     fontSize: 13,
     color: '#2B2420',
+    minHeight: 40,
     maxHeight: 90,
+    textAlignVertical: 'center',
   },
   inputDisabled: {
     backgroundColor: '#F5EFEB',
