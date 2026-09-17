@@ -52,17 +52,7 @@ export const AccountProvider = ({ children }) => {
 
   const [isShopOwner, setIsShopOwner] = useState(false);
   const [businessPlan, setBusinessPlan] = useState('business_basic'); // 'business_basic' | 'business_pro'
-  const [activeShop, setActiveShop] = useState({
-    id: '33333333-0000-0000-0000-000000000001',
-    name: 'Cargills Food City',
-    category: 'Supermarket',
-    address: 'Kollupitiya, Colombo 03',
-    phone: '+94 11 242 7777',
-    isVerified: true,
-    verificationStatus: 'VERIFIED',
-    rating: 4.7,
-    reviewsCount: 280,
-  });
+  const [activeShop, setActiveShop] = useState(null);
 
   // ── Household & Preferences State
   const [household, setHousehold] = useState({
@@ -560,30 +550,34 @@ export const AccountProvider = ({ children }) => {
     }
   };
 
-  const sendEmailVerification = async () => {
-    try {
-      const res = await authService.sendVerificationEmail(profile.email);
-      return res;
-    } catch (err) {
-      return { success: true, message: 'Verification email dispatched.' };
+  const sendEmailVerification = async (targetEmail = null) => {
+    const emailToUse = (targetEmail || profile.email || '').trim();
+    if (!emailToUse) {
+      throw new Error('Please provide an email address to verify.');
     }
+    const res = await authService.sendVerificationEmail(emailToUse);
+    if (targetEmail && targetEmail !== profile.email) {
+      setProfile((prev) => {
+        const next = { ...prev, email: emailToUse };
+        AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+    }
+    return res;
   };
 
-  const verifyEmailCode = async (code) => {
-    try {
-      const res = await authService.verifyEmailCode(code, profile.email);
-      if (res?.verified || res?.success) {
-        setProfile((prev) => {
-          const next = { ...prev, isEmailVerified: true };
-          AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(next)).catch(() => {});
-          return next;
-        });
-        return { success: true };
-      }
-      return { success: false, message: 'Invalid verification code' };
-    } catch (err) {
-      throw err;
+  const verifyEmailCode = async (code, targetEmail = null) => {
+    const emailToUse = (targetEmail || profile.email || '').trim();
+    const res = await authService.verifyEmailCode(code, emailToUse);
+    if (res?.verified || res?.success) {
+      setProfile((prev) => {
+        const next = { ...prev, isEmailVerified: true, email: emailToUse || prev.email };
+        AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+      return { success: true };
     }
+    throw new Error(res?.message || 'Invalid verification code');
   };
 
   return (
@@ -604,9 +598,11 @@ export const AccountProvider = ({ children }) => {
         isPremium,
         isPro,
         isShopOwner,
+        setIsShopOwner,
         businessPlan,
         isBusinessPro,
         activeShop,
+        setActiveShop,
         upgradeToPremium,
         cancelPremium,
         registerBusinessShop,

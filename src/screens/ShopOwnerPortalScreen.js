@@ -18,6 +18,7 @@ import Colors from '../constants/colors';
 import { shopOwnerService, storeService } from '../services';
 import subscriptionService from '../services/subscriptionService';
 import { useAccount } from '../context/AccountContext';
+import ShopOwnerModal from '../components/store/ShopOwnerModal';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: 'grid-outline' },
@@ -28,7 +29,8 @@ const TABS = [
 ];
 
 export default function ShopOwnerPortalScreen({ onBack }) {
-  const { activeShop, businessPlan, isBusinessPro, updateBusinessPlan } = useAccount();
+  const { activeShop, businessPlan, isBusinessPro, updateBusinessPlan, setActiveShop, setIsShopOwner } = useAccount();
+  const [shopOwnerModalVisible, setShopOwnerModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [products, setProducts] = useState([]);
   const [priceHistory, setPriceHistory] = useState([]);
@@ -65,9 +67,16 @@ export default function ShopOwnerPortalScreen({ onBack }) {
   const [promoProduct, setPromoProduct] = useState('');
   const [promoDiscount, setPromoDiscount] = useState('15');
 
-  const shopId = activeShop?.id || '33333333-0000-0000-0000-000000000001';
+  const shopId = activeShop?.id || null;
 
   const loadPortalData = useCallback(async () => {
+    if (!shopId) {
+      setProducts([]);
+      setPriceHistory([]);
+      setAnalytics(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [prodList, historyList, anData] = await Promise.all([
@@ -85,6 +94,14 @@ export default function ShopOwnerPortalScreen({ onBack }) {
   useEffect(() => {
     loadPortalData();
   }, [loadPortalData]);
+
+  const handleShopRegistered = (newShop) => {
+    if (newShop) {
+      setActiveShop && setActiveShop(newShop);
+      setIsShopOwner && setIsShopOwner(true);
+      setShopOwnerModalVisible(false);
+    }
+  };
 
   // Product CRUD
   const handleOpenAddProduct = () => {
@@ -195,44 +212,106 @@ export default function ShopOwnerPortalScreen({ onBack }) {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <View style={styles.shopTitleRow}>
-            <Text style={styles.shopName}>{activeShop?.name || 'My Local Grocery'}</Text>
-            <View style={styles.verifiedTag}>
-              <Ionicons name="checkmark-circle" size={12} color="#166534" />
-              <Text style={styles.verifiedTagText}>Verified Shop</Text>
-            </View>
+            <Text style={styles.shopName}>{activeShop?.name || 'Merchant Portal'}</Text>
+            {activeShop ? (
+              <View style={styles.verifiedTag}>
+                <Ionicons name="checkmark-circle" size={12} color="#166534" />
+                <Text style={styles.verifiedTagText}>Verified Shop</Text>
+              </View>
+            ) : null}
           </View>
           <Text style={styles.shopSubtitle}>
-            {activeShop?.category || 'Grocery'} • {isBusinessPro ? 'Business Pro 🚀' : 'Business Basic'}
+            {activeShop ? `${activeShop.category || 'Grocery'} • ${isBusinessPro ? 'Business Pro 🚀' : 'Business Basic'}` : 'StockPot Business Suite'}
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.planBadge}
-          onPress={() =>
-            Alert.alert(
-              'StockPot Business Plan',
-              `Current: ${isBusinessPro ? 'Business Pro (Rs. 2,999/mo)' : 'Business Basic (Rs. 1,499/mo)'}\n\nPro unlocks Unlimited Products, CSV Uploads, Bulk Price Tools & Advanced Analytics.`,
-              [
-                {
-                  text: isBusinessPro ? 'Active' : 'Upgrade to Pro',
-                  onPress: () => {
-                    if (!isBusinessPro) {
-                      Alert.alert(
-                        '🚀 Coming Soon!',
-                        'Merchant Pro tier subscription & automated payment processing are launching soon.'
-                      );
-                    }
-                  },
-                },
-                { text: 'Close', style: 'cancel' },
-              ]
-            )
-          }
-        >
-          <Text style={styles.planBadgeText}>{isBusinessPro ? 'PRO' : 'BASIC'}</Text>
-        </TouchableOpacity>
+        {activeShop ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity
+              style={styles.addShopSmallBtn}
+              onPress={() => setShopOwnerModalVisible(true)}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="add" size={16} color="#007A3D" />
+              <Text style={styles.addShopSmallBtnText}>Add</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.planBadge}
+              onPress={() =>
+                Alert.alert(
+                  'StockPot Business Plan',
+                  `Current: ${isBusinessPro ? 'Business Pro (Rs. 2,999/mo)' : 'Business Basic (Rs. 1,499/mo)'}\n\nPro unlocks Unlimited Products, CSV Uploads, Bulk Price Tools & Advanced Analytics.`,
+                  [
+                    {
+                      text: isBusinessPro ? 'Active' : 'Upgrade to Pro',
+                      onPress: () => {
+                        if (!isBusinessPro) {
+                          Alert.alert(
+                            '🚀 Coming Soon!',
+                            'Merchant Pro tier subscription & automated payment processing are launching soon.'
+                          );
+                        }
+                      },
+                    },
+                    { text: 'Close', style: 'cancel' },
+                  ]
+                )
+              }
+            >
+              <Text style={styles.planBadgeText}>{isBusinessPro ? 'PRO' : 'BASIC'}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.registerSmallHeaderBtn}
+            onPress={() => setShopOwnerModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add-circle" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+            <Text style={styles.registerSmallHeaderBtnText}>Add Shop</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
+      {!activeShop ? (
+        <ScrollView contentContainerStyle={styles.emptyPortalContainer} showsVerticalScrollIndicator={false}>
+          <View style={styles.emptyPortalCard}>
+            <View style={styles.emptyStoreIconWrap}>
+              <Ionicons name="storefront-outline" size={54} color="#007A3D" />
+            </View>
+            <Text style={styles.emptyPortalTitle}>No Store Registered</Text>
+            <Text style={styles.emptyPortalSub}>
+              You haven't linked a grocery store to your StockPot account yet. Register your shop to showcase inventory, update real-time prices, and connect with nearby community shoppers.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.registerMainBtn}
+              onPress={() => setShopOwnerModalVisible(true)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="add-circle" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.registerMainBtnText}>+ Register My Grocery Shop</Text>
+            </TouchableOpacity>
+
+            <View style={styles.benefitList}>
+              <View style={styles.benefitRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#007A3D" style={{ marginRight: 8 }} />
+                <Text style={styles.benefitText}>Publish daily prices & instant flash deals</Text>
+              </View>
+              <View style={styles.benefitRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#007A3D" style={{ marginRight: 8 }} />
+                <Text style={styles.benefitText}>Verified merchant badge in Nearby Shops search</Text>
+              </View>
+              <View style={styles.benefitRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#007A3D" style={{ marginRight: 8 }} />
+                <Text style={styles.benefitText}>Dedicated product catalogue with stock indicators</Text>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      ) : (
+        <>
       {/* Navigation Tabs */}
       <View style={styles.tabContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
@@ -733,6 +812,14 @@ export default function ShopOwnerPortalScreen({ onBack }) {
           </View>
         </View>
       </Modal>
+        </>
+      )}
+
+      <ShopOwnerModal
+        visible={shopOwnerModalVisible}
+        onClose={() => setShopOwnerModalVisible(false)}
+        onShopRegistered={handleShopRegistered}
+      />
     </SafeAreaView>
   );
 }
@@ -1415,5 +1502,116 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     height: 180,
     textAlignVertical: 'top',
+  },
+  addShopSmallBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    gap: 3,
+  },
+  addShopSmallBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#007A3D',
+  },
+  registerSmallHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#007A3D',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  registerSmallHeaderBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  emptyPortalContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 500,
+  },
+  emptyPortalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  emptyStoreIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyPortalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyPortalSub: {
+    fontSize: 13.5,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 22,
+    paddingHorizontal: 10,
+  },
+  registerMainBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007A3D',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    width: '100%',
+    marginBottom: 24,
+    shadowColor: '#007A3D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  registerMainBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  benefitList: {
+    width: '100%',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  benefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  benefitText: {
+    fontSize: 12.5,
+    color: '#374151',
+    fontWeight: '600',
+    flex: 1,
   },
 });

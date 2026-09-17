@@ -38,6 +38,9 @@ export const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return parseFloat((R * c).toFixed(1));
 };
 
+const SUPABASE_AUTH_URL = 'https://jycehoybnmoipyvovhjk.supabase.co';
+const SUPABASE_AUTH_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5Y2Vob3libm1vaXB5dm92aGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwODY2NzcsImV4cCI6MjEwNDY2MjY3N30.4kK13J_BKkkefFtqhcROCI5Pe77R7LxvafwJspfZrKs';
+
 // ── Auth Service ─────────────────────────────────────────────────────────────
 export const authService = {
   register: async (payload) => {
@@ -128,24 +131,88 @@ export const authService = {
   },
 
   sendVerificationEmail: async (email) => {
+    if (!email || !email.includes('@')) {
+      throw new Error('Please enter a valid email address.');
+    }
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Direct Supabase Auth OTP (dispatches authentic 6-digit email token)
     try {
-      const res = await apiClient.post('/auth/send-verification', { email });
+      const supaRes = await fetch(`${SUPABASE_AUTH_URL}/auth/v1/otp`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_AUTH_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: cleanEmail, create_user: true }),
+      });
+      if (supaRes.ok) {
+        return { success: true, message: `Real verification code dispatched to ${cleanEmail} via Supabase.` };
+      }
+    } catch (_) {}
+
+    // 2. Railway backend fallback
+    try {
+      const res = await apiClient.post('/auth/send-verification', { email: cleanEmail });
       return res.data || res;
     } catch (err) {
-      return { success: true, message: `A 6-digit verification code was sent to ${email}.` };
+      throw new Error(err.response?.data?.error?.message || err.message || 'Could not send verification code.');
     }
   },
 
   verifyEmailCode: async (code, email = '') => {
+    const cleanCode = String(code || '').trim();
+    const cleanEmail = String(email || '').trim().toLowerCase();
+
+    if (!cleanCode || cleanCode.length !== 6) {
+      throw new Error('Please enter a valid 6-digit verification code.');
+    }
+
+    // 1. Direct Supabase Auth OTP verification
+    if (cleanEmail) {
+      try {
+        const supaRes = await fetch(`${SUPABASE_AUTH_URL}/auth/v1/verify`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_AUTH_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'email',
+            email: cleanEmail,
+            token: cleanCode,
+          }),
+        });
+
+        if (supaRes.ok) {
+          const data = await supaRes.json();
+          return {
+            success: true,
+            verified: true,
+            message: 'Email successfully verified via Supabase!',
+            user: data?.user,
+          };
+        } else {
+          const errData = await supaRes.json().catch(() => ({}));
+          const errMsg = errData.msg || errData.error_description || errData.message;
+          if (errMsg) {
+            throw new Error(errMsg);
+          }
+        }
+      } catch (e) {
+        if (e.message && !e.message.includes('fetch')) {
+          throw e;
+        }
+      }
+    }
+
+    // 2. Railway backend verification
     try {
-      const res = await apiClient.post('/auth/verify-email', { code, email });
+      const res = await apiClient.post('/auth/verify-email', { code: cleanCode, email: cleanEmail });
       return res.data || res;
     } catch (err) {
-      // In offline/mock development mode, accept '123456' or any 6-digit code
-      if (/^\d{6}$/.test(code.trim())) {
-        return { success: true, verified: true };
-      }
-      throw new Error('Invalid verification code. Please enter the 6-digit code or test code 123456.');
+      const msg = err.response?.data?.error?.message || err.message || 'Invalid or expired verification code. Please check your email.';
+      throw new Error(msg);
     }
   },
 };
@@ -537,6 +604,8 @@ export const storeService = {
         const parsed = JSON.parse(customShops);
         const mappedCustom = parsed.map((s) => ({
           ...s,
+          isManualStore: true,
+          isCustom: true,
           distanceKm: (userLat && userLng && s.latitude && s.longitude)
             ? calculateDistance(userLat, userLng, s.latitude, s.longitude)
             : null,
@@ -866,6 +935,8 @@ export const shopOwnerService = {
       isVerified: true,
       verificationStatus: 'VERIFIED',
       isLocalShop: true,
+      isManualStore: true,
+      isCustom: true,
       rating: 4.8,
       reviewsCount: 1,
       deliveryAvailable: !!shopPayload.deliveryAvailable,

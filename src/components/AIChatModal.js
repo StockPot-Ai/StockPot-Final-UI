@@ -53,33 +53,46 @@ export default function AIChatModal({ visible, onClose }) {
 
   // Email verification anti-spam state
   const isEmailVerified = profile?.isEmailVerified === true;
+  const [emailInput, setEmailInput] = useState(profile?.email || '');
   const [verifyCode, setVerifyCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const [verifyError, setVerifyError] = useState('');
 
   const handleVerifyCode = async () => {
-    if (!verifyCode.trim() || verifyCode.trim().length !== 6) {
-      setVerifyError('Please enter a valid 6-digit verification code.');
+    const code = verifyCode.trim();
+    if (!code || code.length !== 6) {
+      setVerifyError('Please enter the 6-digit verification code sent to your email.');
       return;
     }
     setIsVerifying(true);
     setVerifyError('');
     try {
-      await verifyEmailCode(verifyCode.trim());
+      const target = emailInput.trim() || profile?.email;
+      await verifyEmailCode(code, target);
     } catch (err) {
-      setVerifyError(err.message || 'Invalid code. Try 123456 for testing.');
+      setVerifyError(err.message || 'Invalid or expired code. Please check the code in your email inbox.');
     } finally {
       setIsVerifying(false);
     }
   };
 
   const handleSendVerification = async () => {
+    const target = emailInput.trim() || profile?.email;
+    if (!target || !target.includes('@')) {
+      setVerifyError('Please enter a valid email address.');
+      return;
+    }
+    setIsSendingCode(true);
+    setVerifyError('');
     try {
-      await sendEmailVerification();
+      await sendEmailVerification(target);
       setVerificationSent(true);
     } catch (err) {
-      setVerificationSent(true);
+      setVerifyError(err.message || 'Could not send verification code via Supabase. Please try again.');
+    } finally {
+      setIsSendingCode(false);
     }
   };
 
@@ -293,23 +306,47 @@ export default function AIChatModal({ visible, onClose }) {
                 <View style={styles.verificationIconBadge}>
                   <Ionicons name="shield-checkmark" size={34} color="#E8A93F" />
                 </View>
-                <Text style={styles.verificationTitle}>Email Verification Required</Text>
+                <Text style={styles.verificationTitle}>Verify Email with Supabase</Text>
                 <Text style={styles.verificationSubtitle}>
-                  To protect AI Sous-Chef computing capacity and prevent automated spam, please verify your email before chatting.
+                  To protect AI Sous-Chef computing capacity and prevent automated spam, we send a genuine 6-digit one-time code to your email via Supabase Auth.
                 </Text>
 
-                <View style={styles.verificationEmailBox}>
-                  <Ionicons name="mail" size={16} color="#3A6847" />
-                  <Text style={styles.verificationEmailText}>
-                    {profile?.email || 'chef@stockpot.ai'}
-                  </Text>
+                <View style={styles.emailInputRow}>
+                  <Ionicons name="mail-outline" size={17} color="#3A6847" />
+                  <TextInput
+                    style={styles.emailTextInput}
+                    placeholder="Enter your email address"
+                    placeholderTextColor="#968880"
+                    value={emailInput}
+                    onChangeText={(t) => {
+                      setEmailInput(t);
+                      if (verifyError) setVerifyError('');
+                    }}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity
+                    style={[styles.sendCodeActionBtn, isSendingCode && { opacity: 0.6 }]}
+                    onPress={handleSendVerification}
+                    disabled={isSendingCode}
+                    activeOpacity={0.8}
+                  >
+                    {isSendingCode ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.sendCodeActionBtnText}>
+                        {verificationSent ? 'Resend' : 'Send Code'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
 
                 {verificationSent && (
                   <View style={styles.verificationSentBanner}>
-                    <Ionicons name="checkmark-circle" size={15} color="#3A6847" />
+                    <Ionicons name="checkmark-circle" size={15} color="#166534" />
                     <Text style={styles.verificationSentText}>
-                      Code dispatched! (Test code: 123456)
+                      Real 6-digit code dispatched to {emailInput.trim() || profile?.email}! Check your inbox & spam.
                     </Text>
                   </View>
                 )}
@@ -318,7 +355,7 @@ export default function AIChatModal({ visible, onClose }) {
                   <Ionicons name="key-outline" size={18} color="#968880" />
                   <TextInput
                     style={styles.codeInput}
-                    placeholder="Enter 6-digit code (e.g. 123456)"
+                    placeholder="Enter 6-digit verification code"
                     placeholderTextColor="#968880"
                     value={verifyCode}
                     onChangeText={(t) => {
@@ -342,14 +379,6 @@ export default function AIChatModal({ visible, onClose }) {
                   ) : (
                     <Text style={styles.verifySubmitBtnText}>Verify & Unlock Chef Tété</Text>
                   )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.resendBtn}
-                  onPress={handleSendVerification}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.resendBtnText}>Resend Verification Code</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -788,15 +817,46 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 18,
   },
+  emailInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8DFD8',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 48,
+    marginBottom: 12,
+    gap: 8,
+  },
+  emailTextInput: {
+    flex: 1,
+    fontSize: 13.5,
+    color: '#2B2420',
+    padding: 0,
+  },
+  sendCodeActionBtn: {
+    backgroundColor: '#3A6847',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  sendCodeActionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   verificationEmailBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#EAF3EC',
+    backgroundColor: '#F7F4F0',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 14,
+    width: '100%',
   },
   verificationEmailText: {
     fontSize: 13.5,
@@ -809,14 +869,16 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: '#EAF3EC',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 10,
     marginBottom: 12,
+    width: '100%',
   },
   verificationSentText: {
-    fontSize: 12.5,
-    color: '#3A6847',
+    fontSize: 12,
+    color: '#166534',
     fontWeight: '600',
+    flex: 1,
   },
   codeInputWrap: {
     flexDirection: 'row',

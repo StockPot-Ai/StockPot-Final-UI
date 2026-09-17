@@ -24,11 +24,35 @@ let cachedLocation = null; // null = not yet resolved
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.latitude && parsed.longitude && !parsed.isUnavailable) {
+        if (parsed.city && isInvalidCityName(parsed.city)) {
+          parsed.city = null;
+        }
+        if (parsed.formatted && isInvalidCityName(parsed.formatted)) {
+          parsed.formatted = 'Current Location';
+        }
         cachedLocation = parsed;
       }
     }
   } catch (_) {}
 })();
+
+// Helper to check if a reverse geocode string is just a number, coordinate, or longitude
+const isInvalidCityName = (str) => {
+  if (!str || typeof str !== 'string') return true;
+  const s = str.trim();
+  if (s.length < 2) return true;
+  // If it starts with a number or digit (e.g. 79.8562 or 03)
+  if (/^\d/.test(s)) return true;
+  // If it contains decimal coordinate numbers
+  if (/\d+\.\d+/.test(s)) return true;
+  // Must contain at least 2 alphabet letters
+  const letters = s.replace(/[^a-zA-Z]/g, '');
+  if (letters.length < 2) return true;
+  if (letters.toUpperCase() === 'LK') return true;
+  if (/^[\d\.\,\s\-\+°NSEWnsew]+$/.test(s)) return true;
+  if (s.toLowerCase().includes('location unavailable') || s.toLowerCase().includes('unknown')) return true;
+  return false;
+};
 
 // Helper to race a promise against a timeout
 const withTimeout = (promise, ms, fallbackValue = null) => {
@@ -108,8 +132,11 @@ export const locationService = {
           );
           if (Array.isArray(geocodes) && geocodes.length > 0) {
             const g = geocodes[0];
-            city = g.district || g.city || g.subregion || g.name;
-            region = g.region || g.subregion;
+            const candidateCity = [g.district, g.city, g.subregion, g.name].find(
+              (c) => c && !isInvalidCityName(c)
+            );
+            city = candidateCity || null;
+            region = g.region && !isInvalidCityName(g.region) ? g.region : null;
             const countryCode = g.isoCountryCode || 'LK';
             if (city) {
               formatted = `${city}, ${countryCode}`;
@@ -120,7 +147,7 @@ export const locationService = {
         } catch (_) {}
 
         // Fallback reverse geocode via OpenStreetMap Nominatim
-        if (!formatted) {
+        if (!formatted || isInvalidCityName(city)) {
           try {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 2500);
@@ -135,19 +162,30 @@ export const locationService = {
             if (res.ok) {
               const data = await res.json();
               const addr = data.address || {};
-              city = addr.suburb || addr.city || addr.town || addr.municipality || addr.district || addr.county;
-              const countryCode = (addr.country_code || 'lk').toUpperCase();
-              if (city) {
+              const candidate = [
+                addr.suburb,
+                addr.town,
+                addr.city,
+                addr.village,
+                addr.municipality,
+                addr.district,
+                addr.county,
+                addr.state_district,
+                addr.state,
+              ].find((c) => c && !isInvalidCityName(c));
+              if (candidate) {
+                city = candidate;
+                const countryCode = (addr.country_code || 'lk').toUpperCase();
                 formatted = `${city}, ${countryCode}`;
               }
             }
           } catch (_) {}
         }
 
-        // If still no city name, use coordinate-based label
-        if (!formatted) {
-          formatted = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-          city = `${latitude.toFixed(2)}°N`;
+        // If still no human-readable city name, NEVER use raw coordinates or longitude as city name
+        if (!formatted || isInvalidCityName(formatted)) {
+          city = null;
+          formatted = 'Current Location';
         }
 
         cachedLocation = {
@@ -174,13 +212,14 @@ export const locationService = {
         if (ipRes.ok) {
           const ipData = await ipRes.json();
           if (ipData && ipData.success && ipData.latitude && ipData.longitude) {
+            const candidateCity = ipData.city && !isInvalidCityName(ipData.city) ? ipData.city : null;
             cachedLocation = {
               latitude: ipData.latitude,
               longitude: ipData.longitude,
-              city: ipData.city || null,
+              city: candidateCity,
               region: ipData.region || null,
               country: ipData.country || 'Sri Lanka',
-              formatted: ipData.city ? `${ipData.city}, ${(ipData.country_code || 'LK')}` : 'IP Location',
+              formatted: candidateCity ? `${candidateCity}, ${(ipData.country_code || 'LK')}` : 'Current Location',
               isGps: false,
               isUnavailable: false,
             };
@@ -204,11 +243,12 @@ export const locationService = {
     // If we have a real cached location (GPS or IP), return it and refresh in background
     if (cachedLocation && cachedLocation.latitude && cachedLocation.longitude && !cachedLocation.isUnavailable) {
       locationService.getCurrentLocation().catch(() => {});
+      const cleanCity = !isInvalidCityName(cachedLocation.city) ? cachedLocation.city : null;
       return {
         latitude: cachedLocation.latitude,
         longitude: cachedLocation.longitude,
-        city: cachedLocation.city,
-        formatted: cachedLocation.formatted,
+        city: cleanCity,
+        formatted: cachedLocation.formatted && !isInvalidCityName(cachedLocation.formatted) ? cachedLocation.formatted : (cleanCity ? `${cleanCity}, LK` : 'Current Location'),
         isGps: !!cachedLocation.isGps,
         isUnavailable: false,
       };
@@ -217,11 +257,12 @@ export const locationService = {
     // No real cache — actually fetch now
     const loc = await locationService.getCurrentLocation();
     if (loc && loc.latitude && loc.longitude && !loc.isUnavailable) {
+      const cleanCity = !isInvalidCityName(loc.city) ? loc.city : null;
       return {
         latitude: loc.latitude,
         longitude: loc.longitude,
-        city: loc.city,
-        formatted: loc.formatted,
+        city: cleanCity,
+        formatted: loc.formatted && !isInvalidCityName(loc.formatted) ? loc.formatted : (cleanCity ? `${cleanCity}, LK` : 'Current Location'),
         isGps: !!loc.isGps,
         isUnavailable: false,
       };

@@ -172,7 +172,7 @@ const Header = ({
             ) : (
               <>
                 <Text style={styles.gpsLocationText} numberOfLines={1}>
-                  {gpsLocation || 'Location unavailable'}
+                  {(gpsLocation && !/^\d/.test(gpsLocation) && !/\d+\.\d+/.test(gpsLocation) && gpsLocation.replace(/[^a-zA-Z]/g, '').length >= 2) ? gpsLocation : 'Current Location'}
                 </Text>
                 {gpsLocation ? (
                   <Animated.View style={[styles.gpsLiveDot, { transform: [{ scale: pulseAnim }] }]} />

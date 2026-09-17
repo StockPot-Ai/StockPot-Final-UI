@@ -14,6 +14,7 @@ import Colors from '../../constants/colors';
 import { storeService } from '../../services';
 import locationService from '../../services/locationService';
 import { useAccount } from '../../context/AccountContext';
+import ShopOwnerModal from './ShopOwnerModal';
 
 const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
   const { t } = useAccount();
@@ -21,6 +22,7 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('All'); // 'All', 'Supermarkets', 'Local Shops'
   const [userLocation, setUserLocation] = useState(null);
+  const [registerModalVisible, setRegisterModalVisible] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -79,9 +81,19 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
                 <Text style={styles.headerSub}>Location: {locationLabel} • 5km Radius</Text>
               </View>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color="#6B7280" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <TouchableOpacity
+                onPress={() => setRegisterModalVisible(true)}
+                style={styles.headerAddShopBtn}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={15} color="#007A3D" />
+                <Text style={styles.headerAddShopBtnText}>Add Shop</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <Ionicons name="close" size={22} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Filter Chips */}
@@ -113,88 +125,137 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
               <Ionicons name="storefront-outline" size={48} color="#9CA3AF" />
               <Text style={styles.emptyTitle}>No Nearby Stores Found</Text>
               <Text style={styles.emptySubtitle}>
-                We couldn't detect verified stores within this area. Turn on GPS, or add your store via the Shop Owner Portal!
+                We couldn't detect verified stores within this area. Turn on GPS, or register your shop to display your business on the map!
               </Text>
+              <TouchableOpacity
+                style={styles.emptyAddShopBtn}
+                onPress={() => setRegisterModalVisible(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.emptyAddShopBtnText}>+ Register Your Grocery Shop</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <ScrollView style={styles.storeList} showsVerticalScrollIndicator={false}>
-              {filteredStores.map((store) => (
-                <View key={store.id} style={styles.storeCard}>
-                  <View style={styles.cardHeader}>
-                    <View style={[styles.storeIconWrap, { backgroundColor: store.color + '15' }]}>
-                      {store.isLocalShop ? (
-                        <MaterialCommunityIcons name="storefront" size={22} color={store.color} />
-                      ) : (
-                        <FontAwesome5 name="shopping-cart" size={18} color={store.color} />
+              <View style={styles.infoBanner}>
+                <Ionicons name="information-circle" size={16} color="#007A3D" />
+                <Text style={styles.infoBannerText}>
+                  Stores with <Text style={{ fontWeight: '700' }}>Verified Merchant</Text> badges feature in-app digital catalogues & prices.
+                </Text>
+              </View>
+
+              {filteredStores.map((store) => {
+                const isManualStore = store.isCustom === true || store.isManuallyAdded === true || store.isManualStore === true || String(store.id).startsWith('store_custom_');
+
+                return (
+                  <View key={store.id} style={styles.storeCard}>
+                    <View style={styles.cardHeader}>
+                      <View style={[styles.storeIconWrap, { backgroundColor: isManualStore ? '#DCFCE7' : (store.color || '#007A3D') + '15' }]}>
+                        {store.isLocalShop ? (
+                          <MaterialCommunityIcons name="storefront" size={22} color={isManualStore ? '#166534' : store.color} />
+                        ) : (
+                          <FontAwesome5 name="shopping-cart" size={18} color={isManualStore ? '#166534' : store.color} />
+                        )}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.titleRow}>
+                          <Text style={styles.storeName} numberOfLines={1}>{store.name}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                          {isManualStore ? (
+                            <View style={styles.verifiedBadge}>
+                              <Ionicons name="checkmark-circle" size={12} color="#166534" />
+                              <Text style={styles.verifiedText}>Verified Merchant</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.googleBadge}>
+                              <Ionicons name="logo-google" size={10} color="#4B5563" />
+                              <Text style={styles.googleBadgeText}>Map Listed</Text>
+                            </View>
+                          )}
+                          <Text style={styles.categoryPillText}>• {store.category || (store.isLocalShop ? 'Local Grocery' : 'Supermarket')}</Text>
+                        </View>
+                        <Text style={styles.storeAddress} numberOfLines={1}>{store.address}</Text>
+                      </View>
+                      <View style={styles.distanceBadge}>
+                        <Text style={styles.distanceText}>{store.distanceKm ? `${store.distanceKm} km` : 'Nearby'}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.metaRow}>
+                      <View style={styles.metaItem}>
+                        <Ionicons name="time-outline" size={13} color="#6B7280" />
+                        <Text style={styles.metaLabel}>{store.openingHours || 'Open daily'}</Text>
+                      </View>
+                      <View style={styles.metaItem}>
+                        <Ionicons name="star" size={13} color="#F59E0B" />
+                        <Text style={styles.metaLabel}>
+                          {store.googleRating || store.rating || '4.5'}
+                        </Text>
+                      </View>
+                      {store.deliveryAvailable && (
+                        <View style={styles.deliveryTag}>
+                          <Text style={styles.deliveryText}>🛵 Delivery</Text>
+                        </View>
                       )}
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={styles.titleRow}>
-                        <Text style={styles.storeName}>{store.name}</Text>
-                        {store.isVerified ? (
-                          <View style={styles.verifiedBadge}>
-                            <Ionicons name="checkmark-circle" size={13} color="#166534" />
-                            <Text style={styles.verifiedText}>Verified</Text>
-                          </View>
-                        ) : store.reviewStatus === 'pending_review' ? (
-                          <View style={styles.pendingBadge}>
-                            <Text style={styles.pendingText}>Pending Review ⏳</Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      <Text style={styles.storeAddress}>{store.address}</Text>
-                    </View>
-                    <View style={styles.distanceBadge}>
-                      <Text style={styles.distanceText}>{store.distanceKm} km</Text>
+
+                    <View style={styles.cardActions}>
+                      {store.phone ? (
+                        <TouchableOpacity
+                          style={styles.callBtn}
+                          onPress={() => handleCall(store.phone)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="call-outline" size={15} color="#374151" />
+                          <Text style={styles.callBtnText}>Call</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View />
+                      )}
+
+                      {/* Only show Catalogue button if store was added manually. Otherwise show Directions button */}
+                      {isManualStore ? (
+                        <TouchableOpacity
+                          style={styles.selectBtn}
+                          onPress={() => {
+                            onSelectStore && onSelectStore(store);
+                            onClose();
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="cart-outline" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                          <Text style={styles.selectBtnText}>View Catalogue →</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.directionsBtn}
+                          onPress={() => {
+                            const url = store.googleDirectionsUrl || store.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.name + ' ' + (store.address || ''))}`;
+                            Linking.openURL(url).catch(() => {});
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="navigate-outline" size={15} color="#007A3D" style={{ marginRight: 4 }} />
+                          <Text style={styles.directionsBtnText}>Directions 📍</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
-
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                      <Ionicons name="time-outline" size={13} color="#6B7280" />
-                      <Text style={styles.metaLabel}>{store.openingHours}</Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      <Ionicons name="star" size={13} color="#F59E0B" />
-                      <Text style={styles.metaLabel}>
-                        {store.googleRating || store.rating || '4.8'} ({store.googleReviewsCount || '120+'})
-                      </Text>
-                    </View>
-                    {store.deliveryAvailable && (
-                      <View style={styles.deliveryTag}>
-                        <Text style={styles.deliveryText}>🛵 Delivery</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  <View style={styles.cardActions}>
-                    <TouchableOpacity
-                      style={styles.callBtn}
-                      onPress={() => handleCall(store.phone)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="call-outline" size={15} color="#374151" />
-                      <Text style={styles.callBtnText}>Call Store</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.selectBtn}
-                      onPress={() => {
-                        onSelectStore && onSelectStore(store);
-                        onClose();
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.selectBtnText}>View Products →</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
               <View style={{ height: 20 }} />
             </ScrollView>
           )}
         </View>
       </View>
+
+      <ShopOwnerModal
+        visible={registerModalVisible}
+        onClose={() => setRegisterModalVisible(false)}
+        onShopRegistered={() => loadStores()}
+      />
     </Modal>
   );
 };
@@ -407,7 +468,9 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   selectBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#007A3D',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 7,
     paddingHorizontal: 14,
     borderRadius: 8,
@@ -416,6 +479,56 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  directionsBtn: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  directionsBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  googleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 3,
+  },
+  googleBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  categoryPillText: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+    padding: 10,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  infoBannerText: {
+    fontSize: 11.5,
+    color: '#166534',
+    flex: 1,
+    lineHeight: 16,
   },
   emptyContainer: {
     padding: 32,
@@ -434,6 +547,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 18,
+    marginBottom: 16,
+  },
+  headerAddShopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    gap: 2,
+  },
+  headerAddShopBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#007A3D',
+  },
+  emptyAddShopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007A3D',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 6,
+  },
+  emptyAddShopBtnText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
 
