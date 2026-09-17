@@ -3,43 +3,16 @@ import AsyncStorage from '../utils/safeStorage';
 
 const LOCATION_STORAGE_KEY = '@stockpot_last_location';
 
-// No default/mock location — when unavailable, say so honestly
-const UNAVAILABLE_LOCATION = {
-  latitude: null,
-  longitude: null,
-  city: null,
-  region: null,
-  country: 'Sri Lanka',
-  formatted: 'Location Unavailable',
-  isGps: false,
-  isUnavailable: true,
+// Helper: Check if coordinates are valid inside Sri Lanka bounds
+export const isValidSriLankaCoords = (lat, lon) => {
+  if (typeof lat !== 'number' || typeof lon !== 'number') return false;
+  if (isNaN(lat) || isNaN(lon)) return false;
+  // Sri Lanka bounds: Lat 5.8 to 9.9, Lon 79.5 to 82.0
+  return lat >= 5.8 && lat <= 9.9 && lon >= 79.5 && lon <= 82.0;
 };
 
-let cachedLocation = null; // null = not yet resolved
-let isResolvingPromise = null;
-
-// Load persisted location on module initialization (only if it was a real GPS/IP fix)
-const initPromise = (async () => {
-  try {
-    const saved = await AsyncStorage.getItem(LOCATION_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && parsed.latitude && parsed.longitude && !parsed.isUnavailable) {
-        if (parsed.city && isInvalidCityName(parsed.city)) {
-          parsed.city = null;
-        }
-        if (parsed.formatted && isInvalidCityName(parsed.formatted)) {
-          parsed.formatted = 'Current Location';
-        }
-        cachedLocation = parsed;
-      }
-    }
-  } catch (_) {}
-  return cachedLocation;
-})();
-
-// Helper to check if a reverse geocode string is just a number, coordinate, or longitude
-const isInvalidCityName = (str) => {
+// Helper: Check if a reverse geocode string is just a number, coordinate, or longitude
+export const isInvalidCityName = (str) => {
   if (!str || typeof str !== 'string') return true;
   const s = str.trim();
   if (s.length < 2) return true;
@@ -55,6 +28,51 @@ const isInvalidCityName = (str) => {
   if (s.toLowerCase().includes('location unavailable') || s.toLowerCase().includes('unknown')) return true;
   return false;
 };
+
+// Reliable fallback when GPS is not yet acquired or permission denied
+const DEFAULT_SRI_LANKA_LOCATION = {
+  latitude: 6.9271,
+  longitude: 79.8612,
+  city: 'Colombo',
+  region: 'Western Province',
+  country: 'Sri Lanka',
+  formatted: 'Colombo, LK',
+  isGps: false,
+  isUnavailable: true,
+};
+
+let cachedLocation = null; // null = not yet resolved
+let isResolvingPromise = null;
+
+// Load persisted location on module initialization
+const initPromise = (async () => {
+  try {
+    const saved = await AsyncStorage.getItem(LOCATION_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (
+        parsed &&
+        parsed.latitude &&
+        parsed.longitude &&
+        isValidSriLankaCoords(parsed.latitude, parsed.longitude) &&
+        !parsed.isUnavailable
+      ) {
+        if (parsed.city && isInvalidCityName(parsed.city)) {
+          parsed.city = null;
+        }
+        if (parsed.formatted && isInvalidCityName(parsed.formatted)) {
+          parsed.formatted = 'Current Location';
+        }
+        cachedLocation = parsed;
+      } else {
+        // Stale or overseas coordinates (e.g. old carrier IP fix) — clear immediately!
+        AsyncStorage.removeItem(LOCATION_STORAGE_KEY).catch(() => {});
+        AsyncStorage.removeItem('@stockpot_cached_nearby_stores').catch(() => {});
+      }
+    }
+  } catch (_) {}
+  return cachedLocation;
+})();
 
 // Helper to race a promise against a timeout
 const withTimeout = (promise, ms, fallbackValue = null) => {
@@ -76,8 +94,8 @@ export const locationService = {
 
   requestPermission: async () => {
     try {
-      const res = await Location.requestForegroundPermissionsAsync();
-      return res.status === 'granted';
+      const res = await withTimeout(Location.requestForegroundPermissionsAsync(), 10000, null);
+      return res?.status === 'granted';
     } catch (_) {
       return false;
     }
@@ -94,7 +112,7 @@ export const locationService = {
           const perm = await Location.getForegroundPermissionsAsync();
           status = perm.status;
           if (status !== 'granted') {
-            const req = await withTimeout(Location.requestForegroundPermissionsAsync(), 2000, null);
+            const req = await withTimeout(Location.requestForegroundPermissionsAsync(), 8000, null);
             if (req && req.status) status = req.status;
           }
         } catch (_) {}
@@ -102,34 +120,48 @@ export const locationService = {
         let coords = null;
 
         if (status === 'granted') {
-          // Fast path: Try last known position first (instant on Android)
+          // Fast path: Try last known position first (instant on Android/iOS)
           try {
-            const last = await withTimeout(Location.getLastKnownPositionAsync({}), 1200, null);
-            if (last && last.coords) {
+            const last = await withTimeout(
+              Location.getLastKnownPositionAsync({ maxAge: 600000 }),
+              1500,
+              null
+            );
+            if (
+              last?.coords?.latitude &&
+              last?.coords?.longitude &&
+              isValidSriLankaCoords(last.coords.latitude, last.coords.longitude)
+            ) {
               coords = last.coords;
             }
           } catch (_) {}
 
-          // If no last known position, try active GPS with Low accuracy
-          if (!coords) {
-            try {
-              const current = await withTimeout(
-                Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
-                2500,
-                null
-              );
-              if (current && current.coords) {
-                coords = current.coords;
-              }
-            } catch (_) {}
-          }
+          // Active GPS fix with Balanced accuracy and 7-second timeout for hardware lock
+          try {
+            const current = await withTimeout(
+              Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+              7000,
+              null
+            );
+            if (
+              current?.coords?.latitude &&
+              current?.coords?.longitude &&
+              isValidSriLankaCoords(current.coords.latitude, current.coords.longitude)
+            ) {
+              coords = current.coords;
+            }
+          } catch (_) {}
         }
 
-        // If device GPS returned valid coordinates
-        if (coords && coords.latitude && coords.longitude) {
+        // If GPS returned valid coordinates inside Sri Lanka
+        if (
+          coords &&
+          coords.latitude &&
+          coords.longitude &&
+          isValidSriLankaCoords(coords.latitude, coords.longitude)
+        ) {
           const { latitude, longitude } = coords;
 
-          // Immediately create valid cached location so callers get coordinates in 0ms!
           cachedLocation = {
             latitude,
             longitude,
@@ -147,7 +179,7 @@ export const locationService = {
             try {
               const geocodes = await withTimeout(
                 Location.reverseGeocodeAsync({ latitude, longitude }),
-                2000,
+                3000,
                 null
               );
               if (Array.isArray(geocodes) && geocodes.length > 0) {
@@ -167,58 +199,31 @@ export const locationService = {
           return cachedLocation;
         }
 
-        // GPS permission denied or GPS off — try IP Geolocation
-        try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 2000);
-          const ipRes = await fetch('https://ipwho.is/', { signal: controller.signal });
-          clearTimeout(timer);
-          if (ipRes.ok) {
-            const ipData = await ipRes.json();
-            if (ipData && ipData.success && ipData.latitude && ipData.longitude) {
-              const candidateCity = ipData.city && !isInvalidCityName(ipData.city) ? ipData.city : null;
-              cachedLocation = {
-                latitude: ipData.latitude,
-                longitude: ipData.longitude,
-                city: candidateCity,
-                region: ipData.region || null,
-                country: ipData.country || 'Sri Lanka',
-                formatted: candidateCity ? `${candidateCity}, ${(ipData.country_code || 'LK')}` : 'Current Location',
-                isGps: false,
-                isUnavailable: false,
-              };
-              AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
-              return cachedLocation;
-            }
-          }
-        } catch (_) {}
-
-        // Fallback default Sri Lanka coordinates if no GPS or IP
-        if (cachedLocation && cachedLocation.latitude && cachedLocation.longitude) {
+        // GPS not available: If we already have a previous GPS location in memory, KEEP IT!
+        if (
+          cachedLocation &&
+          cachedLocation.latitude &&
+          cachedLocation.longitude &&
+          isValidSriLankaCoords(cachedLocation.latitude, cachedLocation.longitude)
+        ) {
           return cachedLocation;
         }
 
-        cachedLocation = {
-          latitude: 6.9271,
-          longitude: 79.8612,
-          city: 'Colombo',
-          region: 'Western Province',
-          country: 'Sri Lanka',
-          formatted: 'Colombo, LK',
-          isGps: false,
-          isUnavailable: false,
+        // NO IP GEOLOCATION — never guess mobile cellular IP as it points to carrier gateway or overseas
+        return {
+          ...DEFAULT_SRI_LANKA_LOCATION,
         };
-        return cachedLocation;
       } catch (err) {
-        return cachedLocation || {
-          latitude: 6.9271,
-          longitude: 79.8612,
-          city: 'Colombo',
-          region: 'Western Province',
-          country: 'Sri Lanka',
-          formatted: 'Colombo, LK',
-          isGps: false,
-          isUnavailable: false,
+        if (
+          cachedLocation &&
+          cachedLocation.latitude &&
+          cachedLocation.longitude &&
+          isValidSriLankaCoords(cachedLocation.latitude, cachedLocation.longitude)
+        ) {
+          return cachedLocation;
+        }
+        return {
+          ...DEFAULT_SRI_LANKA_LOCATION,
         };
       } finally {
         isResolvingPromise = null;
@@ -228,15 +233,13 @@ export const locationService = {
     return isResolvingPromise;
   },
 
-  getCachedLocation: () => cachedLocation || {
-    latitude: 6.9271,
-    longitude: 79.8612,
-    city: 'Colombo',
-    region: 'Western Province',
-    country: 'Sri Lanka',
-    formatted: 'Colombo, LK',
-    isGps: false,
-    isUnavailable: false,
+  getCachedLocation: () => {
+    if (cachedLocation && isValidSriLankaCoords(cachedLocation.latitude, cachedLocation.longitude)) {
+      return cachedLocation;
+    }
+    return {
+      ...DEFAULT_SRI_LANKA_LOCATION,
+    };
   },
 
   getCoordinates: async () => {
@@ -245,47 +248,57 @@ export const locationService = {
       await initPromise;
     }
 
-    // 2. If we have a cached location, return it IMMEDIATELY and refresh GPS in background
-    if (cachedLocation && cachedLocation.latitude && cachedLocation.longitude) {
+    // 2. If we have a genuine GPS fix in cache, return it immediately & refresh in background
+    if (
+      cachedLocation &&
+      cachedLocation.isGps &&
+      isValidSriLankaCoords(cachedLocation.latitude, cachedLocation.longitude)
+    ) {
       locationService.getCurrentLocation().catch(() => {});
       const cleanCity = !isInvalidCityName(cachedLocation.city) ? cachedLocation.city : null;
       return {
         latitude: cachedLocation.latitude,
         longitude: cachedLocation.longitude,
         city: cleanCity,
-        formatted: cachedLocation.formatted && !isInvalidCityName(cachedLocation.formatted) ? cachedLocation.formatted : (cleanCity ? `${cleanCity}, LK` : 'Current Location'),
-        isGps: !!cachedLocation.isGps,
+        formatted:
+          cachedLocation.formatted && !isInvalidCityName(cachedLocation.formatted)
+            ? cachedLocation.formatted
+            : cleanCity
+            ? `${cleanCity}, LK`
+            : 'Current Location',
+        isGps: true,
         isUnavailable: false,
       };
     }
 
-    // 3. If still no location, resolve fast
+    // 3. If no GPS fix yet, resolve GPS directly
     const loc = await locationService.getCurrentLocation();
-    if (loc && loc.latitude && loc.longitude) {
+    if (loc && isValidSriLankaCoords(loc.latitude, loc.longitude) && loc.isGps) {
       const cleanCity = !isInvalidCityName(loc.city) ? loc.city : null;
       return {
         latitude: loc.latitude,
         longitude: loc.longitude,
         city: cleanCity,
-        formatted: loc.formatted && !isInvalidCityName(loc.formatted) ? loc.formatted : (cleanCity ? `${cleanCity}, LK` : 'Current Location'),
-        isGps: !!loc.isGps,
+        formatted:
+          loc.formatted && !isInvalidCityName(loc.formatted)
+            ? loc.formatted
+            : cleanCity
+            ? `${cleanCity}, LK`
+            : 'Current Location',
+        isGps: true,
         isUnavailable: false,
       };
     }
 
+    // 4. Default fallback
     return {
-      latitude: 6.9271,
-      longitude: 79.8612,
-      city: 'Colombo',
-      formatted: 'Colombo, LK',
-      isGps: false,
-      isUnavailable: false,
+      ...DEFAULT_SRI_LANKA_LOCATION,
     };
   },
 
   // Allow user to manually pick a city
   setManualLocation: async (cityName, lat, lng) => {
-    if (!cityName || !lat || !lng) return UNAVAILABLE_LOCATION;
+    if (!cityName || !lat || !lng || !isValidSriLankaCoords(lat, lng)) return DEFAULT_SRI_LANKA_LOCATION;
     cachedLocation = {
       latitude: lat,
       longitude: lng,
@@ -302,3 +315,4 @@ export const locationService = {
 };
 
 export default locationService;
+

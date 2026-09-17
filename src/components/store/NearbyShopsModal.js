@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
-import { storeService } from '../../services';
+import { storeService, calculateDistance } from '../../services';
 import locationService from '../../services/locationService';
 import { useAccount } from '../../context/AccountContext';
 import AsyncStorage from '../../utils/safeStorage';
@@ -27,14 +27,31 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
 
   useEffect(() => {
     if (visible) {
-      // 1. Immediately show cached stores from storage if current list is empty (0ms latency!)
+      // 1. Immediately show cached stores with distance recalculated against current GPS
       if (stores.length === 0) {
         AsyncStorage.getItem('@stockpot_cached_nearby_stores').then((raw) => {
           if (raw) {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              setStores(parsed);
-              setLoading(false);
+              const currentCoords = locationService.getCachedLocation();
+              if (currentCoords?.latitude && currentCoords?.longitude) {
+                parsed.forEach((s) => {
+                  if (s.latitude && s.longitude) {
+                    s.distanceKm = calculateDistance(
+                      currentCoords.latitude,
+                      currentCoords.longitude,
+                      s.latitude,
+                      s.longitude
+                    );
+                  }
+                });
+                parsed.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+              }
+              const nearbyList = parsed.filter((s) => (s.distanceKm ?? 0) <= 12);
+              if (nearbyList.length > 0) {
+                setStores(nearbyList);
+                setLoading(false);
+              }
             }
           }
         }).catch(() => {});

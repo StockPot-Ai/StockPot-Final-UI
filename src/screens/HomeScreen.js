@@ -775,7 +775,7 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress, onOpenProfile }) => {
     return () => loop.stop();
   }, [fabPulseAnim]);
 
-  useEffect(() => {
+  const refreshLocationAndStores = useCallback(() => {
     locationService
       .getCoordinates()
       .then((loc) => {
@@ -795,6 +795,10 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress, onOpenProfile }) => {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    refreshLocationAndStores();
+  }, [refreshLocationAndStores]);
 
   const fetchHomeData = useCallback(async () => {
     setLoadingRecipes(true);
@@ -830,6 +834,7 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress, onOpenProfile }) => {
   const onRefresh = () => {
     setRefreshing(true);
     fetchHomeData();
+    refreshLocationAndStores();
   };
 
   const activeFilterCount = (selectedCuisine !== 'All' ? 1 : 0) + (maxCookTime < 60 ? 1 : 0) + (maxBudget < 2000 ? 1 : 0);

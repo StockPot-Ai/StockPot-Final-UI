@@ -9,6 +9,7 @@ import {
   SUBSCRIPTION_PLANS,
 } from '../data/seedData';
 import subscriptionService from './subscriptionService';
+import locationService, { isValidSriLankaCoords } from './locationService';
 
 const AUTH_TOKEN_KEY = '@stockpot_auth_token';
 const CUSTOM_RECIPES_KEY = '@stockpot_custom_recipes';
@@ -515,15 +516,22 @@ export const storeService = {
     let effectiveLat = userLat;
     let effectiveLng = userLng;
 
-    if (!effectiveLat || !effectiveLng) {
+    if (!effectiveLat || !effectiveLng || !isValidSriLankaCoords(effectiveLat, effectiveLng)) {
       try {
         const cached = locationService.getCachedLocation();
-        if (cached && cached.latitude && cached.longitude) {
+        if (cached && isValidSriLankaCoords(cached.latitude, cached.longitude)) {
           effectiveLat = cached.latitude;
           effectiveLng = cached.longitude;
         } else {
-          effectiveLat = 6.9271;
-          effectiveLng = 79.8612;
+          // Await coordinates directly if not in cache
+          const coords = await locationService.getCoordinates();
+          if (coords && isValidSriLankaCoords(coords.latitude, coords.longitude)) {
+            effectiveLat = coords.latitude;
+            effectiveLng = coords.longitude;
+          } else {
+            effectiveLat = 6.9271;
+            effectiveLng = 79.8612;
+          }
         }
       } catch (_) {
         effectiveLat = 6.9271;
@@ -534,13 +542,13 @@ export const storeService = {
     let liveShops = [];
     const seenNames = new Set();
 
-    // 1. Query OpenStreetMap Nominatim POI search in ~15km bounding box (Fast, 100% reliable, zero 406 blocks)
+    // 1. Query OpenStreetMap Nominatim POI search in ~6km bounding box around user
     try {
-      const box = 0.15;
+      const box = 0.055; // ~6km radius around user coordinates
       const viewbox = `${effectiveLng - box},${effectiveLat + box},${effectiveLng + box},${effectiveLat - box}`;
       const searchUrls = [
         `https://nominatim.openstreetmap.org/search?q=supermarket&format=json&limit=15&viewbox=${viewbox}&bounded=1`,
-        `https://nominatim.openstreetmap.org/search?q=grocery&format=json&limit=10&viewbox=${viewbox}&bounded=1`,
+        `https://nominatim.openstreetmap.org/search?q=grocery&format=json&limit=12&viewbox=${viewbox}&bounded=1`,
       ];
 
       const responses = await Promise.allSettled(
@@ -558,11 +566,15 @@ export const storeService = {
             if (!rawTitle) continue;
             const norm = rawTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
             if (seenNames.has(norm)) continue;
-            seenNames.add(norm);
 
             const itemLat = parseFloat(item.lat);
             const itemLon = parseFloat(item.lon);
             const dist = calculateDistance(effectiveLat, effectiveLng, itemLat, itemLon);
+
+            // Filter out items further than 8.5 km to prevent far distance stores
+            if (dist > 8.5) continue;
+            seenNames.add(norm);
+
             const isSuper = rawTitle.toLowerCase().includes('super') || rawTitle.toLowerCase().includes('cargills') || rawTitle.toLowerCase().includes('keells') || rawTitle.toLowerCase().includes('glomark') || rawTitle.toLowerCase().includes('arpico') || rawTitle.toLowerCase().includes('spar');
 
             liveShops.push({
@@ -591,12 +603,12 @@ export const storeService = {
       }
     } catch (_) {}
 
-    // 2. Query Overpass API as secondary if needed
-    if (liveShops.length < 5) {
+    // 2. Query Overpass API as secondary if needed within 6km radius
+    if (liveShops.length < 4) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3500);
-        const query = `[out:json][timeout:3];(node["shop"~"supermarket|convenience|grocery"](around:8000,${effectiveLat},${effectiveLng}););out 15;`;
+        const query = `[out:json][timeout:3];(node["shop"~"supermarket|convenience|grocery"](around:6000,${effectiveLat},${effectiveLng}););out 15;`;
         const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, {
           signal: controller.signal,
           headers: { 'User-Agent': 'StockPot-App/1.0' },
@@ -610,11 +622,13 @@ export const storeService = {
               if (!rawName) continue;
               const norm = rawName.toLowerCase().replace(/[^a-z0-9]/g, '');
               if (seenNames.has(norm)) continue;
-              seenNames.add(norm);
 
               const eLat = e.lat || effectiveLat;
               const eLon = e.lon || effectiveLng;
               const dist = calculateDistance(effectiveLat, effectiveLng, eLat, eLon);
+              if (dist > 8.5) continue;
+              seenNames.add(norm);
+
               const rawShop = (e.tags?.shop || '').toLowerCase();
 
               liveShops.push({
@@ -649,17 +663,19 @@ export const storeService = {
     try {
       const backendStores = await storeService.getStores();
       if (Array.isArray(backendStores)) {
-        apiShops = backendStores.map((s) => {
-          const dist = (effectiveLat && effectiveLng && s.latitude && s.longitude)
-            ? calculateDistance(effectiveLat, effectiveLng, s.latitude, s.longitude)
-            : (s.distanceKm || null);
-          return {
-            ...s,
-            distanceKm: dist,
-            googleMapsUrl: s.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name)}`,
-            googleDirectionsUrl: s.googleDirectionsUrl || (s.latitude && s.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}` : null),
-          };
-        });
+        apiShops = backendStores
+          .filter((s) => !s.latitude || !s.longitude || calculateDistance(effectiveLat, effectiveLng, s.latitude, s.longitude) <= 15)
+          .map((s) => {
+            const dist = (effectiveLat && effectiveLng && s.latitude && s.longitude)
+              ? calculateDistance(effectiveLat, effectiveLng, s.latitude, s.longitude)
+              : (s.distanceKm || null);
+            return {
+              ...s,
+              distanceKm: dist,
+              googleMapsUrl: s.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name)}`,
+              googleDirectionsUrl: s.googleDirectionsUrl || (s.latitude && s.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}` : null),
+            };
+          });
       }
     } catch (_) {}
 
@@ -679,16 +695,18 @@ export const storeService = {
       const customShops = await AsyncStorage.getItem(CUSTOM_SHOPS_KEY);
       if (customShops) {
         const parsed = JSON.parse(customShops);
-        const mappedCustom = parsed.map((s) => ({
-          ...s,
-          isManualStore: true,
-          isCustom: true,
-          distanceKm: (effectiveLat && effectiveLng && s.latitude && s.longitude)
-            ? calculateDistance(effectiveLat, effectiveLng, s.latitude, s.longitude)
-            : null,
-          googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name)}`,
-          googleDirectionsUrl: s.latitude && s.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}` : null,
-        }));
+        const mappedCustom = parsed
+          .map((s) => ({
+            ...s,
+            isManualStore: true,
+            isCustom: true,
+            distanceKm: (effectiveLat && effectiveLng && s.latitude && s.longitude)
+              ? calculateDistance(effectiveLat, effectiveLng, s.latitude, s.longitude)
+              : null,
+            googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name)}`,
+            googleDirectionsUrl: s.latitude && s.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}` : null,
+          }))
+          .filter((s) => s.distanceKm === null || s.distanceKm <= 15);
         combined = [...mappedCustom, ...combined];
       }
     } catch (_) {}
