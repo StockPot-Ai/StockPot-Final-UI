@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Share,
+  Modal,
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import Colors from '../constants/colors';
@@ -109,6 +110,33 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
     normalizeIngredients(recipe?.ingredients, Math.round((recipe?.estimatedCost || recipe?.price || 600) / 4)).map((i) => i.id)
   );
   const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [daySlotModalVisible, setDaySlotModalVisible] = useState(false);
+  const [chosenDay, setChosenDay] = useState('mon');
+  const [chosenSlot, setChosenSlot] = useState('lunch');
+  const [isAddingPlan, setIsAddingPlan] = useState(false);
+
+  const handleConfirmAddToMealPlan = async () => {
+    setIsAddingPlan(true);
+    try {
+      await mealPlanService.addMealToPlan(data, chosenDay, chosenSlot);
+      setDaySlotModalVisible(false);
+      Alert.alert(
+        '✅ Added to Meal Plan!',
+        `"${data.title || data.name}" has been scheduled for ${chosenDay.toUpperCase()} (${chosenSlot}).`,
+        [
+          {
+            text: 'View Meal Plan →',
+            onPress: () => onAddToMealPlan && onAddToMealPlan({ day: chosenDay, slot: chosenSlot, recipe: data }),
+          },
+          { text: 'Keep Browsing', style: 'cancel' },
+        ]
+      );
+    } catch (e) {
+      Alert.alert('Notice', 'Could not save meal: ' + (e?.message || e));
+    } finally {
+      setIsAddingPlan(false);
+    }
+  };
 
   useEffect(() => {
     if (!recipe) return;
@@ -374,7 +402,115 @@ export default function IngredientScreen({ recipe, onBack, onAddToMealPlan, onCo
       </ScrollView>
 
       {/* Add To Meal Plan CTA */}
-      <AddToMealPlanBar cost={totalCost} onPress={onAddToMealPlan} />
+      <AddToMealPlanBar cost={totalCost} onPress={() => setDaySlotModalVisible(true)} />
+
+      {/* SmoothUI Day & Meal Slot Picker Modal */}
+      <Modal
+        visible={daySlotModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDaySlotModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setDaySlotModalVisible(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.pickerModalCard}>
+            <View style={styles.modalHandle} />
+            
+            <View style={styles.pickerHeader}>
+              <View>
+                <Text style={styles.pickerTitle}>Add to Weekly Meal Plan</Text>
+                <Text style={styles.pickerSubtitle}>Select day and slot for this dish</Text>
+              </View>
+              <TouchableOpacity onPress={() => setDaySlotModalVisible(false)} style={styles.closeRoundBtn}>
+                <Ionicons name="close" size={18} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Selected Recipe Preview Strip */}
+            <View style={styles.recipePlanPreview}>
+              <Ionicons name="restaurant" size={18} color="#007A3D" />
+              <Text style={styles.recipePlanTitle} numberOfLines={1}>
+                {data.title || data.name}
+              </Text>
+              <Text style={styles.recipePlanCost}>Rs. {totalCost}</Text>
+            </View>
+
+            {/* Day Selector Pills */}
+            <Text style={styles.sectionLabel}>CHOOSE DAY</Text>
+            <View style={styles.dayPillsRow}>
+              {[
+                { id: 'mon', label: 'Mon' },
+                { id: 'tue', label: 'Tue' },
+                { id: 'wed', label: 'Wed' },
+                { id: 'thu', label: 'Thu' },
+                { id: 'fri', label: 'Fri' },
+                { id: 'sat', label: 'Sat' },
+                { id: 'sun', label: 'Sun' },
+              ].map((d) => (
+                <TouchableOpacity
+                  key={d.id}
+                  style={[styles.dayPill, chosenDay === d.id && styles.dayPillActive]}
+                  onPress={() => setChosenDay(d.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.dayPillText, chosenDay === d.id && styles.dayPillTextActive]}>
+                    {d.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Slot Selector Pills */}
+            <Text style={styles.sectionLabel}>CHOOSE MEAL SLOT</Text>
+            <View style={styles.slotGrid}>
+              {[
+                { id: 'breakfast', label: 'Breakfast', icon: 'sunny-outline' },
+                { id: 'lunch', label: 'Lunch', icon: 'restaurant-outline' },
+                { id: 'dinner', label: 'Dinner', icon: 'moon-outline' },
+                { id: 'snack', label: 'Snack', icon: 'cafe-outline' },
+              ].map((s) => (
+                <TouchableOpacity
+                  key={s.id}
+                  style={[styles.slotCard, chosenSlot === s.id && styles.slotCardActive]}
+                  onPress={() => setChosenSlot(s.id)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={s.icon}
+                    size={18}
+                    color={chosenSlot === s.id ? '#007A3D' : '#6B7280'}
+                  />
+                  <Text style={[styles.slotCardText, chosenSlot === s.id && styles.slotCardTextActive]}>
+                    {s.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Confirm CTA */}
+            <TouchableOpacity
+              style={[styles.confirmPlanBtn, isAddingPlan && { opacity: 0.7 }]}
+              onPress={handleConfirmAddToMealPlan}
+              disabled={isAddingPlan}
+              activeOpacity={0.85}
+            >
+              {isAddingPlan ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="calendar-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.confirmPlanBtnText}>
+                    Confirm & Schedule for {chosenDay.toUpperCase()} ({chosenSlot})
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Report Modal */}
       <RecipeReportModal
@@ -600,5 +736,173 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#DCFCE7',
+  },
+
+  // ── SmoothUI Day & Slot Picker Modal Styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  pickerModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4.5,
+    borderRadius: 3,
+    backgroundColor: '#E5E7EB',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  pickerSubtitle: {
+    fontSize: 12.5,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  closeRoundBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recipePlanPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+    marginBottom: 16,
+  },
+  recipePlanTitle: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  recipePlanCost: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#007A3D',
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  dayPillsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  dayPill: {
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    minWidth: 42,
+  },
+  dayPillActive: {
+    backgroundColor: '#007A3D',
+    borderColor: '#007A3D',
+    shadowColor: '#007A3D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  dayPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  dayPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  slotGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  slotCard: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    gap: 4,
+  },
+  slotCardActive: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#007A3D',
+  },
+  slotCardText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  slotCardTextActive: {
+    color: '#007A3D',
+    fontWeight: '800',
+  },
+  confirmPlanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007A3D',
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 8,
+    shadowColor: '#007A3D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  confirmPlanBtnText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
 });

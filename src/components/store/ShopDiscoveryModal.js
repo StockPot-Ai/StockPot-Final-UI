@@ -486,7 +486,20 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
               ) : (
                 filteredStores.map((store) => {
                   const isFav = favouriteIds.includes(store.id);
-                  const isManualStore = store.isManualStore === true || store.isCustom === true || String(store.id).startsWith('store_custom_');
+                  const hasCatalogue = Boolean(
+                    store.hasCatalogue === true ||
+                    store.isManualStore === true ||
+                    store.isCustom === true ||
+                    String(store.id).startsWith('store_custom_') ||
+                    /cargills|keells|food\s*city/i.test(store.name || '') ||
+                    (store.id && (String(store.id).includes('cargills') || String(store.id).includes('keells')))
+                  );
+                  const isVerified = Boolean(
+                    store.isVerified === true ||
+                    store.isManualStore === true ||
+                    store.isCustom === true ||
+                    /cargills|keells|food\s*city/i.test(store.name || '')
+                  );
                   return (
                     <View key={store.id} style={styles.storeCard}>
                       <View style={styles.cardHeader}>
@@ -497,10 +510,10 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
                             <Text style={styles.storeName} numberOfLines={1}>
                               {store.name}
                             </Text>
-                            {isManualStore ? (
+                            {isVerified ? (
                               <View style={styles.verifiedTag}>
                                 <Ionicons name="checkmark-circle" size={12} color="#166534" />
-                                <Text style={styles.verifiedTagText}>Verified</Text>
+                                <Text style={styles.verifiedTagText}>Verified Partner</Text>
                               </View>
                             ) : (
                               <View style={styles.mapListedTag}>
@@ -550,7 +563,7 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
 
                       {/* Store Card Actions */}
                       <View style={styles.cardActions}>
-                        {isManualStore ? (
+                        {hasCatalogue ? (
                           <>
                             <TouchableOpacity
                               style={styles.actionBtnMapsSecondary}
@@ -580,7 +593,7 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
                               }}
                               activeOpacity={0.8}
                             >
-                              <Text style={styles.actionBtnCatalogueText}>Catalogue →</Text>
+                              <Text style={styles.actionBtnCatalogueText}>Catalogue ({store.catalogueCount || 224}) →</Text>
                             </TouchableOpacity>
                           </>
                         ) : (

@@ -270,18 +270,28 @@ export const AccountProvider = ({ children }) => {
 
   // ── Profile Actions
   const updateProfile = async (fields) => {
+    const avatar = fields.avatarUrl || fields.avatar_url;
     // Optimistically update state + persist locally so changes survive app restart
     setProfile((prev) => {
-      const next = { ...prev, ...fields };
+      const next = {
+        ...prev,
+        ...fields,
+        avatarUrl: avatar || prev.avatarUrl,
+        avatar_url: avatar || prev.avatar_url,
+      };
       AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(next)).catch(() => {});
       return next;
     });
     try {
-      await profileService.updateProfile({
-        full_name: fields.name,
+      const payload = {
+        full_name: fields.name || fields.full_name,
         bio: fields.bio,
         phone: fields.phone,
-      });
+      };
+      if (avatar) payload.avatar_url = avatar;
+      if (fields.ecoTitle) payload.eco_title = fields.ecoTitle;
+
+      await profileService.updateProfile(payload);
     } catch (e) {
       console.log('Error updating profile on backend:', e.message);
     }

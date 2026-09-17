@@ -27,16 +27,27 @@ const ProfileCard = ({ onEditProfile, onStreakPress, onEcoPress }) => {
   return (
     <View style={styles.card}>
       {/* Avatar - matches Homepage profile icon */}
-      {profile.avatarUrl || profile.avatar_url ? (
-        <Image
-          source={{ uri: profile.avatarUrl || profile.avatar_url }}
-          style={styles.avatar}
-        />
-      ) : (
-        <View style={styles.initialsAvatar}>
-          <Text style={styles.initialsText}>{initial}</Text>
+      <TouchableOpacity
+        onPress={onEditProfile}
+        activeOpacity={0.8}
+        style={styles.avatarTouchWrap}
+        accessibilityLabel="Change profile picture"
+        accessibilityRole="button"
+      >
+        {profile.avatarUrl || profile.avatar_url ? (
+          <Image
+            source={{ uri: profile.avatarUrl || profile.avatar_url }}
+            style={styles.avatar}
+          />
+        ) : (
+          <View style={styles.initialsAvatar}>
+            <Text style={styles.initialsText}>{initial}</Text>
+          </View>
+        )}
+        <View style={styles.avatarEditMiniBadge}>
+          <Ionicons name="camera" size={12} color="#FFFFFF" />
         </View>
-      )}
+      </TouchableOpacity>
 
       {/* Name & Email */}
       <Text style={styles.name}>{profile.name || 'StockPot Chef'}</Text>
@@ -132,11 +143,32 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  avatarTouchWrap: {
+    position: 'relative',
+    marginBottom: 14,
+  },
+  avatarEditMiniBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#007A3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
   avatar: {
     width: 88,
     height: 88,
     borderRadius: 44,
-    marginBottom: 14,
     borderWidth: 3,
     borderColor: '#FFFFFF',
   },

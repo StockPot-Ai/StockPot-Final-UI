@@ -9,6 +9,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
@@ -24,6 +25,15 @@ const BADGE_OPTIONS = [
   'Smart Shopper 🛒',
 ];
 
+const CHEF_AVATARS = [
+  { id: '1', url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200', label: 'Chef 1' },
+  { id: '2', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200', label: 'Chef 2' },
+  { id: '3', url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200', label: 'Chef 3' },
+  { id: '4', url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200', label: 'Chef 4' },
+  { id: '5', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200', label: 'Chef 5' },
+  { id: '6', url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200', label: 'Chef 6' },
+];
+
 const EditProfileModal = ({ visible, onClose }) => {
   const { profile, updateProfile, sendEmailVerification, verifyEmailCode } = useAccount();
 
@@ -32,6 +42,9 @@ const EditProfileModal = ({ visible, onClose }) => {
   const [phone, setPhone] = useState(profile.phone || '');
   const [bio, setBio] = useState(profile.bio || '');
   const [ecoTitle, setEcoTitle] = useState(profile.ecoTitle || 'Eco Saver');
+  const [avatarUrl, setAvatarUrl] = useState(
+    profile.avatarUrl || profile.avatar_url || CHEF_AVATARS[0].url
+  );
 
   // Custom Alert State
   const [alertConfig, setAlertConfig] = useState({
@@ -65,6 +78,7 @@ const EditProfileModal = ({ visible, onClose }) => {
       setPhone(profile.phone || '');
       setBio(profile.bio || '');
       setEcoTitle(profile.ecoTitle || 'Eco Saver');
+      setAvatarUrl(profile.avatarUrl || profile.avatar_url || CHEF_AVATARS[0].url);
     }
   }, [visible, profile]);
 
@@ -92,6 +106,8 @@ const EditProfileModal = ({ visible, onClose }) => {
       phone: phone.trim(),
       bio: bio.trim(),
       ecoTitle,
+      avatarUrl,
+      avatar_url: avatarUrl,
     });
     onClose();
   };
@@ -120,6 +136,49 @@ const EditProfileModal = ({ visible, onClose }) => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
+            {/* Avatar Selection Card */}
+            <View style={styles.avatarCard}>
+              <View style={styles.avatarPreviewWrap}>
+                <Image source={{ uri: avatarUrl }} style={styles.avatarPreviewImg} />
+                <View style={styles.avatarCameraBadge}>
+                  <Ionicons name="camera" size={13} color="#FFFFFF" />
+                </View>
+              </View>
+
+              <Text style={styles.avatarSectionTitle}>Choose Chef Profile Picture</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.avatarRow}>
+                {CHEF_AVATARS.map((av) => {
+                  const isSelected = avatarUrl === av.url;
+                  return (
+                    <TouchableOpacity
+                      key={av.id}
+                      style={[styles.avatarOption, isSelected && styles.avatarOptionSelected]}
+                      onPress={() => setAvatarUrl(av.url)}
+                      activeOpacity={0.75}
+                    >
+                      <Image source={{ uri: av.url }} style={styles.avatarOptionImg} />
+                      {isSelected && (
+                        <View style={styles.avatarCheckBadge}>
+                          <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={styles.customAvatarInputRow}>
+                <Ionicons name="link-outline" size={15} color="#9CA3AF" style={{ marginRight: 6 }} />
+                <TextInput
+                  style={styles.customAvatarInput}
+                  placeholder="Or paste custom image URL (https://...)"
+                  placeholderTextColor="#9CA3AF"
+                  value={avatarUrl}
+                  onChangeText={setAvatarUrl}
+                />
+              </View>
+            </View>
+
             {/* Form Group */}
             <View style={styles.formCard}>
               {/* Field: Full Name */}
@@ -314,6 +373,100 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 8,
     paddingBottom: 14,
+  },
+  avatarCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#EAE5E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  avatarPreviewWrap: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  avatarPreviewImg: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2.5,
+    borderColor: '#007A3D',
+  },
+  avatarCameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#007A3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  avatarSectionTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 10,
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 4,
+    marginBottom: 12,
+  },
+  avatarOption: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    position: 'relative',
+  },
+  avatarOptionSelected: {
+    borderColor: '#007A3D',
+  },
+  avatarOptionImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+  },
+  avatarCheckBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 15,
+    height: 15,
+    borderRadius: 7.5,
+    backgroundColor: '#007A3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customAvatarInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    width: '100%',
+  },
+  customAvatarInput: {
+    flex: 1,
+    fontSize: 12,
+    color: '#1F2937',
+    padding: 0,
   },
   formCard: {
     backgroundColor: '#FFFFFF',

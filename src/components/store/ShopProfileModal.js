@@ -53,7 +53,7 @@ export default function ShopProfileModal({
       } else if (store.id) {
         setLoading(true);
         shopOwnerService
-          .getShopProducts(store.id)
+          .getShopProducts(store.id, store.name)
           .then((prods) => {
             if (Array.isArray(prods)) {
               setStoreProducts(
@@ -74,7 +74,7 @@ export default function ShopProfileModal({
     }
   }, [visible, store]);
 
-  const categories = ['All', 'Produce', 'Meat & Seafood', 'Grains & Pasta', 'Dairy & Eggs', 'Spices & Pantry'];
+  const categories = ['All', 'Rice', 'Produce', 'Meat', 'Dairy', 'Spices', 'Beverages', 'Pantry'];
 
   const filteredProducts = storeProducts.filter((p) => {
     const matchSearch = (p.name || '').toLowerCase().includes(search.toLowerCase());
@@ -243,14 +243,24 @@ export default function ShopProfileModal({
                 ) : (
                   filteredProducts.map((prod) => (
                     <View key={prod.id} style={styles.productRow}>
+                      {prod.image ? (
+                        <Image source={{ uri: prod.image }} style={styles.productImg} resizeMode="contain" />
+                      ) : (
+                        <View style={styles.productImgFallback}>
+                          <Ionicons name="basket" size={18} color="#007A3D" />
+                        </View>
+                      )}
                       <View style={styles.productInfo}>
                         <Text style={styles.productName} numberOfLines={1}>{prod.name}</Text>
-                        <Text style={styles.productUnit}>{prod.unit || '1 unit'} • In Stock</Text>
+                        <Text style={styles.productUnit}>{prod.unit || '1 unit'} • {prod.category || 'Grocery'}</Text>
                         <View style={styles.priceTagRow}>
                           <Text style={styles.productPrice}>Rs. {prod.storePrice.toLocaleString()}</Text>
-                          {prod.isDiscounted && (
+                          {prod.mrp && prod.mrp > prod.storePrice ? (
+                            <Text style={styles.mrpPrice}>Rs. {prod.mrp.toLocaleString()}</Text>
+                          ) : null}
+                          {(prod.hasOffer || prod.isDiscounted) && (
                             <View style={styles.discountBadge}>
-                              <Text style={styles.discountBadgeText}>10% OFF</Text>
+                              <Text style={styles.discountBadgeText}>OFFER</Text>
                             </View>
                           )}
                         </View>
@@ -266,7 +276,7 @@ export default function ShopProfileModal({
                         }}
                         activeOpacity={0.8}
                       >
-                        <Ionicons name="add" size={18} color="#FFFFFF" />
+                        <Ionicons name="add" size={16} color="#FFFFFF" />
                         <Text style={styles.addBtnText}>Add</Text>
                       </TouchableOpacity>
                     </View>
@@ -512,13 +522,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
+  productImg: {
+    width: 46,
+    height: 46,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  productImgFallback: {
+    width: 46,
+    height: 46,
+    borderRadius: 8,
+    backgroundColor: '#EAF3EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
   productInfo: {
     flex: 1,
-    paddingRight: 12,
+    paddingRight: 10,
+  },
+  mrpPrice: {
+    fontSize: 11.5,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
   },
   productName: {
     fontSize: 14,

@@ -468,23 +468,25 @@ const TopContributorsSection = () => {
   useEffect(() => {
     gamificationService.getLeaderboard().then((res) => {
       if (Array.isArray(res) && res.length > 0) {
-        setContributors(res);
+        setContributors(res.slice(0, 10));
       }
     }).catch(() => {});
   }, []);
 
   if (!contributors || contributors.length === 0) return null;
 
+  const top10 = contributors.slice(0, 10);
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <View style={styles.sectionHeaderTitleWrap}>
           <Text style={styles.sectionTitle} numberOfLines={1}>Community Chef Highlights</Text>
-          <Text style={styles.sectionSub} numberOfLines={1}>Top verified home recipe creators</Text>
+          <Text style={styles.sectionSub} numberOfLines={1}>Top 10 verified home recipe creators</Text>
         </View>
         <View style={styles.communityVerifiedPill}>
-          <MaterialCommunityIcons name="check-decagram" size={13} color="#34B7F1" />
-          <Text style={styles.communityVerifiedText}>{contributors.length} Verified</Text>
+          <MaterialCommunityIcons name="trophy-award" size={13} color="#E8A93F" />
+          <Text style={styles.communityVerifiedText}>Top 10 Ranked</Text>
         </View>
       </View>
       <ScrollView
@@ -492,42 +494,61 @@ const TopContributorsSection = () => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.contributorsRow}
       >
-        {contributors.map((c) => (
-          <View key={c.id} style={styles.contributorCard}>
-            <View style={styles.contributorAvatarWrap}>
-              {c.avatar ? (
-                <Image source={{ uri: c.avatar }} style={styles.contributorAvatar} />
-              ) : (
-                <View style={[styles.contributorAvatar, { backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' }]}>
-                  <Ionicons name="person" size={20} color="#6B7280" />
-                </View>
-              )}
-            </View>
+        {top10.map((c, index) => {
+          const rank = index + 1;
+          const isGold = rank === 1;
+          const isSilver = rank === 2;
+          const isBronze = rank === 3;
+          return (
+            <View key={c.id || index} style={styles.contributorCard}>
+              <View style={[
+                styles.chefRankBadge,
+                isGold ? styles.chefRankGold : isSilver ? styles.chefRankSilver : isBronze ? styles.chefRankBronze : styles.chefRankRegular
+              ]}>
+                <Text style={[
+                  styles.chefRankText,
+                  (isGold || isSilver || isBronze) && styles.chefRankTextTop
+                ]}>
+                  {isGold ? '👑 #1' : `#${rank}`}
+                </Text>
+              </View>
 
-            <View style={styles.contributorNameRow}>
-              <Text style={styles.contributorName} numberOfLines={1}>
-                {c.name}
-              </Text>
-              <MaterialCommunityIcons name="check-decagram" size={13} color="#34B7F1" />
-            </View>
+              <View style={styles.contributorAvatarWrap}>
+                {c.avatar ? (
+                  <Image source={{ uri: c.avatar }} style={styles.contributorAvatar} />
+                ) : (
+                  <View style={[styles.contributorAvatar, { backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' }]}>
+                    <Ionicons name="person" size={20} color="#6B7280" />
+                  </View>
+                )}
+              </View>
 
-            <View style={styles.contributorBadge}>
-              <Text style={styles.contributorBadgeText}>{c.badge || 'Creator'}</Text>
-            </View>
+              <View style={styles.contributorNameRow}>
+                <Text style={styles.contributorName} numberOfLines={1}>
+                  {c.name}
+                </Text>
+                <MaterialCommunityIcons name="check-decagram" size={12} color="#38BDF8" />
+              </View>
 
-            <Text style={styles.contributorSpecialty} numberOfLines={1}>
-              {c.specialty || 'Home Cook'}
-            </Text>
+              <View style={styles.contributorBadge}>
+                <Text style={styles.contributorBadgeText}>{c.badge || 'Creator'}</Text>
+              </View>
 
-            <View style={styles.contributorStatsRow}>
-              <Text style={styles.contributorStatLine} numberOfLines={1}>
-                <Text style={styles.contributorRatingText}>⭐ {c.ratingAvg || 4.9}</Text>
-                <Text style={styles.contributorDotText}> • </Text>
-                <Text style={styles.contributorCookText}>🍳 {c.recipesCount || 0} dishes</Text>
-              </Text>
+              <View style={styles.chefXpPill}>
+                <Ionicons name="flash" size={10} color="#007A3D" />
+                <Text style={styles.chefXpText}>{c.xp || 100} XP</Text>
+              </View>
+
+              <View style={styles.contributorStatsRow}>
+                <Text style={styles.contributorStatLine} numberOfLines={1}>
+                  <Text style={styles.contributorRatingText}>⭐ {c.ratingAvg || 4.9}</Text>
+                  <Text style={styles.contributorDotText}> • </Text>
+                  <Text style={styles.contributorCookText}>🍳 {c.recipesCount || 0} dishes</Text>
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -639,7 +660,7 @@ const FeaturedDishCard = ({ featured, onSelectDish }) => {
   );
 };
 
-const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
+const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry, onCreateRecipe }) => {
   if (loading) {
     return (
       <View style={styles.section}>
@@ -689,11 +710,18 @@ const PopularDishes = ({ recipes, loading, error, onSelectDish, onRetry }) => {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.sectionTitle}>Featured Dishes ({recipes.length})</Text>
           <Text style={styles.sectionSub}>Hand-picked Sri Lankan & global meals</Text>
         </View>
-        <Text style={styles.viewAllText}>Tap to cook</Text>
+        <TouchableOpacity
+          style={styles.createRecipeHeaderBtn}
+          onPress={onCreateRecipe}
+          activeOpacity={0.82}
+        >
+          <Ionicons name="add" size={15} color="#FFFFFF" />
+          <Text style={styles.createRecipeHeaderBtnText}>+ Recipe</Text>
+        </TouchableOpacity>
       </View>
 
       {featured && (
@@ -916,6 +944,7 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress, onOpenProfile }) => {
             error={recipeError}
             onSelectDish={onSelectRecipe}
             onRetry={fetchHomeData}
+            onCreateRecipe={() => setCreateModalVisible(true)}
           />
 
           <TopContributorsSection />
@@ -941,6 +970,10 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress, onOpenProfile }) => {
         <ShopDiscoveryModal
           visible={nearbyShopsVisible}
           onClose={() => setNearbyShopsVisible(false)}
+          onSelectStore={(st) => {
+            setSelectedShopProfile(st);
+            setShopProfileVisible(true);
+          }}
         />
 
         {/* Shop Profile & In-Store Catalogue Modal */}
@@ -1895,34 +1928,94 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 
-  // Contributors
+  createRecipeHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#007A3D',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    shadowColor: '#007A3D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  createRecipeHeaderBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.1,
+  },
+
+  // Contributors (SmoothUI / Bencho style)
   contributorsRow: {
     paddingVertical: 6,
     gap: 12,
   },
   contributorCard: {
-    width: 156,
+    width: 160,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#ECE7E2',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 2,
+    position: 'relative',
+  },
+  chefRankBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    zIndex: 2,
+  },
+  chefRankGold: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  chefRankSilver: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  chefRankBronze: {
+    backgroundColor: '#FFEDD5',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  chefRankRegular: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  chefRankText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  chefRankTextTop: {
+    color: '#92400E',
   },
   contributorAvatarWrap: {
+    marginTop: 4,
     marginBottom: 8,
   },
   contributorAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 2,
+    borderColor: '#F1F5F9',
   },
   contributorNameRow: {
     flexDirection: 'row',
@@ -1943,19 +2036,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
-    marginTop: 4,
-    marginBottom: 3,
+    marginTop: 3,
+    marginBottom: 4,
   },
   contributorBadgeText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: '#007A3D',
+  },
+  chefXpPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF9C3',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+    marginBottom: 6,
+    borderWidth: 0.5,
+    borderColor: '#FEF08A',
+  },
+  chefXpText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#854D0E',
   },
   contributorSpecialty: {
     fontSize: 10.5,
     color: '#6B7280',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   contributorStatsRow: {
     paddingTop: 6,

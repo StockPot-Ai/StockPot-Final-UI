@@ -32,6 +32,7 @@ function AppContent() {
   const [currentScreen, setCurrentScreen] = React.useState('home');
   const [selectedRecipe, setSelectedRecipe] = React.useState(null);
   const [retailItems, setRetailItems] = React.useState([]);
+  const [mealPlanTargetDay, setMealPlanTargetDay] = React.useState(null);
 
   React.useEffect(() => {
     AsyncStorage.getItem('@stockpot_has_onboarded')
@@ -124,6 +125,7 @@ function AppContent() {
           onNavigateHome={goHome}
           onSelectMeal={openRecipe}
           onOpenRetail={openRetail}
+          initialDay={mealPlanTargetDay}
         />
       );
     }
@@ -173,7 +175,12 @@ function AppContent() {
           recipe={selectedRecipe}
           onBack={goHome}
           onCompare={openRetail}
-          onAddToMealPlan={() => setCurrentScreen('mealplan')}
+          onAddToMealPlan={(navParams) => {
+            if (navParams?.day) {
+              setMealPlanTargetDay(navParams.day);
+            }
+            setCurrentScreen('mealplan');
+          }}
         />
       );
     }

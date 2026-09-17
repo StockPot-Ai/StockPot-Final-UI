@@ -56,6 +56,7 @@ export default function IngredientList({
                 quantity={scaledQuantity}
                 unit={item.unit || 'g'}
                 cost={scaledCost}
+                image={item.image || item.image_url}
                 inPantry={item.inPantry}
                 iconName={item.iconName}
                 iconLib={item.iconLib}

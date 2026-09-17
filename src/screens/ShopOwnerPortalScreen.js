@@ -87,7 +87,7 @@ export default function ShopOwnerPortalScreen({ onBack }) {
       setProducts(prodList);
       setPriceHistory(historyList);
       setAnalytics(anData);
-    } catch (_) {}
+    } catch (_) { }
     setLoading(false);
   }, [shopId]);
 
@@ -291,7 +291,7 @@ export default function ShopOwnerPortalScreen({ onBack }) {
               activeOpacity={0.85}
             >
               <Ionicons name="add-circle" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.registerMainBtnText}>+ Register My Grocery Shop</Text>
+              <Text style={styles.registerMainBtnText}>Register My Grocery Shop</Text>
             </TouchableOpacity>
 
             <View style={styles.benefitList}>
@@ -312,506 +312,506 @@ export default function ShopOwnerPortalScreen({ onBack }) {
         </ScrollView>
       ) : (
         <>
-      {/* Navigation Tabs */}
-      <View style={styles.tabContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
-          {TABS.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <TouchableOpacity
-                key={tab.id}
-                style={[styles.tabBtn, isActive && styles.tabBtnActive]}
-                onPress={() => setActiveTab(tab.id)}
-                activeOpacity={0.75}
-              >
-                <Ionicons
-                  name={tab.icon}
-                  size={15}
-                  color={isActive ? '#FFFFFF' : '#4B5563'}
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="small" color="#007A3D" />
-            <Text style={styles.loadingText}>Syncing shop data...</Text>
-          </View>
-        ) : (
-          <>
-            {/* ─── TAB 1: OVERVIEW & ANALYTICS ──────────────────────────────── */}
-            {activeTab === 'overview' && (
-              <View>
-                {/* 5-Metric KPI Dashboard */}
-                <Text style={styles.sectionHeading}>Shop Performance Overview</Text>
-                  <View style={styles.kpiGrid}>
-                    <View style={styles.kpiCard}>
-                      <Text style={styles.kpiValue}>{analytics?.shopViews ?? (products.length * 150 + 240)}</Text>
-                      <Text style={styles.kpiLabel}>Shop Views</Text>
-                      <Text style={styles.kpiTrend}>Live traffic</Text>
-                    </View>
-                    <View style={styles.kpiCard}>
-                      <Text style={styles.kpiValue}>{analytics?.productSearches ?? (products.length * 85 + 90)}</Text>
-                      <Text style={styles.kpiLabel}>Product Searches</Text>
-                      <Text style={styles.kpiTrend}>+16% this week</Text>
-                    </View>
-                    <View style={styles.kpiCard}>
-                      <Text style={styles.kpiValue}>{analytics?.priceComparisons ?? Math.round(products.length * 28)}</Text>
-                      <Text style={styles.kpiLabel}>Comparisons</Text>
-                      <Text style={styles.kpiTrend}>In customer baskets</Text>
-                    </View>
-                    <View style={styles.kpiCard}>
-                      <Text style={styles.kpiValue}>{analytics?.discountViews ?? products.filter(p => p.discountPrice && p.discountPrice < p.price).length}</Text>
-                      <Text style={styles.kpiLabel}>Active Deals</Text>
-                      <Text style={styles.kpiTrend}>🔥 Promotions</Text>
-                    </View>
-                  </View>
-
-                {/* Most Compared Products */}
-                <View style={styles.cardBox}>
-                  <View style={styles.cardBoxHeader}>
-                    <Text style={styles.cardBoxTitle}>Most Compared Products</Text>
-                    <Text style={styles.cardBoxSub}>Top search frequency</Text>
-                  </View>
-                  {analytics?.popularProducts?.map((p, idx) => (
-                    <View key={idx} style={styles.productRankRow}>
-                      <Text style={styles.productRankNum}>#{idx + 1}</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.productRankName}>{p.name}</Text>
-                        <Text style={styles.productRankDetails}>
-                          {p.searches} searches • {p.comparisons} split-basket inclusions
-                        </Text>
-                      </View>
-                      <Text style={styles.productRankPrice}>Rs. {p.price}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Recent Activity Audit */}
-                <View style={styles.cardBox}>
-                  <Text style={styles.cardBoxTitle}>Recent Customer Activity</Text>
-                  {analytics?.recentActivity?.map((act, idx) => (
-                    <View key={idx} style={styles.activityRow}>
-                      <Ionicons name="time-outline" size={14} color="#6B7280" />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.activityText}>{act.text}</Text>
-                        <Text style={styles.activityTime}>{act.time}</Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* ─── TAB 2: PRODUCT CATALOGUE ──────────────────────────────────── */}
-            {activeTab === 'catalogue' && (
-              <View>
-                <View style={styles.catalogueActionBar}>
-                  <View style={styles.searchBar}>
-                    <Ionicons name="search" size={16} color="#9CA3AF" />
-                    <TextInput
-                      style={styles.searchInput}
-                      placeholder="Search selling list..."
-                      placeholderTextColor="#9CA3AF"
-                      value={searchFilter}
-                      onChangeText={setSearchFilter}
-                    />
-                  </View>
+          {/* Navigation Tabs */}
+          <View style={styles.tabContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+              {TABS.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
                   <TouchableOpacity
-                    style={styles.addProductBtn}
-                    onPress={handleOpenAddProduct}
-                    activeOpacity={0.85}
+                    key={tab.id}
+                    style={[styles.tabBtn, isActive && styles.tabBtnActive]}
+                    onPress={() => setActiveTab(tab.id)}
+                    activeOpacity={0.75}
                   >
-                    <Ionicons name="add" size={18} color="#FFFFFF" />
-                    <Text style={styles.addProductBtnText}>Add</Text>
+                    <Ionicons
+                      name={tab.icon}
+                      size={15}
+                      color={isActive ? '#FFFFFF' : '#4B5563'}
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
                   </TouchableOpacity>
-                </View>
+                );
+              })}
+            </ScrollView>
+          </View>
 
-                <View style={styles.catalogueHeaderRow}>
-                  <Text style={styles.catalogueCountText}>
-                    Showing {filteredProducts.length} Products
-                  </Text>
-                  <Text style={styles.lastSyncText}>Updated live</Text>
-                </View>
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {loading ? (
+              <View style={styles.loadingBox}>
+                <ActivityIndicator size="small" color="#007A3D" />
+                <Text style={styles.loadingText}>Syncing shop data...</Text>
+              </View>
+            ) : (
+              <>
+                {/* ─── TAB 1: OVERVIEW & ANALYTICS ──────────────────────────────── */}
+                {activeTab === 'overview' && (
+                  <View>
+                    {/* 5-Metric KPI Dashboard */}
+                    <Text style={styles.sectionHeading}>Shop Performance Overview</Text>
+                    <View style={styles.kpiGrid}>
+                      <View style={styles.kpiCard}>
+                        <Text style={styles.kpiValue}>{analytics?.shopViews ?? (products.length * 150 + 240)}</Text>
+                        <Text style={styles.kpiLabel}>Shop Views</Text>
+                        <Text style={styles.kpiTrend}>Live traffic</Text>
+                      </View>
+                      <View style={styles.kpiCard}>
+                        <Text style={styles.kpiValue}>{analytics?.productSearches ?? (products.length * 85 + 90)}</Text>
+                        <Text style={styles.kpiLabel}>Product Searches</Text>
+                        <Text style={styles.kpiTrend}>+16% this week</Text>
+                      </View>
+                      <View style={styles.kpiCard}>
+                        <Text style={styles.kpiValue}>{analytics?.priceComparisons ?? Math.round(products.length * 28)}</Text>
+                        <Text style={styles.kpiLabel}>Comparisons</Text>
+                        <Text style={styles.kpiTrend}>In customer baskets</Text>
+                      </View>
+                      <View style={styles.kpiCard}>
+                        <Text style={styles.kpiValue}>{analytics?.discountViews ?? products.filter(p => p.discountPrice && p.discountPrice < p.price).length}</Text>
+                        <Text style={styles.kpiLabel}>Active Deals</Text>
+                        <Text style={styles.kpiTrend}>🔥 Promotions</Text>
+                      </View>
+                    </View>
 
-                {filteredProducts.map((prod) => (
-                  <View key={prod.id} style={styles.productItemCard}>
-                    <View style={{ flex: 1 }}>
-                      <View style={styles.prodTitleRow}>
-                        <Text style={styles.prodName}>{prod.name}</Text>
-                        <View
-                          style={[
-                            styles.stockPill,
-                            prod.stockStatus === 'IN_STOCK'
-                              ? styles.stockIn
-                              : prod.stockStatus === 'LOW_STOCK'
-                              ? styles.stockLow
-                              : styles.stockOut,
-                          ]}
-                        >
-                          <Text style={styles.stockPillText}>
-                            {prod.stockStatus === 'IN_STOCK'
-                              ? 'In Stock'
-                              : prod.stockStatus === 'LOW_STOCK'
-                              ? 'Low Stock'
-                              : 'Out of Stock'}
+                    {/* Most Compared Products */}
+                    <View style={styles.cardBox}>
+                      <View style={styles.cardBoxHeader}>
+                        <Text style={styles.cardBoxTitle}>Most Compared Products</Text>
+                        <Text style={styles.cardBoxSub}>Top search frequency</Text>
+                      </View>
+                      {analytics?.popularProducts?.map((p, idx) => (
+                        <View key={idx} style={styles.productRankRow}>
+                          <Text style={styles.productRankNum}>#{idx + 1}</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.productRankName}>{p.name}</Text>
+                            <Text style={styles.productRankDetails}>
+                              {p.searches} searches • {p.comparisons} split-basket inclusions
+                            </Text>
+                          </View>
+                          <Text style={styles.productRankPrice}>Rs. {p.price}</Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    {/* Recent Activity Audit */}
+                    <View style={styles.cardBox}>
+                      <Text style={styles.cardBoxTitle}>Recent Customer Activity</Text>
+                      {analytics?.recentActivity?.map((act, idx) => (
+                        <View key={idx} style={styles.activityRow}>
+                          <Ionicons name="time-outline" size={14} color="#6B7280" />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.activityText}>{act.text}</Text>
+                            <Text style={styles.activityTime}>{act.time}</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* ─── TAB 2: PRODUCT CATALOGUE ──────────────────────────────────── */}
+                {activeTab === 'catalogue' && (
+                  <View>
+                    <View style={styles.catalogueActionBar}>
+                      <View style={styles.searchBar}>
+                        <Ionicons name="search" size={16} color="#9CA3AF" />
+                        <TextInput
+                          style={styles.searchInput}
+                          placeholder="Search selling list..."
+                          placeholderTextColor="#9CA3AF"
+                          value={searchFilter}
+                          onChangeText={setSearchFilter}
+                        />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.addProductBtn}
+                        onPress={handleOpenAddProduct}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="add" size={18} color="#FFFFFF" />
+                        <Text style={styles.addProductBtnText}>Add</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.catalogueHeaderRow}>
+                      <Text style={styles.catalogueCountText}>
+                        Showing {filteredProducts.length} Products
+                      </Text>
+                      <Text style={styles.lastSyncText}>Updated live</Text>
+                    </View>
+
+                    {filteredProducts.map((prod) => (
+                      <View key={prod.id} style={styles.productItemCard}>
+                        <View style={{ flex: 1 }}>
+                          <View style={styles.prodTitleRow}>
+                            <Text style={styles.prodName}>{prod.name}</Text>
+                            <View
+                              style={[
+                                styles.stockPill,
+                                prod.stockStatus === 'IN_STOCK'
+                                  ? styles.stockIn
+                                  : prod.stockStatus === 'LOW_STOCK'
+                                    ? styles.stockLow
+                                    : styles.stockOut,
+                              ]}
+                            >
+                              <Text style={styles.stockPillText}>
+                                {prod.stockStatus === 'IN_STOCK'
+                                  ? 'In Stock'
+                                  : prod.stockStatus === 'LOW_STOCK'
+                                    ? 'Low Stock'
+                                    : 'Out of Stock'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <Text style={styles.prodCat}>
+                            {prod.category} • Unit: {prod.unit || '1 kg'} • Last update: {prod.updatedAt}
                           </Text>
+
+                          <View style={styles.prodPriceRow}>
+                            <Text style={styles.prodPrice}>Rs. {prod.price}</Text>
+                            {prod.discountPrice && (
+                              <Text style={styles.prodDiscountPrice}>Deal: Rs. {prod.discountPrice}</Text>
+                            )}
+                          </View>
+                        </View>
+
+                        <View style={styles.prodActionsCol}>
+                          <TouchableOpacity
+                            style={styles.editIconBtn}
+                            onPress={() => handleOpenEditProduct(prod)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="pencil" size={16} color="#007A3D" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.deleteIconBtn}
+                            onPress={() => handleDeleteProduct(prod)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                          </TouchableOpacity>
                         </View>
                       </View>
+                    ))}
+                  </View>
+                )}
 
-                      <Text style={styles.prodCat}>
-                        {prod.category} • Unit: {prod.unit || '1 kg'} • Last update: {prod.updatedAt}
+                {/* ─── TAB 3: PRICE AUDIT & HISTORY ──────────────────────────────── */}
+                {activeTab === 'pricing' && (
+                  <View>
+                    <View style={styles.cardBox}>
+                      <View style={styles.cardBoxHeader}>
+                        <Text style={styles.cardBoxTitle}>Price Update Log & Audit Trail</Text>
+                        <Text style={styles.cardBoxSub}>StockPot Transparency Engine</Text>
+                      </View>
+                      <Text style={styles.priceAuditNotice}>
+                        🛡️ StockPot logs all price changes to ensure trust. Prices are displayed with accurate "Updated X hours ago" stamps to shoppers.
                       </Text>
 
-                      <View style={styles.prodPriceRow}>
-                        <Text style={styles.prodPrice}>Rs. {prod.price}</Text>
-                        {prod.discountPrice && (
-                          <Text style={styles.prodDiscountPrice}>Deal: Rs. {prod.discountPrice}</Text>
-                        )}
-                      </View>
-                    </View>
-
-                    <View style={styles.prodActionsCol}>
-                      <TouchableOpacity
-                        style={styles.editIconBtn}
-                        onPress={() => handleOpenEditProduct(prod)}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="pencil" size={16} color="#007A3D" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.deleteIconBtn}
-                        onPress={() => handleDeleteProduct(prod)}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="trash-outline" size={16} color="#DC2626" />
-                      </TouchableOpacity>
+                      {priceHistory.map((ph) => (
+                        <View key={ph.id} style={styles.historyRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.historyProdName}>{ph.productName}</Text>
+                            <Text style={styles.historyMeta}>
+                              Updated by {ph.updatedBy} • {ph.updatedAt}
+                            </Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={styles.historyNewPrice}>Rs. {ph.newPrice}</Text>
+                            <Text style={styles.historyOldPrice}>Was: Rs. {ph.previousPrice}</Text>
+                          </View>
+                        </View>
+                      ))}
                     </View>
                   </View>
-                ))}
-              </View>
-            )}
+                )}
 
-            {/* ─── TAB 3: PRICE AUDIT & HISTORY ──────────────────────────────── */}
-            {activeTab === 'pricing' && (
-              <View>
-                <View style={styles.cardBox}>
-                  <View style={styles.cardBoxHeader}>
-                    <Text style={styles.cardBoxTitle}>Price Update Log & Audit Trail</Text>
-                    <Text style={styles.cardBoxSub}>StockPot Transparency Engine</Text>
-                  </View>
-                  <Text style={styles.priceAuditNotice}>
-                    🛡️ StockPot logs all price changes to ensure trust. Prices are displayed with accurate "Updated X hours ago" stamps to shoppers.
-                  </Text>
-
-                  {priceHistory.map((ph) => (
-                    <View key={ph.id} style={styles.historyRow}>
+                {/* ─── TAB 4: DISCOUNTS & PROMOTIONS ─────────────────────────────── */}
+                {activeTab === 'discounts' && (
+                  <View>
+                    <View style={styles.promoBanner}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.historyProdName}>{ph.productName}</Text>
-                        <Text style={styles.historyMeta}>
-                          Updated by {ph.updatedBy} • {ph.updatedAt}
+                        <Text style={styles.promoBannerTitle}>Boost Store Footfall</Text>
+                        <Text style={styles.promoBannerDesc}>
+                          Add weekend flash sales and discount deals to appear in customer Deal Alerts.
                         </Text>
                       </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={styles.historyNewPrice}>Rs. {ph.newPrice}</Text>
-                        <Text style={styles.historyOldPrice}>Was: Rs. {ph.previousPrice}</Text>
-                      </View>
+                      <TouchableOpacity
+                        style={styles.createPromoBtn}
+                        onPress={() => setPromoModalVisible(true)}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="add" size={16} color="#FFFFFF" />
+                        <Text style={styles.createPromoBtnText}>New Deal</Text>
+                      </TouchableOpacity>
                     </View>
-                  ))}
-                </View>
-              </View>
-            )}
 
-            {/* ─── TAB 4: DISCOUNTS & PROMOTIONS ─────────────────────────────── */}
-            {activeTab === 'discounts' && (
-              <View>
-                <View style={styles.promoBanner}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.promoBannerTitle}>Boost Store Footfall</Text>
-                    <Text style={styles.promoBannerDesc}>
-                      Add weekend flash sales and discount deals to appear in customer Deal Alerts.
-                    </Text>
+                    <Text style={styles.sectionHeading}>Active Deals in Your Store</Text>
+                    <View style={styles.dealCard}>
+                      <View style={styles.dealBadge}>
+                        <Text style={styles.dealBadgeText}>15% OFF 🔥</Text>
+                      </View>
+                      <Text style={styles.dealTitle}>Fresh Chicken Breast (Boneless) 1kg</Text>
+                      <View style={styles.dealPriceRow}>
+                        <Text style={styles.dealCurrent}>Rs. 1,250</Text>
+                        <Text style={styles.dealOld}>Rs. 1,450</Text>
+                        <Text style={styles.dealSave}>Save Rs. 200</Text>
+                      </View>
+                      <Text style={styles.dealValidText}>⏳ Valid until Sunday 10:00 PM</Text>
+                    </View>
                   </View>
-                  <TouchableOpacity
-                    style={styles.createPromoBtn}
-                    onPress={() => setPromoModalVisible(true)}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="add" size={16} color="#FFFFFF" />
-                    <Text style={styles.createPromoBtnText}>New Deal</Text>
+                )}
+
+                {/* ─── TAB 5: BULK MANAGEMENT & PRO TOOLS ────────────────────────── */}
+                {activeTab === 'bulk' && (
+                  <View>
+                    <View style={styles.proHeroCard}>
+                      <View style={styles.proBadge}>
+                        <FontAwesome5 name="crown" size={12} color="#D97706" />
+                        <Text style={styles.proBadgeText}>BUSINESS PRO FEATURES</Text>
+                      </View>
+                      <Text style={styles.proHeroTitle}>Bulk Catalogue & Automation Tools</Text>
+                      <Text style={styles.proHeroDesc}>
+                        Import hundreds of products via CSV and apply instant percentage price adjustments across your entire store inventory.
+                      </Text>
+                    </View>
+
+                    {/* CSV Import Trigger */}
+                    <TouchableOpacity
+                      style={styles.toolCard}
+                      onPress={() => setCsvModalVisible(true)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.toolIconWrap}>
+                        <Ionicons name="document-text-outline" size={22} color="#007A3D" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.toolTitle}>Bulk CSV Catalogue Upload</Text>
+                        <Text style={styles.toolSub}>Import product lists, units & prices in one tap</Text>
+                      </View>
+                      <Ionicons name="arrow-forward" size={18} color="#9CA3AF" />
+                    </TouchableOpacity>
+
+                    {/* Bulk Price Adjustment Trigger */}
+                    <TouchableOpacity
+                      style={styles.toolCard}
+                      onPress={() => setBulkPriceModalVisible(true)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.toolIconWrap}>
+                        <Ionicons name="trending-up" size={22} color="#D97706" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.toolTitle}>Bulk Price Adjustment (%)</Text>
+                        <Text style={styles.toolSub}>Adjust all catalogue prices by +5%, -10%, etc.</Text>
+                      </View>
+                      <Ionicons name="arrow-forward" size={18} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <View style={{ height: 32 }} />
+              </>
+            )}
+          </ScrollView>
+
+          {/* ─── MODAL: ADD / EDIT PRODUCT ─────────────────────────────────────── */}
+          <Modal visible={productModalVisible} animationType="slide" transparent onRequestClose={() => setProductModalVisible(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalSheet}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{editingProduct ? 'Edit Product' : 'Add Selling Product'}</Text>
+                  <TouchableOpacity onPress={() => setProductModalVisible(false)}>
+                    <Ionicons name="close" size={22} color="#6B7280" />
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.sectionHeading}>Active Deals in Your Store</Text>
-                <View style={styles.dealCard}>
-                  <View style={styles.dealBadge}>
-                    <Text style={styles.dealBadgeText}>15% OFF 🔥</Text>
+                <ScrollView style={{ paddingHorizontal: 20 }}>
+                  <Text style={styles.inputLabel}>Product Name *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. Fresh Chicken Breast 1kg"
+                    placeholderTextColor="#9CA3AF"
+                    value={productName}
+                    onChangeText={setProductName}
+                  />
+
+                  <View style={styles.rowInputs}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.inputLabel}>Category</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={productCategory}
+                        onChangeText={setProductCategory}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>Unit / Weight</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={productUnit}
+                        onChangeText={setProductUnit}
+                      />
+                    </View>
                   </View>
-                  <Text style={styles.dealTitle}>Fresh Chicken Breast (Boneless) 1kg</Text>
-                  <View style={styles.dealPriceRow}>
-                    <Text style={styles.dealCurrent}>Rs. 1,250</Text>
-                    <Text style={styles.dealOld}>Rs. 1,450</Text>
-                    <Text style={styles.dealSave}>Save Rs. 200</Text>
+
+                  <View style={styles.rowInputs}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.inputLabel}>Selling Price (Rs.) *</Text>
+                      <TextInput
+                        style={styles.input}
+                        keyboardType="numeric"
+                        placeholder="1350"
+                        placeholderTextColor="#9CA3AF"
+                        value={productPrice}
+                        onChangeText={setProductPrice}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>Discount Price (Rs.)</Text>
+                      <TextInput
+                        style={styles.input}
+                        keyboardType="numeric"
+                        placeholder="Optional"
+                        placeholderTextColor="#9CA3AF"
+                        value={productDiscountPrice}
+                        onChangeText={setProductDiscountPrice}
+                      />
+                    </View>
                   </View>
-                  <Text style={styles.dealValidText}>⏳ Valid until Sunday 10:00 PM</Text>
+
+                  <Text style={styles.inputLabel}>Stock Status</Text>
+                  <View style={styles.stockSelector}>
+                    {['IN_STOCK', 'LOW_STOCK', 'OUT_OF_STOCK'].map((st) => (
+                      <TouchableOpacity
+                        key={st}
+                        style={[styles.stockSelectBtn, productStock === st && styles.stockSelectBtnActive]}
+                        onPress={() => setProductStock(st)}
+                      >
+                        <Text style={[styles.stockSelectText, productStock === st && styles.stockSelectTextActive]}>
+                          {st === 'IN_STOCK' ? 'In Stock' : st === 'LOW_STOCK' ? 'Low Stock' : 'Out of Stock'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <View style={{ height: 20 }} />
+                </ScrollView>
+
+                <View style={styles.modalFooter}>
+                  <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveProduct}>
+                    <Text style={styles.modalSaveBtnText}>Save to Catalogue</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-            )}
+            </View>
+          </Modal>
 
-            {/* ─── TAB 5: BULK MANAGEMENT & PRO TOOLS ────────────────────────── */}
-            {activeTab === 'bulk' && (
-              <View>
-                <View style={styles.proHeroCard}>
-                  <View style={styles.proBadge}>
-                    <FontAwesome5 name="crown" size={12} color="#D97706" />
-                    <Text style={styles.proBadgeText}>BUSINESS PRO FEATURES</Text>
-                  </View>
-                  <Text style={styles.proHeroTitle}>Bulk Catalogue & Automation Tools</Text>
-                  <Text style={styles.proHeroDesc}>
-                    Import hundreds of products via CSV and apply instant percentage price adjustments across your entire store inventory.
+          {/* ─── MODAL: BULK CSV IMPORT ────────────────────────────────────────── */}
+          <Modal visible={csvModalVisible} animationType="slide" transparent onRequestClose={() => setCsvModalVisible(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalSheet}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Bulk CSV Catalogue Import</Text>
+                  <TouchableOpacity onPress={() => setCsvModalVisible(false)}>
+                    <Ionicons name="close" size={22} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={{ paddingHorizontal: 20 }}>
+                  <Text style={styles.csvNotice}>
+                    Format: Product, Category, Unit, Price, Stock
                   </Text>
-                </View>
-
-                {/* CSV Import Trigger */}
-                <TouchableOpacity
-                  style={styles.toolCard}
-                  onPress={() => setCsvModalVisible(true)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.toolIconWrap}>
-                    <Ionicons name="document-text-outline" size={22} color="#007A3D" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.toolTitle}>Bulk CSV Catalogue Upload</Text>
-                    <Text style={styles.toolSub}>Import product lists, units & prices in one tap</Text>
-                  </View>
-                  <Ionicons name="arrow-forward" size={18} color="#9CA3AF" />
-                </TouchableOpacity>
-
-                {/* Bulk Price Adjustment Trigger */}
-                <TouchableOpacity
-                  style={styles.toolCard}
-                  onPress={() => setBulkPriceModalVisible(true)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.toolIconWrap}>
-                    <Ionicons name="trending-up" size={22} color="#D97706" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.toolTitle}>Bulk Price Adjustment (%)</Text>
-                    <Text style={styles.toolSub}>Adjust all catalogue prices by +5%, -10%, etc.</Text>
-                  </View>
-                  <Ionicons name="arrow-forward" size={18} color="#9CA3AF" />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            <View style={{ height: 32 }} />
-          </>
-        )}
-      </ScrollView>
-
-      {/* ─── MODAL: ADD / EDIT PRODUCT ─────────────────────────────────────── */}
-      <Modal visible={productModalVisible} animationType="slide" transparent onRequestClose={() => setProductModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editingProduct ? 'Edit Product' : 'Add Selling Product'}</Text>
-              <TouchableOpacity onPress={() => setProductModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ paddingHorizontal: 20 }}>
-              <Text style={styles.inputLabel}>Product Name *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Fresh Chicken Breast 1kg"
-                placeholderTextColor="#9CA3AF"
-                value={productName}
-                onChangeText={setProductName}
-              />
-
-              <View style={styles.rowInputs}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={styles.inputLabel}>Category</Text>
                   <TextInput
-                    style={styles.input}
-                    value={productCategory}
-                    onChangeText={setProductCategory}
+                    style={styles.csvTextArea}
+                    multiline
+                    numberOfLines={8}
+                    value={csvContent}
+                    onChangeText={setCsvContent}
+                    autoCapitalize="none"
                   />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Unit / Weight</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={productUnit}
-                    onChangeText={setProductUnit}
-                  />
-                </View>
-              </View>
+                </ScrollView>
 
-              <View style={styles.rowInputs}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={styles.inputLabel}>Selling Price (Rs.) *</Text>
-                  <TextInput
-                    style={styles.input}
-                    keyboardType="numeric"
-                    placeholder="1350"
-                    placeholderTextColor="#9CA3AF"
-                    value={productPrice}
-                    onChangeText={setProductPrice}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Discount Price (Rs.)</Text>
-                  <TextInput
-                    style={styles.input}
-                    keyboardType="numeric"
-                    placeholder="Optional"
-                    placeholderTextColor="#9CA3AF"
-                    value={productDiscountPrice}
-                    onChangeText={setProductDiscountPrice}
-                  />
-                </View>
-              </View>
-
-              <Text style={styles.inputLabel}>Stock Status</Text>
-              <View style={styles.stockSelector}>
-                {['IN_STOCK', 'LOW_STOCK', 'OUT_OF_STOCK'].map((st) => (
-                  <TouchableOpacity
-                    key={st}
-                    style={[styles.stockSelectBtn, productStock === st && styles.stockSelectBtnActive]}
-                    onPress={() => setProductStock(st)}
-                  >
-                    <Text style={[styles.stockSelectText, productStock === st && styles.stockSelectTextActive]}>
-                      {st === 'IN_STOCK' ? 'In Stock' : st === 'LOW_STOCK' ? 'Low Stock' : 'Out of Stock'}
-                    </Text>
+                <View style={styles.modalFooter}>
+                  <TouchableOpacity style={styles.modalSaveBtn} onPress={handleCsvImport}>
+                    <Text style={styles.modalSaveBtnText}>Parse & Import CSV Products</Text>
                   </TouchableOpacity>
-                ))}
+                </View>
               </View>
-
-              <View style={{ height: 20 }} />
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveProduct}>
-                <Text style={styles.modalSaveBtnText}>Save to Catalogue</Text>
-              </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </Modal>
 
-      {/* ─── MODAL: BULK CSV IMPORT ────────────────────────────────────────── */}
-      <Modal visible={csvModalVisible} animationType="slide" transparent onRequestClose={() => setCsvModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Bulk CSV Catalogue Import</Text>
-              <TouchableOpacity onPress={() => setCsvModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#6B7280" />
-              </TouchableOpacity>
+          {/* ─── MODAL: BULK PRICE ADJUSTMENT ──────────────────────────────────── */}
+          <Modal visible={bulkPriceModalVisible} animationType="fade" transparent onRequestClose={() => setBulkPriceModalVisible(false)}>
+            <View style={styles.modalOverlayCenter}>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>Adjust All Store Prices (%)</Text>
+                <Text style={styles.modalSub}>
+                  Enter percentage to adjust all catalogue prices (e.g. 5 for +5% inflation or -10 for sale).
+                </Text>
+
+                <TextInput
+                  style={styles.input}
+                  keyboardType="numeric"
+                  value={pricePercentDelta}
+                  onChangeText={setPricePercentDelta}
+                  placeholder="e.g. 5 or -10"
+                />
+
+                <View style={styles.modalBtnRow}>
+                  <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setBulkPriceModalVisible(false)}>
+                    <Text style={styles.modalCancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.modalSaveBtnSmall} onPress={handleBulkPriceAdjust}>
+                    <Text style={styles.modalSaveBtnText}>Apply to All</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
+          </Modal>
 
-            <ScrollView style={{ paddingHorizontal: 20 }}>
-              <Text style={styles.csvNotice}>
-                Format: Product, Category, Unit, Price, Stock
-              </Text>
-              <TextInput
-                style={styles.csvTextArea}
-                multiline
-                numberOfLines={8}
-                value={csvContent}
-                onChangeText={setCsvContent}
-                autoCapitalize="none"
-              />
-            </ScrollView>
+          {/* ─── MODAL: CREATE DISCOUNT / PROMO ────────────────────────────────── */}
+          <Modal visible={promoModalVisible} animationType="slide" transparent onRequestClose={() => setPromoModalVisible(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalSheet}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Create Promotional Deal</Text>
+                  <TouchableOpacity onPress={() => setPromoModalVisible(false)}>
+                    <Ionicons name="close" size={22} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
 
-            <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleCsvImport}>
-                <Text style={styles.modalSaveBtnText}>Parse & Import CSV Products</Text>
-              </TouchableOpacity>
+                <ScrollView style={{ paddingHorizontal: 20 }}>
+                  <Text style={styles.inputLabel}>Deal Title</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={promoTitle}
+                    onChangeText={setPromoTitle}
+                    placeholder="e.g. Weekend Meat Fest 🔥"
+                  />
+
+                  <Text style={styles.inputLabel}>Discount Percentage (%)</Text>
+                  <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    value={promoDiscount}
+                    onChangeText={setPromoDiscount}
+                    placeholder="15"
+                  />
+
+                  <View style={{ height: 20 }} />
+                </ScrollView>
+
+                <View style={styles.modalFooter}>
+                  <TouchableOpacity style={styles.modalSaveBtn} onPress={handleCreatePromo}>
+                    <Text style={styles.modalSaveBtnText}>Publish Promotion</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ─── MODAL: BULK PRICE ADJUSTMENT ──────────────────────────────────── */}
-      <Modal visible={bulkPriceModalVisible} animationType="fade" transparent onRequestClose={() => setBulkPriceModalVisible(false)}>
-        <View style={styles.modalOverlayCenter}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Adjust All Store Prices (%)</Text>
-            <Text style={styles.modalSub}>
-              Enter percentage to adjust all catalogue prices (e.g. 5 for +5% inflation or -10 for sale).
-            </Text>
-
-            <TextInput
-              style={styles.input}
-              keyboardType="numeric"
-              value={pricePercentDelta}
-              onChangeText={setPricePercentDelta}
-              placeholder="e.g. 5 or -10"
-            />
-
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setBulkPriceModalVisible(false)}>
-                <Text style={styles.modalCancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSaveBtnSmall} onPress={handleBulkPriceAdjust}>
-                <Text style={styles.modalSaveBtnText}>Apply to All</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ─── MODAL: CREATE DISCOUNT / PROMO ────────────────────────────────── */}
-      <Modal visible={promoModalVisible} animationType="slide" transparent onRequestClose={() => setPromoModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create Promotional Deal</Text>
-              <TouchableOpacity onPress={() => setPromoModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ paddingHorizontal: 20 }}>
-              <Text style={styles.inputLabel}>Deal Title</Text>
-              <TextInput
-                style={styles.input}
-                value={promoTitle}
-                onChangeText={setPromoTitle}
-                placeholder="e.g. Weekend Meat Fest 🔥"
-              />
-
-              <Text style={styles.inputLabel}>Discount Percentage (%)</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={promoDiscount}
-                onChangeText={setPromoDiscount}
-                placeholder="15"
-              />
-
-              <View style={{ height: 20 }} />
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleCreatePromo}>
-                <Text style={styles.modalSaveBtnText}>Publish Promotion</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+          </Modal>
         </>
       )}
 

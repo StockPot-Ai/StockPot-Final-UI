@@ -72,14 +72,50 @@ const getDishImage = (title, img) => {
 export default function MealPlanScreen({
   onSelectMeal,
   onOpenRetail,
+  onNavigateHome,
+  initialDay,
 }) {
   const { budget, isPremium, isPro } = useAccount();
-  const [selectedDay, setSelectedDay] = useState('mon');
+  const [selectedDay, setSelectedDay] = useState(
+    initialDay ? String(initialDay).toLowerCase().slice(0, 3) : 'mon'
+  );
   const [schedule, setSchedule] = useState(INITIAL_SCHEDULE);
   const [refreshing, setRefreshing] = useState(false);
   const [recipeModalVisible, setRecipeModalVisible] = useState(false);
   const [activeSlot, setActiveSlot] = useState('lunch');
   const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (initialDay) {
+      const short = String(initialDay).toLowerCase().slice(0, 3);
+      if (DAYS.some((d) => d.id === short)) {
+        setSelectedDay(short);
+      }
+    }
+  }, [initialDay]);
+
+  // Load persisted meal plan on screen mount
+  useEffect(() => {
+    mealPlanService
+      .getMealPlan()
+      .then((saved) => {
+        if (saved && typeof saved === 'object') {
+          setSchedule(saved);
+        }
+      })
+      .catch((err) => console.warn('[MealPlanScreen] Load error:', err));
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const saved = await mealPlanService.getMealPlan();
+      if (saved && typeof saved === 'object') {
+        setSchedule(saved);
+      }
+    } catch (_) {}
+    setRefreshing(false);
+  }, []);
 
   const isDayPlanLocked = (dayId) => {
     if (isPremium || isPro) return false;
@@ -91,7 +127,7 @@ export default function MealPlanScreen({
     let totalCost = 0;
     let totalMeals = 0;
     Object.keys(schedule).forEach((d) => {
-      const dayMeals = schedule[d];
+      const dayMeals = schedule[d] || {};
       Object.keys(dayMeals).forEach((slot) => {
         if (dayMeals[slot]) {
           totalCost += dayMeals[slot].price || 0;
@@ -107,7 +143,7 @@ export default function MealPlanScreen({
   const remainingBudget = Math.max(0, targetBudget - totalCost);
   const budgetPercentage = Math.min(100, Math.round((totalCost / targetBudget) * 100));
 
-  const currentMeals = schedule[selectedDay] || schedule.mon;
+  const currentMeals = schedule[selectedDay] || schedule.mon || EMPTY_SLOT;
   const currentDayInfo = DAYS.find((d) => d.id === selectedDay) || DAYS[0];
 
   const currentDayCost = Object.values(currentMeals).reduce(
@@ -123,31 +159,42 @@ export default function MealPlanScreen({
   const handleRecipeSelected = (recipe) => {
     const newMeal = {
       id: `m_${Date.now()}`,
+      recipeId: recipe.id,
       title: recipe.title || recipe.name,
       servings: recipe.servings || 2,
       price: recipe.estimatedCost || recipe.base_cost || 450,
       time: recipe.cookTime || recipe.prepTime || '20m',
       image: recipe.image || recipe.image_url,
-      ingredients: recipe.ingredients?.map((i) => i.name).slice(0, 4).join(', ') || 'Fresh ingredients',
+      ingredients: Array.isArray(recipe.ingredients)
+        ? recipe.ingredients.map((i) => i.name || i).slice(0, 4).join(', ')
+        : (recipe.ingredients || 'Fresh ingredients'),
     };
 
-    setSchedule((prev) => ({
-      ...prev,
-      [selectedDay]: {
-        ...prev[selectedDay],
-        [activeSlot]: newMeal,
-      },
-    }));
+    setSchedule((prev) => {
+      const next = {
+        ...prev,
+        [selectedDay]: {
+          ...(prev[selectedDay] || EMPTY_SLOT),
+          [activeSlot]: newMeal,
+        },
+      };
+      mealPlanService.saveMealPlan(next);
+      return next;
+    });
   };
 
   const handleRemoveMeal = (slotKey) => {
-    setSchedule((prev) => ({
-      ...prev,
-      [selectedDay]: {
-        ...prev[selectedDay],
-        [slotKey]: null,
-      },
-    }));
+    setSchedule((prev) => {
+      const next = {
+        ...prev,
+        [selectedDay]: {
+          ...(prev[selectedDay] || EMPTY_SLOT),
+          [slotKey]: null,
+        },
+      };
+      mealPlanService.saveMealPlan(next);
+      return next;
+    });
   };
 
   const handleCompareAllStores = () => {

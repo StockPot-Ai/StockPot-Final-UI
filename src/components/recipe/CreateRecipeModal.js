@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
@@ -20,6 +21,14 @@ import { useAccount } from '../../context/AccountContext';
 const CUISINES = ['Sri Lankan', 'Indian', 'Italian', 'Asian Fusion', 'Continental', 'Mexican'];
 const CATEGORIES = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Desserts'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
+
+const RECIPE_PRESET_IMAGES = [
+  { label: 'Curry & Rice', uri: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600' },
+  { label: 'Creamy Pasta', uri: 'https://images.unsplash.com/photo-1621996346565-e3d5d6281691?w=600' },
+  { label: 'Seafood', uri: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=600' },
+  { label: 'Roti / Kottu', uri: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600' },
+  { label: 'Healthy Bowl', uri: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600' },
+];
 
 const CreateRecipeModal = ({ visible, onClose, onRecipeCreated }) => {
   const { profile } = useAccount();
@@ -84,6 +93,66 @@ const CreateRecipeModal = ({ visible, onClose, onRecipeCreated }) => {
 
   const handleRemoveStep = (index) => {
     setCookingSteps((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleDirectPublish = async () => {
+    if (!title.trim()) {
+      Alert.alert('Required', 'Please enter a recipe title');
+      return;
+    }
+    if (ingredients.length === 0) {
+      Alert.alert('Required', 'Please add at least one ingredient');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        title: title.trim(),
+        description: description.trim() || 'A delicious homemade recipe.',
+        category,
+        cuisine,
+        difficulty,
+        prepTime,
+        cookTime,
+        servings: parseInt(servings) || 4,
+        estimatedCost: parseInt(estimatedCost) || 800,
+        calories: parseInt(calories) || 300,
+        image: imageUrl,
+        ingredients,
+        steps: cookingSteps,
+        dietaryTags,
+        allergens: [allergens.trim() || 'None'],
+        authorEmail: userEmail,
+        authorName: profile?.name || 'Home Cook',
+      };
+
+      const res = await recipeService.createRecipe(payload);
+      setIsSubmitting(false);
+
+      if (res?.success) {
+        Alert.alert(
+          '🎉 Recipe Published!',
+          `Your recipe "${payload.title}" is now live on StockPot Community!\n\n🏆 You earned +50 XP!`,
+          [
+            {
+              text: 'Awesome!',
+              onPress: () => {
+                onRecipeCreated && onRecipeCreated(res.data || payload);
+                handleClose();
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Published', 'Recipe saved to community creations!');
+        onRecipeCreated && onRecipeCreated(res?.data || payload);
+        handleClose();
+      }
+    } catch (err) {
+      setIsSubmitting(false);
+      Alert.alert('Publish Note', err.message || 'Could not publish recipe.');
+    }
   };
 
   const handleProceedToVerification = async () => {
@@ -209,6 +278,42 @@ const CreateRecipeModal = ({ visible, onClose, onRecipeCreated }) => {
                 multiline
                 value={description}
                 onChangeText={setDescription}
+              />
+
+              {/* Recipe Cover Photo */}
+              <Text style={styles.sectionLabel}>Dish Photo</Text>
+              <View style={styles.photoPreviewCard}>
+                <Image source={{ uri: imageUrl }} style={styles.photoPreviewImg} resizeMode="cover" />
+                <View style={styles.photoOverlayBadge}>
+                  <Ionicons name="camera" size={13} color="#FFFFFF" />
+                  <Text style={styles.photoOverlayText}>Cover Preview</Text>
+                </View>
+              </View>
+
+              <Text style={[styles.sectionLabel, { fontSize: 11.5, color: '#6B7280', marginTop: 8 }]}>Quick Presets or Custom URL:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                {RECIPE_PRESET_IMAGES.map((preset) => {
+                  const isSelected = imageUrl === preset.uri;
+                  return (
+                    <TouchableOpacity
+                      key={preset.label}
+                      style={[styles.photoPresetChip, isSelected && styles.photoPresetChipActive]}
+                      onPress={() => setImageUrl(preset.uri)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[styles.photoPresetText, isSelected && styles.photoPresetTextActive]}>
+                        {preset.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <TextInput
+                style={[styles.input, { fontSize: 12, paddingVertical: 8, marginTop: 4 }]}
+                placeholder="Or paste custom image URL (https://...)"
+                placeholderTextColor="#9CA3AF"
+                value={imageUrl}
+                onChangeText={setImageUrl}
               />
 
               {/* Category Chips */}
@@ -391,21 +496,31 @@ const CreateRecipeModal = ({ visible, onClose, onRecipeCreated }) => {
           {/* Footer CTA */}
           <View style={styles.footer}>
             {step === 1 ? (
-              <TouchableOpacity
-                style={styles.submitBtn}
-                onPress={handleProceedToVerification}
-                disabled={isSendingOtp}
-                activeOpacity={0.85}
-              >
-                {isSendingOtp ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Ionicons name="mail" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                    <Text style={styles.submitBtnText}>Verify Email & Proceed (+50 XP)</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              <View style={{ gap: 8 }}>
+                <TouchableOpacity
+                  style={styles.submitBtn}
+                  onPress={handleDirectPublish}
+                  disabled={isSubmitting}
+                  activeOpacity={0.85}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="sparkles" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.submitBtnText}>Publish Recipe (+50 XP) 🚀</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.backStepBtn}
+                  onPress={handleProceedToVerification}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.backStepText}>Optional: Verify with email code →</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <View style={{ gap: 8 }}>
                 <TouchableOpacity
@@ -505,6 +620,60 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     marginBottom: 10,
+  },
+  photoPreviewCard: {
+    width: '100%',
+    height: 140,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#F3F4F6',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 6,
+  },
+  photoPreviewImg: {
+    width: '100%',
+    height: '100%',
+  },
+  photoOverlayBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  photoOverlayText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  photoPresetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  photoPresetChipActive: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#007A3D',
+  },
+  photoPresetText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  photoPresetTextActive: {
+    color: '#007A3D',
+    fontWeight: '700',
   },
   input: {
     backgroundColor: '#F9FAFB',
