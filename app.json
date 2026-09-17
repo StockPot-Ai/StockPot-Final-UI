@@ -31,6 +31,12 @@
     },
     "plugins": [
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "51af29af-74d2-4b57-977c-3fc0ec9a7246"
+      }
+    },
+    "owner": "denvergrace"
   }
 }

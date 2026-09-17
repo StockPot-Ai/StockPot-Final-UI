@@ -342,7 +342,7 @@ export const recipeService = {
         };
       }
     } catch (_) { }
-    let all = [...RECIPES];
+    let all = [];
     try {
       const stored = await AsyncStorage.getItem(CUSTOM_RECIPES_KEY);
       if (stored) {
@@ -754,23 +754,30 @@ export const storeService = {
 
 // ── Smart Shopping Basket & Split-Basket Optimizer ───────────────────────────
 export const smartBasketService = {
-  getAvailableProducts: () => PRODUCTS,
+  getAvailableProducts: () => [...(Array.isArray(cargillsCatalog) ? cargillsCatalog : []), ...(Array.isArray(keellsCatalog) ? keellsCatalog : [])],
 
   // Build basket from selected recipes or ingredients
   buildBasketFromIngredients: (ingredients = []) => {
     const basketItems = [];
 
     ingredients.forEach((ing) => {
+      // Try matching from Cargills catalog first, then Keells
+      const allProducts = [
+        ...(Array.isArray(cargillsCatalog) ? cargillsCatalog : []),
+        ...(Array.isArray(keellsCatalog) ? keellsCatalog : []),
+      ];
+
       const matchedProduct =
-        PRODUCTS.find((p) => p.id === ing.productId) ||
-        PRODUCTS.find((p) => ing.name && p.name.toLowerCase().includes(ing.name.toLowerCase().split(' ')[0])) ||
-        PRODUCTS[0];
+        allProducts.find((p) => p.id === ing.productId) ||
+        allProducts.find((p) => ing.name && (p.name || '').toLowerCase().includes((ing.name || '').toLowerCase().split(' ')[0])) ||
+        null;
 
       basketItems.push({
-        id: ing.productId || matchedProduct.id,
-        name: ing.name || matchedProduct.name,
+        id: ing.productId || matchedProduct?.id || `item_${Math.random().toString(36).substr(2, 6)}`,
+        name: ing.name || matchedProduct?.name || 'Grocery Item',
         quantity: ing.quantity || '1 unit',
-        matchedProduct,
+        estimatedCost: ing.estimatedPrice || ing.cost || matchedProduct?.price || 350,
+        matchedProduct: matchedProduct || null,
       });
     });
 
@@ -780,63 +787,96 @@ export const smartBasketService = {
   // Calculate cheapest single store vs split multi-store strategy
   // liveDiscounts: optional array of discounts fetched from API (overrides seed DISCOUNTS)
   optimizeBasket: (basketItems = [], preferences = { maxStores: 3, minSavings: 150 }, liveDiscounts = null) => {
-    const stores = STORES;
-    const discountSource = (liveDiscounts && liveDiscounts.length > 0) ? liveDiscounts : DISCOUNTS;
+    // Inline store definitions — no longer depends on deleted STORES constant
+    const INLINE_STORES = [
+      { id: 'cargills', name: 'Cargills Food City', color: '#DC2626', isLocalShop: false, logo: 'https://www.google.com/s2/favicons?domain=cargillsceylon.com&sz=128' },
+      { id: 'keells', name: 'Keells Super', color: '#16A34A', isLocalShop: false, logo: 'https://www.google.com/s2/favicons?domain=keellssuper.com&sz=128' },
+      { id: 'sathosa', name: 'Lanka Sathosa', color: '#D97706', isLocalShop: true, logo: null },
+      { id: 'glomark', name: 'Softlogic GLOMARK', color: '#4F46E5', isLocalShop: false, logo: null },
+    ];
+
+    const discountSource = (liveDiscounts && liveDiscounts.length > 0) ? liveDiscounts : [];
+
+    // If no items, return safe empty result
+    if (!basketItems || basketItems.length === 0) {
+      const emptySingle = { store: INLINE_STORES[0], totalCost: 0, breakdown: [] };
+      return {
+        cheapestSingleStore: emptySingle,
+        sortedSingleStores: INLINE_STORES.map((s) => ({ store: s, totalCost: 0, breakdown: [] })),
+        splitStrategy: { totalCost: 0, storesInvolved: [], items: [], potentialSavings: 0, isRecommended: false },
+      };
+    }
+
+    // Estimate per-item prices for each store (using real catalog lookups + ±10% variance)
+    const cargillsProducts = Array.isArray(cargillsCatalog) ? cargillsCatalog : [];
+    const keellsProducts = Array.isArray(keellsCatalog) ? keellsCatalog : [];
+
+    const getItemPriceForStore = (item, storeId) => {
+      // Check live discounts first
+      const disc = discountSource.find((d) => d.storeId === storeId && (d.productId === item.id || d.productName?.toLowerCase() === (item.name || '').toLowerCase()));
+      if (disc && disc.discountedPrice) return { price: disc.discountedPrice, hasDiscount: true, discountAmount: (disc.originalPrice || disc.discountedPrice) - disc.discountedPrice };
+
+      // Try to find matching product in catalog
+      const catalog = storeId === 'cargills' ? cargillsProducts : storeId === 'keells' ? keellsProducts : [];
+      const match = catalog.find((p) =>
+        (item.name || '').toLowerCase().includes((p.name || '').toLowerCase().split(' ')[0]) ||
+        (p.name || '').toLowerCase().includes((item.name || '').toLowerCase().split(' ')[0])
+      );
+      if (match && match.price) {
+        // Apply slight variance per store
+        const variance = storeId === 'keells' ? 1.02 : storeId === 'sathosa' ? 0.95 : 1.0;
+        return { price: Math.round(match.price * variance), hasDiscount: false, discountAmount: 0 };
+      }
+
+      // Fallback: use item's own estimated cost with per-store variance
+      const base = item.estimatedCost || 350;
+      const variance = storeId === 'keells' ? 1.02 : storeId === 'sathosa' ? 0.95 : storeId === 'glomark' ? 0.98 : 1.0;
+      return { price: Math.round(base * variance), hasDiscount: false, discountAmount: 0 };
+    };
+
     const singleStoreTotals = {};
 
-    stores.forEach((store) => {
+    INLINE_STORES.forEach((store) => {
       let total = 0;
       const breakdown = [];
 
       basketItems.forEach((item) => {
-        const prod = item.matchedProduct || PRODUCTS[0];
-        const basePrice = prod.prices[store.id] || 450;
-
-        // Apply discount if exists (uses live API discounts when available)
-        const disc = discountSource.find((d) => d.storeId === store.id && d.productId === prod.id);
-        const finalPrice = disc ? disc.discountedPrice : basePrice;
-
-        total += finalPrice;
+        const { price, hasDiscount, discountAmount } = getItemPriceForStore(item, store.id);
+        total += price;
         breakdown.push({
-          productId: prod.id,
-          productName: prod.name,
-          price: finalPrice,
-          hasDiscount: !!disc,
-          discountAmount: disc ? disc.originalPrice - disc.discountedPrice : 0,
+          productId: item.id,
+          productName: item.name,
+          price,
+          hasDiscount,
+          discountAmount,
         });
       });
 
-      singleStoreTotals[store.id] = {
-        store,
-        totalCost: total,
-        breakdown,
-      };
+      singleStoreTotals[store.id] = { store, totalCost: total, breakdown };
     });
 
-    // Sort single stores to find cheapest single store
+    // Sort single stores cheapest first
     const sortedSingleStores = Object.values(singleStoreTotals).sort((a, b) => a.totalCost - b.totalCost);
     const cheapestSingleStore = sortedSingleStores[0];
 
-    // Compute optimized split basket
+    // Compute optimized split basket — buy each item at its cheapest store
     const splitBasketItems = [];
     const usedStoresMap = {};
     let splitTotalCost = 0;
 
     basketItems.forEach((item) => {
-      const prod = item.matchedProduct || PRODUCTS[0];
-      let bestStore = stores[0];
-      let lowestPrice = 99999;
-      let matchingDisc = null;
+      let bestStore = INLINE_STORES[0];
+      let lowestPrice = Infinity;
+      let bestHasDiscount = false;
+      let bestDiscountAmount = 0;
 
-      stores.forEach((store) => {
-        const basePrice = prod.prices[store.id] || 450;
-        const disc = discountSource.find((d) => d.storeId === store.id && d.productId === prod.id);
-        const price = disc ? disc.discountedPrice : basePrice;
-
+      INLINE_STORES.forEach((store) => {
+        const { price, hasDiscount, discountAmount } = getItemPriceForStore(item, store.id);
         if (price < lowestPrice) {
           lowestPrice = price;
           bestStore = store;
-          matchingDisc = disc;
+          bestHasDiscount = hasDiscount;
+          bestDiscountAmount = discountAmount;
         }
       });
 
@@ -844,19 +884,20 @@ export const smartBasketService = {
       usedStoresMap[bestStore.id] = bestStore;
 
       splitBasketItems.push({
-        product: prod,
+        product: { id: item.id, name: item.name },
         quantity: item.quantity,
         bestStore,
         price: lowestPrice,
-        originalPrice: matchingDisc ? matchingDisc.originalPrice : lowestPrice,
-        isDiscounted: !!matchingDisc,
+        originalPrice: bestHasDiscount ? lowestPrice + bestDiscountAmount : lowestPrice,
+        isDiscounted: bestHasDiscount,
       });
     });
 
     const splitStoresList = Object.values(usedStoresMap);
-    const potentialSavings = cheapestSingleStore.totalCost - splitTotalCost;
+    const potentialSavings = (cheapestSingleStore?.totalCost || 0) - splitTotalCost;
     const isSplitWorthwhile =
-      splitStoresList.length <= preferences.maxStores && potentialSavings >= preferences.minSavings;
+      splitStoresList.length <= (preferences?.maxStores ?? 3) &&
+      potentialSavings >= (preferences?.minSavings ?? 150);
 
     return {
       cheapestSingleStore,
