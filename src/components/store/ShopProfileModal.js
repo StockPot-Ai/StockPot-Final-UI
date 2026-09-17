@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
-import { PRODUCTS } from '../../data/seedData';
+import { shopOwnerService } from '../../services';
 
 const getStoreCover = (store) => {
   if (store?.coverImage) return { uri: store.coverImage };
@@ -38,18 +38,41 @@ export default function ShopProfileModal({
 
   if (!visible || !store) return null;
 
-  // Filter products for this store
-  const storeProducts = (PRODUCTS || []).map((p) => {
-    // Generate store-specific price or variation
-    const storePrice = p.storePrices?.[store.id] || p.estimatedCost || p.price || 450;
-    const isDiscounted = store.activeDealsCount > 0 && Math.random() > 0.6;
-    return {
-      ...p,
-      storePrice,
-      isDiscounted,
-      discountPct: isDiscounted ? 10 : 0,
-    };
-  });
+  const [storeProducts, setStoreProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (visible && store) {
+      if (Array.isArray(store.products) && store.products.length > 0) {
+        setStoreProducts(
+          store.products.map((p) => ({
+            ...p,
+            storePrice: p.price || p.storePrice || 0,
+          }))
+        );
+      } else if (store.id) {
+        setLoading(true);
+        shopOwnerService
+          .getShopProducts(store.id)
+          .then((prods) => {
+            if (Array.isArray(prods)) {
+              setStoreProducts(
+                prods.map((p) => ({
+                  ...p,
+                  storePrice: p.price || p.storePrice || 0,
+                }))
+              );
+            } else {
+              setStoreProducts([]);
+            }
+          })
+          .catch(() => setStoreProducts([]))
+          .finally(() => setLoading(false));
+      } else {
+        setStoreProducts([]);
+      }
+    }
+  }, [visible, store]);
 
   const categories = ['All', 'Produce', 'Meat & Seafood', 'Grains & Pasta', 'Dairy & Eggs', 'Spices & Pantry'];
 
@@ -205,36 +228,50 @@ export default function ShopProfileModal({
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.productListContent}
               >
-                {filteredProducts.map((prod) => (
-                  <View key={prod.id} style={styles.productRow}>
-                    <View style={styles.productInfo}>
-                      <Text style={styles.productName} numberOfLines={1}>{prod.name}</Text>
-                      <Text style={styles.productUnit}>{prod.unit || '1 unit'} • In Stock</Text>
-                      <View style={styles.priceTagRow}>
-                        <Text style={styles.productPrice}>Rs. {prod.storePrice.toLocaleString()}</Text>
-                        {prod.isDiscounted && (
-                          <View style={styles.discountBadge}>
-                            <Text style={styles.discountBadgeText}>10% OFF</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.addBtn}
-                      onPress={() => {
-                        if (onAddProductToBasket) {
-                          onAddProductToBasket(prod, store);
-                        }
-                        Alert.alert('Added to Basket', `${prod.name} added at Rs. ${prod.storePrice}`);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="add" size={18} color="#FFFFFF" />
-                      <Text style={styles.addBtnText}>Add</Text>
-                    </TouchableOpacity>
+                {loading ? (
+                  <View style={{ padding: 32, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13, color: '#6B7280' }}>Loading products...</Text>
                   </View>
-                ))}
+                ) : filteredProducts.length === 0 ? (
+                  <View style={{ padding: 36, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="basket-outline" size={44} color="#9CA3AF" />
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#374151', marginTop: 10 }}>No Products Listed</Text>
+                    <Text style={{ fontSize: 12.5, color: '#6B7280', textAlign: 'center', marginTop: 4 }}>
+                      This store has not published product prices yet.
+                    </Text>
+                  </View>
+                ) : (
+                  filteredProducts.map((prod) => (
+                    <View key={prod.id} style={styles.productRow}>
+                      <View style={styles.productInfo}>
+                        <Text style={styles.productName} numberOfLines={1}>{prod.name}</Text>
+                        <Text style={styles.productUnit}>{prod.unit || '1 unit'} • In Stock</Text>
+                        <View style={styles.priceTagRow}>
+                          <Text style={styles.productPrice}>Rs. {prod.storePrice.toLocaleString()}</Text>
+                          {prod.isDiscounted && (
+                            <View style={styles.discountBadge}>
+                              <Text style={styles.discountBadgeText}>10% OFF</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.addBtn}
+                        onPress={() => {
+                          if (onAddProductToBasket) {
+                            onAddProductToBasket(prod, store);
+                          }
+                          Alert.alert('Added to Basket', `${prod.name} added at Rs. ${prod.storePrice}`);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="add" size={18} color="#FFFFFF" />
+                        <Text style={styles.addBtnText}>Add</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
               </ScrollView>
             </View>
           )}

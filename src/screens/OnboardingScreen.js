@@ -297,7 +297,7 @@ const OnboardingScreen = ({ onComplete }) => {
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Detected Town:</Text>
                 <Text style={styles.summaryValue}>
-                  {detectedTown || locationService.getCachedLocation()?.city || 'Eheliyagoda, LK'}
+                  {detectedTown || locationService.getCachedLocation()?.city || 'Location Unavailable'}
                 </Text>
               </View>
               <View style={styles.summaryDivider} />

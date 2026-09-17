@@ -33,15 +33,15 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
     try {
       const coords = await locationService.getCoordinates();
       setUserLocation(coords);
-      const list = await storeService.getNearbyStores(coords.latitude, coords.longitude, {
-        city: coords.city || 'Eheliyagoda',
+      const list = await storeService.getNearbyStores(coords?.latitude, coords?.longitude, {
+        city: coords?.city || '',
       });
       setStores(list);
     } catch (_) {
       const coords = locationService.getCachedLocation();
       setUserLocation(coords);
-      const list = await storeService.getNearbyStores(coords.latitude, coords.longitude, {
-        city: coords.city || 'Eheliyagoda',
+      const list = await storeService.getNearbyStores(coords?.latitude, coords?.longitude, {
+        city: coords?.city || '',
       });
       setStores(list);
     }
@@ -60,7 +60,9 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
     }
   };
 
-  const cityName = userLocation?.city || 'Eheliyagoda';
+  const locationLabel = userLocation?.city
+    ? userLocation.city
+    : (!userLocation?.isUnavailable && userLocation?.formatted ? userLocation.formatted : 'Current Location');
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -74,7 +76,7 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
               </View>
               <View>
                 <Text style={styles.headerTitle}>{t ? t('nearby_shops', 'Nearby Grocery Shops') : 'Nearby Grocery Shops'}</Text>
-                <Text style={styles.headerSub}>GPS Location: {cityName} • 5km Radius</Text>
+                <Text style={styles.headerSub}>Location: {locationLabel} • 5km Radius</Text>
               </View>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -105,6 +107,14 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
             <View style={styles.loadingBox}>
               <ActivityIndicator size="small" color={Colors.primary} />
               <Text style={styles.loadingText}>Locating nearest stores...</Text>
+            </View>
+          ) : filteredStores.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="storefront-outline" size={48} color="#9CA3AF" />
+              <Text style={styles.emptyTitle}>No Nearby Stores Found</Text>
+              <Text style={styles.emptySubtitle}>
+                We couldn't detect verified stores within this area. Turn on GPS, or add your store via the Shop Owner Portal!
+              </Text>
             </View>
           ) : (
             <ScrollView style={styles.storeList} showsVerticalScrollIndicator={false}>
@@ -406,6 +416,24 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  emptyContainer: {
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#374151',
+    marginTop: 12,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
   },
 });
 

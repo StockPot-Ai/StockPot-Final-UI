@@ -26,7 +26,6 @@ import ShopOwnerModal from '../components/store/ShopOwnerModal';
 import PremiumUpgradeModal from '../components/account/PremiumUpgradeModal';
 import ShopOwnerPortalScreen from './ShopOwnerPortalScreen';
 import { recipeService, savingsService, gamificationService } from '../services';
-import { CONTRIBUTORS, STORES } from '../data/seedData';
 import ShopProfileModal from '../components/store/ShopProfileModal';
 import { useAccount } from '../context/AccountContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -383,7 +382,7 @@ const MealFilterTabs = ({ activeTab, onTabChange, t }) => (
 );
 
 const LocalMerchantHub = ({ onFindShops, onRegisterShop, onSelectShop, stores = [], t }) => {
-  const displayStores = stores && stores.length > 0 ? stores : STORES.slice(0, 6);
+  const displayStores = stores || [];
 
   return (
     <View style={styles.localShopsBanner}>
@@ -393,41 +392,51 @@ const LocalMerchantHub = ({ onFindShops, onRegisterShop, onSelectShop, stores = 
             <Ionicons name="storefront" size={13} color="#007A3D" />
             <Text style={styles.localShopsBadgeText}>LOCAL GROCERY HUB</Text>
           </View>
-          <Text style={styles.verifiedStoreCount}>{displayStores.length}+ Verified Stores</Text>
+          {displayStores.length > 0 && (
+            <Text style={styles.verifiedStoreCount}>{displayStores.length}+ Verified Stores</Text>
+          )}
         </View>
         <Text style={styles.localShopsTitle}>Compare Local Supermarkets & Groceries</Text>
         <Text style={styles.localShopsDesc}>
-          Find cheaper prices near you across Keells, Cargills, Sathosa, and verified neighborhood grocers.
+          Find cheaper prices near you across verified supermarkets and neighborhood grocers.
         </Text>
 
         {/* Horizontal store pills/cards */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.hubStoresScroll}
-        >
-          {displayStores.map((st) => (
-            <TouchableOpacity
-              key={st.id}
-              style={styles.hubStoreCard}
-              onPress={() => onSelectShop && onSelectShop(st)}
-              activeOpacity={0.78}
-            >
-              <View style={[styles.hubStoreLogoFallback, { backgroundColor: (st.color || '#007A3D') + '20' }]}>
-                <Ionicons name={st.isLocalShop ? 'storefront' : 'cart'} size={16} color={st.color || '#007A3D'} />
-              </View>
-              <View style={{ flex: 1, justifyContent: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                  <Text style={styles.hubStoreName} numberOfLines={1}>{st.name}</Text>
-                  {st.isVerified && <Ionicons name="checkmark-circle" size={11} color="#007A3D" />}
+        {displayStores.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hubStoresScroll}
+          >
+            {displayStores.map((st) => (
+              <TouchableOpacity
+                key={st.id}
+                style={styles.hubStoreCard}
+                onPress={() => onSelectShop && onSelectShop(st)}
+                activeOpacity={0.78}
+              >
+                <View style={[styles.hubStoreLogoFallback, { backgroundColor: (st.color || '#007A3D') + '20' }]}>
+                  <Ionicons name={st.isLocalShop ? 'storefront' : 'cart'} size={16} color={st.color || '#007A3D'} />
                 </View>
-                <Text style={styles.hubStoreSub}>
-                  ⭐ {st.rating || 4.5} • {st.distanceKm ? `${st.distanceKm} km` : (st.isLocalShop ? 'Local' : 'Supermarket')}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                <View style={{ flex: 1, justifyContent: 'center' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <Text style={styles.hubStoreName} numberOfLines={1}>{st.name}</Text>
+                    {st.isVerified && <Ionicons name="checkmark-circle" size={11} color="#007A3D" />}
+                  </View>
+                  <Text style={styles.hubStoreSub}>
+                    ⭐ {st.rating || 4.5} • {st.distanceKm ? `${st.distanceKm} km` : (st.isLocalShop ? 'Local' : 'Supermarket')}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={{ paddingVertical: 12 }}>
+            <Text style={{ fontSize: 13, color: '#4B5563', fontStyle: 'italic' }}>
+              No nearby registered grocery stores detected within 8km. Discover all verified shops or register your neighborhood store!
+            </Text>
+          </View>
+        )}
 
         <View style={styles.localShopsBtnRow}>
           <TouchableOpacity style={styles.findShopsBtn} onPress={onFindShops} activeOpacity={0.8}>
@@ -444,56 +453,76 @@ const LocalMerchantHub = ({ onFindShops, onRegisterShop, onSelectShop, stores = 
   );
 };
 
-const TopContributorsSection = () => (
-  <View style={styles.section}>
-    <View style={styles.sectionHeader}>
-      <View style={styles.sectionHeaderTitleWrap}>
-        <Text style={styles.sectionTitle} numberOfLines={1}>Community Chef Highlights</Text>
-        <Text style={styles.sectionSub} numberOfLines={1}>Top verified home recipe creators</Text>
-      </View>
-      <View style={styles.communityVerifiedPill}>
-        <MaterialCommunityIcons name="check-decagram" size={13} color="#34B7F1" />
-        <Text style={styles.communityVerifiedText}>4 Verified</Text>
-      </View>
-    </View>
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.contributorsRow}
-    >
-      {CONTRIBUTORS.map((c) => (
-        <View key={c.id} style={styles.contributorCard}>
-          <View style={styles.contributorAvatarWrap}>
-            <Image source={{ uri: c.avatar }} style={styles.contributorAvatar} />
-          </View>
+const TopContributorsSection = () => {
+  const [contributors, setContributors] = useState([]);
 
-          <View style={styles.contributorNameRow}>
-            <Text style={styles.contributorName} numberOfLines={1}>
-              {c.name}
-            </Text>
-            <MaterialCommunityIcons name="check-decagram" size={13} color="#34B7F1" />
-          </View>
+  useEffect(() => {
+    gamificationService.getLeaderboard().then((res) => {
+      if (Array.isArray(res) && res.length > 0) {
+        setContributors(res);
+      }
+    }).catch(() => {});
+  }, []);
 
-          <View style={styles.contributorBadge}>
-            <Text style={styles.contributorBadgeText}>{c.badge || 'Creator'}</Text>
-          </View>
+  if (!contributors || contributors.length === 0) return null;
 
-          <Text style={styles.contributorSpecialty} numberOfLines={1}>
-            {c.specialty || 'Home Cook'}
-          </Text>
-
-          <View style={styles.contributorStatsRow}>
-            <Text style={styles.contributorStatLine} numberOfLines={1}>
-              <Text style={styles.contributorRatingText}>⭐ {c.ratingAvg || 4.9}</Text>
-              <Text style={styles.contributorDotText}> • </Text>
-              <Text style={styles.contributorCookText}>🍳 {c.recipesCount} dishes</Text>
-            </Text>
-          </View>
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionHeaderTitleWrap}>
+          <Text style={styles.sectionTitle} numberOfLines={1}>Community Chef Highlights</Text>
+          <Text style={styles.sectionSub} numberOfLines={1}>Top verified home recipe creators</Text>
         </View>
-      ))}
-    </ScrollView>
-  </View>
-);
+        <View style={styles.communityVerifiedPill}>
+          <MaterialCommunityIcons name="check-decagram" size={13} color="#34B7F1" />
+          <Text style={styles.communityVerifiedText}>{contributors.length} Verified</Text>
+        </View>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.contributorsRow}
+      >
+        {contributors.map((c) => (
+          <View key={c.id} style={styles.contributorCard}>
+            <View style={styles.contributorAvatarWrap}>
+              {c.avatar ? (
+                <Image source={{ uri: c.avatar }} style={styles.contributorAvatar} />
+              ) : (
+                <View style={[styles.contributorAvatar, { backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' }]}>
+                  <Ionicons name="person" size={20} color="#6B7280" />
+                </View>
+              )}
+            </View>
+
+            <View style={styles.contributorNameRow}>
+              <Text style={styles.contributorName} numberOfLines={1}>
+                {c.name}
+              </Text>
+              <MaterialCommunityIcons name="check-decagram" size={13} color="#34B7F1" />
+            </View>
+
+            <View style={styles.contributorBadge}>
+              <Text style={styles.contributorBadgeText}>{c.badge || 'Creator'}</Text>
+            </View>
+
+            <Text style={styles.contributorSpecialty} numberOfLines={1}>
+              {c.specialty || 'Home Cook'}
+            </Text>
+
+            <View style={styles.contributorStatsRow}>
+              <Text style={styles.contributorStatLine} numberOfLines={1}>
+                <Text style={styles.contributorRatingText}>⭐ {c.ratingAvg || 4.9}</Text>
+                <Text style={styles.contributorDotText}> • </Text>
+                <Text style={styles.contributorCookText}>🍳 {c.recipesCount || 0} dishes</Text>
+              </Text>
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
 
 const RecipeThumbnail = ({ img, style }) => {
   const [hasError, setHasError] = useState(false);
@@ -706,7 +735,7 @@ const HomeScreen = ({ onSelectRecipe, onMilestonePress, onOpenProfile }) => {
   const [weeklySavings, setWeeklySavings] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [gpsLocation, setGpsLocation] = useState(
-    locationService.getCachedLocation()?.formatted || 'Eheliyagoda, LK'
+    locationService.getCachedLocation()?.formatted || 'Locating...'
   );
   const [locationLoading, setLocationLoading] = useState(false);
   const [nearbyStores, setNearbyStores] = useState([]);

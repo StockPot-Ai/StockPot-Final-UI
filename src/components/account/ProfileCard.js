@@ -8,7 +8,7 @@ import { GAMIFICATION_LEVELS } from '../../data/seedData';
 const ProfileCard = ({ onEditProfile, onStreakPress, onEcoPress }) => {
   const { profile } = useAccount();
 
-  const userXp = profile.currentXp || 650;
+  const userXp = profile.currentXp || profile.xp || 0;
   const currentLevel =
     GAMIFICATION_LEVELS.find((l) => userXp >= l.minXp && userXp < l.maxXp) ||
     (userXp >= 2000 ? GAMIFICATION_LEVELS[4] : GAMIFICATION_LEVELS[0]);

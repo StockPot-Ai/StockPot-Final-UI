@@ -4,12 +4,8 @@ import {
   STORES,
   PRODUCTS,
   DISCOUNTS,
-  RECIPES,
-  CONTRIBUTORS,
   GAMIFICATION_LEVELS,
   BADGES,
-  DEFAULT_ACTIVITY_LOGS,
-  MOCK_SHOP_ANALYTICS,
   SUBSCRIPTION_PLANS,
 } from '../data/seedData';
 import subscriptionService from './subscriptionService';
@@ -406,178 +402,9 @@ export const recipeService = {
 };
 
 // ── Supermarkets & Local Stores Service (Shop Discovery) ──────────────────────
-export const generateLocalStores = (userLat = 6.8436, userLng = 80.2604, cityName = 'Eheliyagoda') => {
-  const city = cityName || 'Nearby';
-  return [
-    {
-      id: `local_cargills_${city.toLowerCase()}`,
-      name: `Cargills Food City - ${city}`,
-      category: 'Supermarket',
-      color: '#D32F2F',
-      latitude: userLat + 0.0035,
-      longitude: userLng + 0.0028,
-      address: `Main Street, ${city}`,
-      distanceKm: 0.5,
-      isVerified: true,
-      isLocalShop: false,
-      rating: 4.7,
-      reviewsCount: 340,
-      openingHours: '7:30 AM – 10:00 PM',
-      phone: '+94 36 225 8230',
-      deliveryAvailable: true,
-      pickupAvailable: true,
-      paymentMethods: ['Cash', 'Credit/Debit Card', 'LankaQR'],
-      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Cargills Food City ${city}`)}`,
-      googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${userLat + 0.0035},${userLng + 0.0028}`,
-    },
-    {
-      id: `local_sathosa_${city.toLowerCase()}`,
-      name: `Lanka Sathosa - ${city}`,
-      category: 'Supermarket',
-      color: '#0D47A1',
-      latitude: userLat - 0.0042,
-      longitude: userLng + 0.0036,
-      address: `High Level Road, ${city}`,
-      distanceKm: 0.8,
-      isVerified: true,
-      isLocalShop: false,
-      rating: 4.5,
-      reviewsCount: 220,
-      openingHours: '8:00 AM – 8:00 PM',
-      phone: '+94 36 225 9110',
-      deliveryAvailable: false,
-      pickupAvailable: true,
-      paymentMethods: ['Cash', 'LankaQR'],
-      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Lanka Sathosa ${city}`)}`,
-      googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${userLat - 0.0042},${userLng + 0.0036}`,
-    },
-    {
-      id: `local_shan_${city.toLowerCase()}`,
-      name: `Shan Super & Grocery - ${city}`,
-      category: 'Grocery',
-      color: '#007A3D',
-      latitude: userLat + 0.0022,
-      longitude: userLng - 0.0034,
-      address: `Market Junction, ${city}`,
-      distanceKm: 0.4,
-      isVerified: true,
-      isLocalShop: true,
-      rating: 4.8,
-      reviewsCount: 185,
-      openingHours: '7:00 AM – 9:30 PM',
-      phone: '+94 36 225 7440',
-      deliveryAvailable: true,
-      pickupAvailable: true,
-      paymentMethods: ['Cash', 'LankaQR'],
-      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Grocery Store ${city}`)}`,
-      googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${userLat + 0.0022},${userLng - 0.0034}`,
-    },
-    {
-      id: `local_greengrocer_${city.toLowerCase()}`,
-      name: `S.G. Greengrocers & Wholesale Produce`,
-      category: 'Fruits & Vegetables',
-      color: '#166534',
-      latitude: userLat - 0.0018,
-      longitude: userLng - 0.0025,
-      address: `Weekly Fair Grounds, ${city}`,
-      distanceKm: 0.3,
-      isVerified: true,
-      isLocalShop: true,
-      rating: 4.9,
-      reviewsCount: 160,
-      openingHours: '6:00 AM – 8:30 PM',
-      phone: '+94 77 341 8902',
-      deliveryAvailable: true,
-      pickupAvailable: true,
-      paymentMethods: ['Cash', 'LankaQR'],
-      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Vegetable Market ${city}`)}`,
-      googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${userLat - 0.0018},${userLng - 0.0025}`,
-    },
-    {
-      id: `local_keells_${city.toLowerCase()}`,
-      name: `Keells Super`,
-      category: 'Supermarket',
-      color: '#007A3D',
-      latitude: userLat + 0.0078,
-      longitude: userLng - 0.0084,
-      address: `Highway Junction, ${city} Area`,
-      distanceKm: 1.4,
-      isVerified: true,
-      isLocalShop: false,
-      rating: 4.7,
-      reviewsCount: 410,
-      openingHours: '7:30 AM – 10:00 PM',
-      phone: '+94 36 225 6100',
-      deliveryAvailable: true,
-      pickupAvailable: true,
-      paymentMethods: ['Cash', 'Credit/Debit Card', 'Nexus QR'],
-      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Keells Super ${city}`)}`,
-      googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${userLat + 0.0078},${userLng - 0.0084}`,
-    },
-    {
-      id: `local_bakery_${city.toLowerCase()}`,
-      name: `Wijaya Bakers & Sweet House`,
-      category: 'Bakery',
-      color: '#D97706',
-      latitude: userLat - 0.0032,
-      longitude: userLng + 0.0048,
-      address: `Station Road, ${city}`,
-      distanceKm: 0.7,
-      isVerified: true,
-      isLocalShop: true,
-      rating: 4.8,
-      reviewsCount: 290,
-      openingHours: '6:30 AM – 9:30 PM',
-      phone: '+94 36 225 8890',
-      deliveryAvailable: false,
-      pickupAvailable: true,
-      paymentMethods: ['Cash', 'LankaQR'],
-      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Bakery ${city}`)}`,
-      googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${userLat - 0.0032},${userLng + 0.0048}`,
-    },
-    {
-      id: `local_butcher_${city.toLowerCase()}`,
-      name: `Pussella Meat Market - ${city}`,
-      category: 'Butcher',
-      color: '#B91C1C',
-      latitude: userLat + 0.0054,
-      longitude: userLng + 0.0062,
-      address: `High Level Road, ${city}`,
-      distanceKm: 1.1,
-      isVerified: true,
-      isLocalShop: true,
-      rating: 4.6,
-      reviewsCount: 140,
-      openingHours: '8:00 AM – 7:30 PM',
-      phone: '+94 36 225 7120',
-      deliveryAvailable: true,
-      pickupAvailable: true,
-      paymentMethods: ['Cash', 'Cards', 'LankaQR'],
-      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Meat Shop ${city}`)}`,
-      googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${userLat + 0.0054},${userLng + 0.0062}`,
-    },
-    {
-      id: `local_arpico_${city.toLowerCase()}`,
-      name: `Arpico Daily Supercentre`,
-      category: 'Supermarket',
-      color: '#1D4ED8',
-      latitude: userLat - 0.0092,
-      longitude: userLng - 0.0112,
-      address: `Ratnapura Road, ${city}`,
-      distanceKm: 1.9,
-      isVerified: true,
-      isLocalShop: false,
-      rating: 4.6,
-      reviewsCount: 310,
-      openingHours: '8:00 AM – 9:30 PM',
-      phone: '+94 36 225 9400',
-      deliveryAvailable: true,
-      pickupAvailable: true,
-      paymentMethods: ['Cash', 'Cards', 'LankaQR'],
-      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Arpico Daily ${city}`)}`,
-      googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${userLat - 0.0092},${userLng - 0.0112}`,
-    },
-  ];
+// Returns real stores only — no fake mock shops
+export const generateLocalStores = () => {
+  return [];
 };
 
 export const storeService = {
@@ -618,64 +445,84 @@ export const storeService = {
 
   getNearbyStores: async (userLat = null, userLng = null, params = {}) => {
     const cityName = params.city || '';
-    // Only generate location-relative stores if we have real coordinates
-    const localDefaults = (userLat && userLng) ? generateLocalStores(userLat, userLng, cityName) : [];
     let liveShops = [];
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
-      const query = `[out:json][timeout:4];(node["shop"~"supermarket|convenience|grocery|greengrocer|bakery|butcher"](around:7000,${userLat},${userLng}););out 15;`;
-      const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, {
-        signal: controller.signal,
-        headers: { 'User-Agent': 'StockPot-App/1.0' },
-      });
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.elements) && data.elements.length > 0) {
-          liveShops = data.elements
-            .map((e) => {
-              const eLat = e.lat || userLat;
-              const eLon = e.lon || userLng;
-              const rawName = e.tags?.name || e.tags?.['name:en'] || '';
-              if (!rawName) return null;
-              const rawShop = (e.tags?.shop || '').toLowerCase();
-              const dist = calculateDistance(userLat, userLng, eLat, eLon);
-              if (dist > 8) return null; // Ignore anything further than 8km
+    // Query Overpass for real OpenStreetMap grocery/supermarket stores if coordinates available
+    if (userLat && userLng) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const query = `[out:json][timeout:4];(node["shop"~"supermarket|convenience|grocery|greengrocer|bakery|butcher"](around:8000,${userLat},${userLng}););out 20;`;
+        const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+          headers: { 'User-Agent': 'StockPot-App/1.0' },
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.elements) && data.elements.length > 0) {
+            liveShops = data.elements
+              .map((e) => {
+                const eLat = e.lat || userLat;
+                const eLon = e.lon || userLng;
+                const rawName = e.tags?.name || e.tags?.['name:en'] || '';
+                if (!rawName) return null;
+                const rawShop = (e.tags?.shop || '').toLowerCase();
+                const dist = calculateDistance(userLat, userLng, eLat, eLon);
+                if (dist > 10) return null;
 
-              return {
-                id: `osm_${e.id}`,
-                name: rawName,
-                category: rawShop === 'supermarket' ? 'Supermarket' : rawShop === 'bakery' ? 'Bakery' : rawShop === 'butcher' ? 'Butcher' : 'Grocery',
-                color: '#007A3D',
-                latitude: eLat,
-                longitude: eLon,
-                address: `${rawName}, ${cityName}`,
-                distanceKm: dist,
-                isVerified: true,
-                isLocalShop: rawShop !== 'supermarket',
-                rating: 4.7,
-                reviewsCount: 120 + (e.id % 100),
-                openingHours: e.tags?.opening_hours || '7:30 AM – 9:30 PM',
-                phone: e.tags?.phone || '+94 36 225 8000',
-                deliveryAvailable: true,
-                pickupAvailable: true,
-                paymentMethods: ['Cash', 'LankaQR'],
-                googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawName)}+${encodeURIComponent(cityName)}`,
-                googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${eLat},${eLon}`,
-              };
-            })
-            .filter(Boolean);
+                return {
+                  id: `osm_${e.id}`,
+                  name: rawName,
+                  category: rawShop === 'supermarket' ? 'Supermarket' : rawShop === 'bakery' ? 'Bakery' : rawShop === 'butcher' ? 'Butcher' : 'Grocery',
+                  color: '#007A3D',
+                  latitude: eLat,
+                  longitude: eLon,
+                  address: `${rawName}${cityName ? `, ${cityName}` : ''}`,
+                  distanceKm: dist,
+                  isVerified: true,
+                  isLocalShop: rawShop !== 'supermarket',
+                  rating: 4.5,
+                  reviewsCount: 50,
+                  openingHours: e.tags?.opening_hours || 'Open daily',
+                  phone: e.tags?.phone || null,
+                  deliveryAvailable: false,
+                  pickupAvailable: true,
+                  paymentMethods: ['Cash', 'LankaQR'],
+                  googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawName)}${cityName ? `+${encodeURIComponent(cityName)}` : ''}`,
+                  googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${eLat},${eLon}`,
+                };
+              })
+              .filter(Boolean);
+          }
         }
+      } catch (_) {}
+    }
+
+    // Also get backend stores
+    let apiShops = [];
+    try {
+      const backendStores = await storeService.getStores();
+      if (Array.isArray(backendStores)) {
+        apiShops = backendStores.map((s) => {
+          const dist = (userLat && userLng && s.latitude && s.longitude)
+            ? calculateDistance(userLat, userLng, s.latitude, s.longitude)
+            : (s.distanceKm || null);
+          return {
+            ...s,
+            distanceKm: dist,
+            googleMapsUrl: s.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name)}`,
+            googleDirectionsUrl: s.googleDirectionsUrl || (s.latitude && s.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}` : null),
+          };
+        });
       }
     } catch (_) {}
 
-    // Combine local defaults with verified nearby live shops (de-duplicated by name)
+    // Combine real live shops and backend stores (de-duplicated by name)
     let seenNames = new Set();
     let combined = [];
 
-    for (const store of [...localDefaults, ...liveShops]) {
+    for (const store of [...liveShops, ...apiShops]) {
       const norm = store.name.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (!seenNames.has(norm)) {
         seenNames.add(norm);
@@ -683,16 +530,18 @@ export const storeService = {
       }
     }
 
-    // Include custom shops registered by shop owners in this phone
+    // Include custom shops registered on this device
     try {
       const customShops = await AsyncStorage.getItem(CUSTOM_SHOPS_KEY);
       if (customShops) {
         const parsed = JSON.parse(customShops);
         const mappedCustom = parsed.map((s) => ({
           ...s,
-          distanceKm: calculateDistance(userLat, userLng, s.latitude || userLat, s.longitude || userLng),
-          googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name)}+${encodeURIComponent(cityName)}`,
-          googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${s.latitude || userLat},${s.longitude || userLng}`,
+          distanceKm: (userLat && userLng && s.latitude && s.longitude)
+            ? calculateDistance(userLat, userLng, s.latitude, s.longitude)
+            : null,
+          googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name)}`,
+          googleDirectionsUrl: s.latitude && s.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}` : null,
         }));
         combined = [...mappedCustom, ...combined];
       }
@@ -700,7 +549,7 @@ export const storeService = {
 
     // Category filter
     if (params.category && params.category !== 'All') {
-      combined = combined.filter((s) => s.category.toLowerCase().includes(params.category.toLowerCase()));
+      combined = combined.filter((s) => s.category?.toLowerCase().includes(params.category.toLowerCase()));
     }
 
     // Search query
@@ -708,14 +557,14 @@ export const storeService = {
       const q = params.search.toLowerCase().trim();
       combined = combined.filter(
         (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.address.toLowerCase().includes(q) ||
-          s.category.toLowerCase().includes(q)
+          s.name?.toLowerCase().includes(q) ||
+          s.address?.toLowerCase().includes(q) ||
+          s.category?.toLowerCase().includes(q)
       );
     }
 
-    // Sort strictly by nearest distance
-    return combined.sort((a, b) => a.distanceKm - b.distanceKm);
+    // Sort by nearest distance
+    return combined.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
   },
 
   getAllDiscounts: async () => {
@@ -795,16 +644,7 @@ export const smartBasketService = {
       });
     });
 
-    return basketItems.length > 0
-      ? basketItems
-      : [
-        { id: 'p_chicken_breast', name: 'Fresh Chicken Breast 1kg', quantity: '1 kg', matchedProduct: PRODUCTS[5] },
-        { id: 'p_red_dhal', name: 'Mysore Red Dhal 1kg', quantity: '1 kg', matchedProduct: PRODUCTS[4] },
-        { id: 'p_basmati_rice', name: 'Basmati Rice 1kg', quantity: '1 kg', matchedProduct: PRODUCTS[0] },
-        { id: 'p_onions_big', name: 'Big Onions 1kg', quantity: '1 kg', matchedProduct: PRODUCTS[16] },
-        { id: 'p_eggs', name: 'Farm Brown Eggs 10s', quantity: '1 pack', matchedProduct: PRODUCTS[29] },
-        { id: 'p_coconut_oil', name: 'Pure Coconut Oil 1L', quantity: '1 L', matchedProduct: PRODUCTS[42] },
-      ];
+    return basketItems;
   },
 
   // Calculate cheapest single store vs split multi-store strategy
@@ -932,14 +772,14 @@ export const gamificationService = {
 
   awardXp: async (amount, title, details = '') => {
     try {
-      const storedXp = (await AsyncStorage.getItem(USER_XP_KEY)) || '650';
+      const storedXp = (await AsyncStorage.getItem(USER_XP_KEY)) || '0';
       const newXp = parseInt(storedXp) + amount;
       await AsyncStorage.setItem(USER_XP_KEY, newXp.toString());
 
       // Log transaction
-      const storedLogs =
-        (await AsyncStorage.getItem(USER_ACTIVITY_KEY)) || JSON.stringify(DEFAULT_ACTIVITY_LOGS);
-      const logs = JSON.parse(storedLogs);
+      const storedLogs = await AsyncStorage.getItem(USER_ACTIVITY_KEY);
+      let logs = storedLogs ? JSON.parse(storedLogs) : [];
+      logs = (Array.isArray(logs) ? logs : []).filter((l) => !/^act_[1-5]$/.test(l?.id));
       logs.unshift({
         id: `act_${Date.now()}`,
         type: 'xp',
@@ -952,21 +792,27 @@ export const gamificationService = {
 
       return { success: true, newXp, earned: amount };
     } catch (_) {
-      return { success: true, newXp: 700, earned: amount };
+      return { success: true, newXp: amount, earned: amount };
     }
   },
 
   getActivityLogs: async () => {
     try {
       const storedLogs = await AsyncStorage.getItem(USER_ACTIVITY_KEY);
-      return storedLogs ? JSON.parse(storedLogs) : DEFAULT_ACTIVITY_LOGS;
+      let logs = storedLogs ? JSON.parse(storedLogs) : [];
+      return (Array.isArray(logs) ? logs : []).filter((l) => !/^act_[1-5]$/.test(l?.id));
     } catch (_) {
-      return DEFAULT_ACTIVITY_LOGS;
+      return [];
     }
   },
 
   getLeaderboard: async () => {
-    return CONTRIBUTORS;
+    try {
+      const res = await apiClient.get('/gamification/leaderboard');
+      return Array.isArray(res?.data) ? res.data : [];
+    } catch (_) {
+      return [];
+    }
   },
 };
 
@@ -1198,11 +1044,7 @@ export const shopOwnerService = {
       if (stored) return JSON.parse(stored);
     } catch (_) { }
 
-    return [
-      { id: 'ph_1', productName: 'Big Onions (B Lunu) 1kg', previousPrice: 360, newPrice: 350, updatedBy: 'Store Owner', updatedAt: '1 hour ago' },
-      { id: 'ph_2', productName: 'Fresh Chicken Breast 1kg', previousPrice: 1400, newPrice: 1350, updatedBy: 'Store Owner', updatedAt: 'Yesterday' },
-      { id: 'ph_3', productName: 'Mysore Red Dhal 1kg', previousPrice: 350, newPrice: 340, updatedBy: 'Store Owner', updatedAt: '3 days ago' },
-    ];
+    return [];
   },
 
   getShopAnalytics: async (shopId) => {
@@ -1520,7 +1362,14 @@ export const activityService = {
   getActivity: async (filter = 'all') => {
     try {
       const stored = await AsyncStorage.getItem(USER_ACTIVITY_KEY);
-      let logs = stored ? JSON.parse(stored) : DEFAULT_ACTIVITY_LOGS;
+      let logs = stored ? JSON.parse(stored) : [];
+      // Filter out any mock logs that might have been saved in earlier app versions
+      logs = (Array.isArray(logs) ? logs : []).filter((l) => {
+        if (!l || !l.id) return false;
+        if (/^act_[1-5]$/.test(l.id)) return false;
+        if (l.title === 'Cooked Sri Lankan Chicken Curry' || l.title === 'Saved Rs. 380 with Split-Basket') return false;
+        return true;
+      });
       if (filter && filter !== 'all') {
         logs = logs.filter((l) => {
           if (filter === 'purchase') return l.kind === 'purchase' || l.type === 'purchase' || l.type === 'savings';
@@ -1531,14 +1380,19 @@ export const activityService = {
       }
       return logs;
     } catch (_) {
-      return DEFAULT_ACTIVITY_LOGS;
+      return [];
     }
   },
 
   logActivity: async (activity) => {
     try {
-      const stored = (await AsyncStorage.getItem(USER_ACTIVITY_KEY)) || JSON.stringify(DEFAULT_ACTIVITY_LOGS);
-      const logs = JSON.parse(stored);
+      const stored = await AsyncStorage.getItem(USER_ACTIVITY_KEY);
+      let logs = stored ? JSON.parse(stored) : [];
+      logs = (Array.isArray(logs) ? logs : []).filter((l) => {
+        if (!l || !l.id) return false;
+        if (/^act_[1-5]$/.test(l.id)) return false;
+        return true;
+      });
       const newEntry = {
         id: `act_${Date.now()}`,
         timestamp: 'Just now',

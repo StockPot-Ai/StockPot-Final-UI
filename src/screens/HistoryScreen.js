@@ -39,8 +39,8 @@ const computeStats = (items) => {
     .reduce((sum, a) => sum + (a.amount || 0), 0);
   const totalSaved = items
     .filter((a) => a.kind === 'savings' || a.type === 'savings' || a.saved)
-    .reduce((sum, a) => sum + (a.saved || a.amount || 380), 0);
-  const totalXp = items.reduce((sum, a) => sum + (a.xp || 15), 0);
+    .reduce((sum, a) => sum + (a.saved || a.amount || 0), 0);
+  const totalXp = items.reduce((sum, a) => sum + (a.xp || 0), 0);
 
   return { activities, totalSpent, totalSaved, totalXp };
 };
@@ -181,7 +181,7 @@ const ActivityCard = ({ activity }) => {
           </View>
         </View>
         <View style={styles.xpBadge}>
-          <Text style={styles.xpBadgeText}>+{activity.xp || 15} XP</Text>
+          <Text style={styles.xpBadgeText}>+{activity.xp || 0} XP</Text>
         </View>
       </View>
 

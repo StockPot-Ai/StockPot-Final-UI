@@ -100,9 +100,9 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
       const coords = await locationService.getCoordinates();
       setUserLocation(coords);
 
-      const list = await storeService.getNearbyStores(coords.latitude, coords.longitude, {
+      const list = await storeService.getNearbyStores(coords?.latitude, coords?.longitude, {
         category: 'All',
-        city: coords.city || 'Eheliyagoda',
+        city: coords?.city || '',
       });
 
       setStores(list);
@@ -110,12 +110,11 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
         setSelectedStorePreview(list[0]);
       }
     } catch (_) {
-      // Fallback guarantees valid stores
       const coords = locationService.getCachedLocation();
       setUserLocation(coords);
-      const list = await storeService.getNearbyStores(coords.latitude, coords.longitude, {
+      const list = await storeService.getNearbyStores(coords?.latitude, coords?.longitude, {
         category: 'All',
-        city: coords.city || 'Eheliyagoda',
+        city: coords?.city || '',
       });
       setStores(list);
       if (list.length > 0) {
@@ -172,11 +171,13 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
 
   // Open native Google Maps app search centered at current town
   const handleOpenGoogleMapsSearch = () => {
-    const lat = userLocation?.latitude || 6.8436;
-    const lng = userLocation?.longitude || 80.2604;
-    const city = userLocation?.city || 'Eheliyagoda';
-    const query = encodeURIComponent(`supermarkets and grocery stores in ${city}`);
-    const url = `https://www.google.com/maps/search/?api=1&query=${query}&center=${lat},${lng}`;
+    const lat = userLocation?.latitude;
+    const lng = userLocation?.longitude;
+    const city = userLocation?.city;
+    const query = encodeURIComponent(city ? `supermarkets and grocery stores in ${city}` : 'supermarkets and grocery stores nearby');
+    const url = lat && lng
+      ? `https://www.google.com/maps/search/?api=1&query=${query}&center=${lat},${lng}`
+      : `https://www.google.com/maps/search/?api=1&query=${query}`;
     Linking.openURL(url).catch(() => {});
   };
 
@@ -202,7 +203,7 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
     return result;
   }, [stores, activeCategory, searchQuery]);
 
-  const cityName = userLocation?.city || 'Eheliyagoda';
+  const cityName = userLocation?.city || (!userLocation?.isUnavailable && userLocation?.formatted ? userLocation.formatted : 'Current Area');
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
