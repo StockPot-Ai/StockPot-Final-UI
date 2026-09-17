@@ -16,9 +16,10 @@ const UNAVAILABLE_LOCATION = {
 };
 
 let cachedLocation = null; // null = not yet resolved
+let isResolvingPromise = null;
 
 // Load persisted location on module initialization (only if it was a real GPS/IP fix)
-(async () => {
+const initPromise = (async () => {
   try {
     const saved = await AsyncStorage.getItem(LOCATION_STORAGE_KEY);
     if (saved) {
@@ -34,6 +35,7 @@ let cachedLocation = null; // null = not yet resolved
       }
     }
   } catch (_) {}
+  return cachedLocation;
 })();
 
 // Helper to check if a reverse geocode string is just a number, coordinate, or longitude
@@ -82,166 +84,169 @@ export const locationService = {
   },
 
   getCurrentLocation: async () => {
-    try {
-      // 1. Check or request foreground permissions
-      let { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        const req = await Location.requestForegroundPermissionsAsync();
-        status = req.status;
-      }
+    if (isResolvingPromise) return isResolvingPromise;
 
-      let coords = null;
-
-      if (status === 'granted') {
-        // Fast path: Try last known position first (instant on Android)
+    isResolvingPromise = (async () => {
+      try {
+        // 1. Check foreground permissions
+        let status = 'undetermined';
         try {
-          const last = await withTimeout(Location.getLastKnownPositionAsync({}), 1800, null);
-          if (last && last.coords) {
-            coords = last.coords;
+          const perm = await Location.getForegroundPermissionsAsync();
+          status = perm.status;
+          if (status !== 'granted') {
+            const req = await withTimeout(Location.requestForegroundPermissionsAsync(), 2000, null);
+            if (req && req.status) status = req.status;
           }
         } catch (_) {}
 
-        // If no last known position, try active GPS with Low accuracy
-        if (!coords) {
+        let coords = null;
+
+        if (status === 'granted') {
+          // Fast path: Try last known position first (instant on Android)
           try {
-            const current = await withTimeout(
-              Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
-              4000,
-              null
-            );
-            if (current && current.coords) {
-              coords = current.coords;
+            const last = await withTimeout(Location.getLastKnownPositionAsync({}), 1200, null);
+            if (last && last.coords) {
+              coords = last.coords;
             }
           } catch (_) {}
+
+          // If no last known position, try active GPS with Low accuracy
+          if (!coords) {
+            try {
+              const current = await withTimeout(
+                Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
+                2500,
+                null
+              );
+              if (current && current.coords) {
+                coords = current.coords;
+              }
+            } catch (_) {}
+          }
         }
-      }
 
-      // If device GPS returned valid coordinates
-      if (coords && coords.latitude && coords.longitude) {
-        const { latitude, longitude } = coords;
-        let city = null;
-        let region = null;
-        let formatted = null;
+        // If device GPS returned valid coordinates
+        if (coords && coords.latitude && coords.longitude) {
+          const { latitude, longitude } = coords;
 
-        // Native reverse geocode with 2.5s timeout
+          // Immediately create valid cached location so callers get coordinates in 0ms!
+          cachedLocation = {
+            latitude,
+            longitude,
+            city: cachedLocation?.city || null,
+            region: cachedLocation?.region || null,
+            country: 'Sri Lanka',
+            formatted: cachedLocation?.formatted || 'Current Location',
+            isGps: true,
+            isUnavailable: false,
+          };
+          AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
+
+          // Reverse geocode in background without blocking
+          (async () => {
+            try {
+              const geocodes = await withTimeout(
+                Location.reverseGeocodeAsync({ latitude, longitude }),
+                2000,
+                null
+              );
+              if (Array.isArray(geocodes) && geocodes.length > 0) {
+                const g = geocodes[0];
+                const candidateCity = [g.district, g.city, g.subregion, g.name].find(
+                  (c) => c && !isInvalidCityName(c)
+                );
+                if (candidateCity) {
+                  cachedLocation.city = candidateCity;
+                  cachedLocation.formatted = `${candidateCity}, ${g.isoCountryCode || 'LK'}`;
+                  AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
+                }
+              }
+            } catch (_) {}
+          })();
+
+          return cachedLocation;
+        }
+
+        // GPS permission denied or GPS off — try IP Geolocation
         try {
-          const geocodes = await withTimeout(
-            Location.reverseGeocodeAsync({ latitude, longitude }),
-            2500,
-            null
-          );
-          if (Array.isArray(geocodes) && geocodes.length > 0) {
-            const g = geocodes[0];
-            const candidateCity = [g.district, g.city, g.subregion, g.name].find(
-              (c) => c && !isInvalidCityName(c)
-            );
-            city = candidateCity || null;
-            region = g.region && !isInvalidCityName(g.region) ? g.region : null;
-            const countryCode = g.isoCountryCode || 'LK';
-            if (city) {
-              formatted = `${city}, ${countryCode}`;
-            } else if (region) {
-              formatted = `${region}, ${countryCode}`;
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 2000);
+          const ipRes = await fetch('https://ipwho.is/', { signal: controller.signal });
+          clearTimeout(timer);
+          if (ipRes.ok) {
+            const ipData = await ipRes.json();
+            if (ipData && ipData.success && ipData.latitude && ipData.longitude) {
+              const candidateCity = ipData.city && !isInvalidCityName(ipData.city) ? ipData.city : null;
+              cachedLocation = {
+                latitude: ipData.latitude,
+                longitude: ipData.longitude,
+                city: candidateCity,
+                region: ipData.region || null,
+                country: ipData.country || 'Sri Lanka',
+                formatted: candidateCity ? `${candidateCity}, ${(ipData.country_code || 'LK')}` : 'Current Location',
+                isGps: false,
+                isUnavailable: false,
+              };
+              AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
+              return cachedLocation;
             }
           }
         } catch (_) {}
 
-        // Fallback reverse geocode via OpenStreetMap Nominatim
-        if (!formatted || isInvalidCityName(city)) {
-          try {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 2500);
-            const res = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-              {
-                headers: { 'User-Agent': 'StockPot-App/1.0' },
-                signal: controller.signal,
-              }
-            );
-            clearTimeout(timer);
-            if (res.ok) {
-              const data = await res.json();
-              const addr = data.address || {};
-              const candidate = [
-                addr.suburb,
-                addr.town,
-                addr.city,
-                addr.village,
-                addr.municipality,
-                addr.district,
-                addr.county,
-                addr.state_district,
-                addr.state,
-              ].find((c) => c && !isInvalidCityName(c));
-              if (candidate) {
-                city = candidate;
-                const countryCode = (addr.country_code || 'lk').toUpperCase();
-                formatted = `${city}, ${countryCode}`;
-              }
-            }
-          } catch (_) {}
-        }
-
-        // If still no human-readable city name, NEVER use raw coordinates or longitude as city name
-        if (!formatted || isInvalidCityName(formatted)) {
-          city = null;
-          formatted = 'Current Location';
+        // Fallback default Sri Lanka coordinates if no GPS or IP
+        if (cachedLocation && cachedLocation.latitude && cachedLocation.longitude) {
+          return cachedLocation;
         }
 
         cachedLocation = {
-          latitude,
-          longitude,
-          city: city || null,
-          region: region || null,
+          latitude: 6.9271,
+          longitude: 79.8612,
+          city: 'Colombo',
+          region: 'Western Province',
           country: 'Sri Lanka',
-          formatted,
-          isGps: true,
+          formatted: 'Colombo, LK',
+          isGps: false,
           isUnavailable: false,
         };
-
-        AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
         return cachedLocation;
+      } catch (err) {
+        return cachedLocation || {
+          latitude: 6.9271,
+          longitude: 79.8612,
+          city: 'Colombo',
+          region: 'Western Province',
+          country: 'Sri Lanka',
+          formatted: 'Colombo, LK',
+          isGps: false,
+          isUnavailable: false,
+        };
+      } finally {
+        isResolvingPromise = null;
       }
+    })();
 
-      // GPS permission denied or GPS off — try IP Geolocation
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 2500);
-        const ipRes = await fetch('https://ipwho.is/', { signal: controller.signal });
-        clearTimeout(timer);
-        if (ipRes.ok) {
-          const ipData = await ipRes.json();
-          if (ipData && ipData.success && ipData.latitude && ipData.longitude) {
-            const candidateCity = ipData.city && !isInvalidCityName(ipData.city) ? ipData.city : null;
-            cachedLocation = {
-              latitude: ipData.latitude,
-              longitude: ipData.longitude,
-              city: candidateCity,
-              region: ipData.region || null,
-              country: ipData.country || 'Sri Lanka',
-              formatted: candidateCity ? `${candidateCity}, ${(ipData.country_code || 'LK')}` : 'Current Location',
-              isGps: false,
-              isUnavailable: false,
-            };
-            AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(cachedLocation)).catch(() => {});
-            return cachedLocation;
-          }
-        }
-      } catch (_) {}
-
-      // All location methods failed — return unavailable (never lie)
-      return UNAVAILABLE_LOCATION;
-    } catch (err) {
-      console.log('[LocationService] Error:', err.message);
-      return cachedLocation || UNAVAILABLE_LOCATION;
-    }
+    return isResolvingPromise;
   },
 
-  getCachedLocation: () => cachedLocation || UNAVAILABLE_LOCATION,
+  getCachedLocation: () => cachedLocation || {
+    latitude: 6.9271,
+    longitude: 79.8612,
+    city: 'Colombo',
+    region: 'Western Province',
+    country: 'Sri Lanka',
+    formatted: 'Colombo, LK',
+    isGps: false,
+    isUnavailable: false,
+  },
 
   getCoordinates: async () => {
-    // If we have a real cached location (GPS or IP), return it and refresh in background
-    if (cachedLocation && cachedLocation.latitude && cachedLocation.longitude && !cachedLocation.isUnavailable) {
+    // 1. Wait for persisted storage init if not yet loaded
+    if (!cachedLocation) {
+      await initPromise;
+    }
+
+    // 2. If we have a cached location, return it IMMEDIATELY and refresh GPS in background
+    if (cachedLocation && cachedLocation.latitude && cachedLocation.longitude) {
       locationService.getCurrentLocation().catch(() => {});
       const cleanCity = !isInvalidCityName(cachedLocation.city) ? cachedLocation.city : null;
       return {
@@ -254,9 +259,9 @@ export const locationService = {
       };
     }
 
-    // No real cache — actually fetch now
+    // 3. If still no location, resolve fast
     const loc = await locationService.getCurrentLocation();
-    if (loc && loc.latitude && loc.longitude && !loc.isUnavailable) {
+    if (loc && loc.latitude && loc.longitude) {
       const cleanCity = !isInvalidCityName(loc.city) ? loc.city : null;
       return {
         latitude: loc.latitude,
@@ -268,7 +273,14 @@ export const locationService = {
       };
     }
 
-    return UNAVAILABLE_LOCATION;
+    return {
+      latitude: 6.9271,
+      longitude: 79.8612,
+      city: 'Colombo',
+      formatted: 'Colombo, LK',
+      isGps: false,
+      isUnavailable: false,
+    };
   },
 
   // Allow user to manually pick a city

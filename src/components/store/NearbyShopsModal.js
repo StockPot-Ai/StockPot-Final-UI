@@ -14,6 +14,7 @@ import Colors from '../../constants/colors';
 import { storeService } from '../../services';
 import locationService from '../../services/locationService';
 import { useAccount } from '../../context/AccountContext';
+import AsyncStorage from '../../utils/safeStorage';
 import ShopOwnerModal from './ShopOwnerModal';
 
 const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
@@ -26,28 +27,46 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
 
   useEffect(() => {
     if (visible) {
+      // 1. Immediately show cached stores from storage if current list is empty (0ms latency!)
+      if (stores.length === 0) {
+        AsyncStorage.getItem('@stockpot_cached_nearby_stores').then((raw) => {
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setStores(parsed);
+              setLoading(false);
+            }
+          }
+        }).catch(() => {});
+      }
       loadStores();
     }
   }, [visible]);
 
   const loadStores = async () => {
-    setLoading(true);
+    // Only show full-screen loader if we don't already have stores displayed
+    setLoading(stores.length === 0);
     try {
       const coords = await locationService.getCoordinates();
       setUserLocation(coords);
       const list = await storeService.getNearbyStores(coords?.latitude, coords?.longitude, {
         city: coords?.city || '',
       });
-      setStores(list);
+      if (Array.isArray(list) && list.length > 0) {
+        setStores(list);
+      }
     } catch (_) {
       const coords = locationService.getCachedLocation();
       setUserLocation(coords);
       const list = await storeService.getNearbyStores(coords?.latitude, coords?.longitude, {
         city: coords?.city || '',
       });
-      setStores(list);
+      if (Array.isArray(list) && list.length > 0) {
+        setStores(list);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const filteredStores = stores.filter((s) => {
@@ -125,8 +144,16 @@ const NearbyShopsModal = ({ visible, onClose, onSelectStore }) => {
               <Ionicons name="storefront-outline" size={48} color="#9CA3AF" />
               <Text style={styles.emptyTitle}>No Nearby Stores Found</Text>
               <Text style={styles.emptySubtitle}>
-                We couldn't detect verified stores within this area. Turn on GPS, or register your shop to display your business on the map!
+                We couldn't detect stores within this immediate area. Check your location or tap Retry below to search again.
               </Text>
+              <TouchableOpacity
+                style={styles.retryBtn}
+                onPress={() => loadStores()}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="refresh" size={16} color="#007A3D" style={{ marginRight: 6 }} />
+                <Text style={styles.retryBtnText}>Retry / Search Nearby</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.emptyAddShopBtn}
                 onPress={() => setRegisterModalVisible(true)}
@@ -572,11 +599,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 12,
     marginTop: 6,
+    width: '100%',
   },
   emptyAddShopBtnText: {
     fontSize: 13.5,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    marginBottom: 8,
+    width: '100%',
+  },
+  retryBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#007A3D',
   },
 });
 
