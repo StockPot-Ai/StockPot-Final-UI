@@ -18,6 +18,7 @@ import Colors from '../../constants/colors';
 import { storeService } from '../../services';
 import locationService from '../../services/locationService';
 import { useAccount } from '../../context/AccountContext';
+import AsyncStorage from '../../utils/safeStorage';
 
 const CATEGORIES = [
   'All',
@@ -89,6 +90,19 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
 
   useEffect(() => {
     if (visible) {
+      // Show cached stores instantly at 0ms latency
+      AsyncStorage.getItem('@stockpot_cached_nearby_stores')
+        .then((raw) => {
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setStores(parsed);
+              setSelectedStorePreview(parsed[0]);
+              setLoading(false);
+            }
+          }
+        })
+        .catch(() => {});
       loadStores();
       loadFavourites();
     }
@@ -241,10 +255,15 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
             onPress={handleOpenGoogleMapsSearch}
             activeOpacity={0.85}
           >
-            <View style={styles.gmBannerLeft}>
+            <View style={styles.gmBannerIconWrap}>
               <Ionicons name="map" size={18} color="#007A3D" />
-              <Text style={styles.gmBannerTitle}>
-                Explore {cityName} on Google Maps App
+            </View>
+            <View style={styles.gmBannerContent}>
+              <Text style={styles.gmBannerTitle} numberOfLines={1}>
+                Search {cityName} on Maps
+              </Text>
+              <Text style={styles.gmBannerSub} numberOfLines={1}>
+                Open Google Maps navigation app
               </Text>
             </View>
             <View style={styles.gmBannerPill}>
@@ -427,6 +446,7 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
               ) : (
                 filteredStores.map((store) => {
                   const isFav = favouriteIds.includes(store.id);
+                  const isManualStore = store.isManualStore === true || store.isCustom === true || String(store.id).startsWith('store_custom_');
                   return (
                     <View key={store.id} style={styles.storeCard}>
                       <View style={styles.cardHeader}>
@@ -437,10 +457,15 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
                             <Text style={styles.storeName} numberOfLines={1}>
                               {store.name}
                             </Text>
-                            {store.isVerified && (
+                            {isManualStore ? (
                               <View style={styles.verifiedTag}>
                                 <Ionicons name="checkmark-circle" size={12} color="#166534" />
                                 <Text style={styles.verifiedTagText}>Verified</Text>
+                              </View>
+                            ) : (
+                              <View style={styles.mapListedTag}>
+                                <Ionicons name="map-outline" size={10} color="#4B5563" />
+                                <Text style={styles.mapListedTagText}>Map Listed</Text>
                               </View>
                             )}
                           </View>
@@ -470,11 +495,11 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
                         </View>
                         <View style={styles.metaItem}>
                           <Ionicons name="time-outline" size={12} color="#6B7280" />
-                          <Text style={styles.metaLabel}>{store.openingHours || '7:30 AM – 10 PM'}</Text>
+                          <Text style={styles.metaLabel}>{store.openingHours || 'Open daily'}</Text>
                         </View>
                         <View style={styles.metaItem}>
                           <Ionicons name="star" size={12} color="#F59E0B" />
-                          <Text style={styles.metaLabel}>{store.rating || '4.7'}</Text>
+                          <Text style={styles.metaLabel}>{store.rating || '4.6'}</Text>
                         </View>
                         {store.deliveryAvailable && (
                           <View style={styles.deliveryBadge}>
@@ -485,34 +510,62 @@ const ShopDiscoveryModal = ({ visible, onClose, onSelectStore }) => {
 
                       {/* Store Card Actions */}
                       <View style={styles.cardActions}>
-                        <TouchableOpacity
-                          style={styles.actionBtnMaps}
-                          onPress={() => handleOpenGoogleMapsDirections(store)}
-                          activeOpacity={0.8}
-                        >
-                          <Ionicons name="navigate" size={13} color="#FFFFFF" />
-                          <Text style={styles.actionBtnMapsText}>Directions in Google Maps 🧭</Text>
-                        </TouchableOpacity>
+                        {isManualStore ? (
+                          <>
+                            <TouchableOpacity
+                              style={styles.actionBtnMapsSecondary}
+                              onPress={() => handleOpenGoogleMapsDirections(store)}
+                              activeOpacity={0.8}
+                            >
+                              <Ionicons name="navigate" size={13} color="#007A3D" />
+                              <Text style={styles.actionBtnMapsSecondaryText}>Directions</Text>
+                            </TouchableOpacity>
 
-                        <TouchableOpacity
-                          style={styles.actionBtnCall}
-                          onPress={() => handleCall(store.phone)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="call-outline" size={14} color="#374151" />
-                          <Text style={styles.actionBtnCallText}>Call</Text>
-                        </TouchableOpacity>
+                            {store.phone ? (
+                              <TouchableOpacity
+                                style={styles.actionBtnCall}
+                                onPress={() => handleCall(store.phone)}
+                                activeOpacity={0.7}
+                              >
+                                <Ionicons name="call-outline" size={13} color="#374151" />
+                                <Text style={styles.actionBtnCallText}>Call</Text>
+                              </TouchableOpacity>
+                            ) : null}
 
-                        <TouchableOpacity
-                          style={styles.actionBtnCatalogue}
-                          onPress={() => {
-                            if (onSelectStore) onSelectStore(store);
-                            onClose();
-                          }}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={styles.actionBtnCatalogueText}>Catalogue →</Text>
-                        </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.actionBtnCatalogue}
+                              onPress={() => {
+                                if (onSelectStore) onSelectStore(store);
+                                onClose();
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={styles.actionBtnCatalogueText}>Catalogue →</Text>
+                            </TouchableOpacity>
+                          </>
+                        ) : (
+                          <>
+                            <TouchableOpacity
+                              style={styles.actionBtnMapsFull}
+                              onPress={() => handleOpenGoogleMapsDirections(store)}
+                              activeOpacity={0.8}
+                            >
+                              <Ionicons name="navigate" size={14} color="#FFFFFF" />
+                              <Text style={styles.actionBtnMapsFullText}>Directions in Google Maps 🧭</Text>
+                            </TouchableOpacity>
+
+                            {store.phone ? (
+                              <TouchableOpacity
+                                style={styles.actionBtnCall}
+                                onPress={() => handleCall(store.phone)}
+                                activeOpacity={0.7}
+                              >
+                                <Ionicons name="call-outline" size={14} color="#374151" />
+                                <Text style={styles.actionBtnCallText}>Call</Text>
+                              </TouchableOpacity>
+                            ) : null}
+                          </>
+                        )}
                       </View>
                     </View>
                   );
@@ -600,30 +653,40 @@ const styles = StyleSheet.create({
   googleMapsMasterBanner: {
     marginHorizontal: 16,
     marginTop: 10,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 14,
-    backgroundColor: '#E8F8F0',
+    backgroundColor: '#F0FDF4',
     borderWidth: 1,
-    borderColor: '#C6EED8',
+    borderColor: '#BBF7D0',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  gmBannerLeft: {
-    flexDirection: 'row',
+  gmBannerIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+  },
+  gmBannerContent: {
     flex: 1,
+    marginHorizontal: 10,
   },
   gmBannerTitle: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#007A3D',
+    color: '#166534',
+  },
+  gmBannerSub: {
+    fontSize: 11,
+    color: '#4B5563',
+    marginTop: 1,
   },
   gmBannerPill: {
-    paddingHorizontal: 9,
-    paddingVertical: 4.5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 10,
     backgroundColor: '#007A3D',
   },
@@ -823,52 +886,88 @@ const styles = StyleSheet.create({
   cardActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 8,
     marginTop: 11,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
   },
-  actionBtnMaps: {
+  actionBtnMapsFull: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#007A3D',
-    paddingVertical: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    gap: 6,
+  },
+  actionBtnMapsFullText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  actionBtnMapsSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F8F0',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
     borderRadius: 10,
     gap: 5,
   },
-  actionBtnMapsText: {
-    fontSize: 11.5,
+  actionBtnMapsSecondaryText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#007A3D',
   },
   actionBtnCall: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F3F4F6',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
     borderRadius: 10,
     gap: 4,
   },
   actionBtnCallText: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '600',
     color: '#374151',
   },
   actionBtnCatalogue: {
-    backgroundColor: '#E8F8F0',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007A3D',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
     borderRadius: 10,
+    gap: 4,
   },
   actionBtnCatalogueText: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#007A3D',
+    color: '#FFFFFF',
+  },
+  mapListedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  mapListedTagText: {
+    fontSize: 9.5,
+    fontWeight: '600',
+    color: '#4B5563',
   },
   emptyBox: {
     alignItems: 'center',

@@ -20,7 +20,6 @@ import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-ico
 import Colors from '../constants/colors';
 import AIChatModal from '../components/AIChatModal';
 import CreateRecipeModal from '../components/recipe/CreateRecipeModal';
-import NearbyShopsModal from '../components/store/NearbyShopsModal';
 import ShopDiscoveryModal from '../components/store/ShopDiscoveryModal';
 import ShopOwnerModal from '../components/store/ShopOwnerModal';
 import PremiumUpgradeModal from '../components/account/PremiumUpgradeModal';

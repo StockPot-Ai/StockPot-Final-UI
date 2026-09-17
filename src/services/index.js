@@ -512,241 +512,89 @@ export const storeService = {
   },
 
   getNearbyStores: async (userLat = null, userLng = null, params = {}) => {
-    const cityName = params.city || '';
-    let effectiveLat = userLat;
-    let effectiveLng = userLng;
+    let lat = userLat;
+    let lng = userLng;
 
-    if (!effectiveLat || !effectiveLng || !isValidSriLankaCoords(effectiveLat, effectiveLng)) {
+    if (!lat || !lng || !isValidSriLankaCoords(lat, lng)) {
       try {
         const cached = locationService.getCachedLocation();
         if (cached && isValidSriLankaCoords(cached.latitude, cached.longitude)) {
-          effectiveLat = cached.latitude;
-          effectiveLng = cached.longitude;
-        } else {
-          // Await coordinates directly if not in cache
-          const coords = await locationService.getCoordinates();
-          if (coords && isValidSriLankaCoords(coords.latitude, coords.longitude)) {
-            effectiveLat = coords.latitude;
-            effectiveLng = coords.longitude;
-          } else {
-            effectiveLat = 6.9271;
-            effectiveLng = 79.8612;
-          }
-        }
-      } catch (_) {
-        effectiveLat = 6.9271;
-        effectiveLng = 79.8612;
-      }
-    }
-
-    let liveShops = [];
-    const seenNames = new Set();
-
-    // 1. Query OpenStreetMap Nominatim POI search in ~6km bounding box around user
-    try {
-      const box = 0.055; // ~6km radius around user coordinates
-      const viewbox = `${effectiveLng - box},${effectiveLat + box},${effectiveLng + box},${effectiveLat - box}`;
-      const searchUrls = [
-        `https://nominatim.openstreetmap.org/search?q=supermarket&format=json&limit=15&viewbox=${viewbox}&bounded=1`,
-        `https://nominatim.openstreetmap.org/search?q=grocery&format=json&limit=12&viewbox=${viewbox}&bounded=1`,
-      ];
-
-      const responses = await Promise.allSettled(
-        searchUrls.map((u) =>
-          fetch(u, {
-            headers: { 'User-Agent': 'StockPot-App/1.0 (contact@stockpot.ai)' },
-          }).then((r) => (r.ok ? r.json() : []))
-        )
-      );
-
-      for (const res of responses) {
-        if (res.status === 'fulfilled' && Array.isArray(res.value)) {
-          for (const item of res.value) {
-            const rawTitle = item.display_name.split(',')[0].trim();
-            if (!rawTitle) continue;
-            const norm = rawTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
-            if (seenNames.has(norm)) continue;
-
-            const itemLat = parseFloat(item.lat);
-            const itemLon = parseFloat(item.lon);
-            const dist = calculateDistance(effectiveLat, effectiveLng, itemLat, itemLon);
-
-            // Filter out items further than 8.5 km to prevent far distance stores
-            if (dist > 8.5) continue;
-            seenNames.add(norm);
-
-            const isSuper = rawTitle.toLowerCase().includes('super') || rawTitle.toLowerCase().includes('cargills') || rawTitle.toLowerCase().includes('keells') || rawTitle.toLowerCase().includes('glomark') || rawTitle.toLowerCase().includes('arpico') || rawTitle.toLowerCase().includes('spar');
-
-            liveShops.push({
-              id: `osm_nom_${item.place_id || Math.round(itemLat * 10000)}`,
-              name: rawTitle,
-              category: isSuper ? 'Supermarket' : 'Grocery',
-              color: '#007A3D',
-              latitude: itemLat,
-              longitude: itemLon,
-              address: item.display_name,
-              distanceKm: dist,
-              isVerified: true,
-              isLocalShop: !isSuper,
-              rating: 4.6,
-              reviewsCount: 65,
-              openingHours: 'Open daily',
-              phone: null,
-              deliveryAvailable: false,
-              pickupAvailable: true,
-              paymentMethods: ['Cash', 'LankaQR'],
-              googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawTitle)}${cityName ? `+${encodeURIComponent(cityName)}` : ''}`,
-              googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${itemLat},${itemLon}`,
-            });
-          }
-        }
-      }
-    } catch (_) {}
-
-    // 2. Query Overpass API as secondary if needed within 6km radius
-    if (liveShops.length < 4) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
-        const query = `[out:json][timeout:3];(node["shop"~"supermarket|convenience|grocery"](around:6000,${effectiveLat},${effectiveLng}););out 15;`;
-        const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, {
-          signal: controller.signal,
-          headers: { 'User-Agent': 'StockPot-App/1.0' },
-        });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.elements)) {
-            for (const e of data.elements) {
-              const rawName = e.tags?.name || e.tags?.['name:en'] || '';
-              if (!rawName) continue;
-              const norm = rawName.toLowerCase().replace(/[^a-z0-9]/g, '');
-              if (seenNames.has(norm)) continue;
-
-              const eLat = e.lat || effectiveLat;
-              const eLon = e.lon || effectiveLng;
-              const dist = calculateDistance(effectiveLat, effectiveLng, eLat, eLon);
-              if (dist > 8.5) continue;
-              seenNames.add(norm);
-
-              const rawShop = (e.tags?.shop || '').toLowerCase();
-
-              liveShops.push({
-                id: `osm_${e.id}`,
-                name: rawName,
-                category: rawShop === 'supermarket' ? 'Supermarket' : 'Grocery',
-                color: '#007A3D',
-                latitude: eLat,
-                longitude: eLon,
-                address: `${rawName}${cityName ? `, ${cityName}` : ''}`,
-                distanceKm: dist,
-                isVerified: true,
-                isLocalShop: rawShop !== 'supermarket',
-                rating: 4.5,
-                reviewsCount: 50,
-                openingHours: e.tags?.opening_hours || 'Open daily',
-                phone: e.tags?.phone || null,
-                deliveryAvailable: false,
-                pickupAvailable: true,
-                paymentMethods: ['Cash', 'LankaQR'],
-                googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawName)}${cityName ? `+${encodeURIComponent(cityName)}` : ''}`,
-                googleDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${eLat},${eLon}`,
-              });
-            }
-          }
+          lat = cached.latitude;
+          lng = cached.longitude;
         }
       } catch (_) {}
     }
 
-    // Also get backend stores
-    let apiShops = [];
     try {
-      const backendStores = await storeService.getStores();
-      if (Array.isArray(backendStores)) {
-        apiShops = backendStores
-          .filter((s) => !s.latitude || !s.longitude || calculateDistance(effectiveLat, effectiveLng, s.latitude, s.longitude) <= 15)
-          .map((s) => {
-            const dist = (effectiveLat && effectiveLng && s.latitude && s.longitude)
-              ? calculateDistance(effectiveLat, effectiveLng, s.latitude, s.longitude)
-              : (s.distanceKm || null);
-            return {
-              ...s,
-              distanceKm: dist,
-              googleMapsUrl: s.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name)}`,
-              googleDirectionsUrl: s.googleDirectionsUrl || (s.latitude && s.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}` : null),
-            };
-          });
-      }
-    } catch (_) {}
+      const res = await apiClient.get('/stores/nearby', {
+        params: {
+          lat: lat || 6.9271,
+          lng: lng || 79.8612,
+          category: params.category || 'All',
+          city: params.city || '',
+        },
+      });
 
-    let combined = [];
-    for (const store of [...liveShops, ...apiShops]) {
-      const norm = store.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (!seenNames.has(norm)) {
-        seenNames.add(norm);
-        combined.push(store);
-      } else if (liveShops.some((ls) => ls.id === store.id)) {
-        combined.push(store);
-      }
-    }
+      let list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
 
-    // Include custom shops registered on this device
-    try {
-      const customShops = await AsyncStorage.getItem(CUSTOM_SHOPS_KEY);
-      if (customShops) {
-        const parsed = JSON.parse(customShops);
-        const mappedCustom = parsed
-          .map((s) => ({
+      // Include custom shops registered locally on this device
+      try {
+        const customShops = await AsyncStorage.getItem(CUSTOM_SHOPS_KEY);
+        if (customShops) {
+          const parsed = JSON.parse(customShops);
+          const mappedCustom = parsed.map((s) => ({
             ...s,
             isManualStore: true,
-            isCustom: true,
-            distanceKm: (effectiveLat && effectiveLng && s.latitude && s.longitude)
-              ? calculateDistance(effectiveLat, effectiveLng, s.latitude, s.longitude)
-              : null,
+            isVerified: true,
+            distanceKm: (lat && lng && s.latitude && s.longitude)
+              ? calculateDistance(lat, lng, s.latitude, s.longitude)
+              : 0.5,
             googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name)}`,
             googleDirectionsUrl: s.latitude && s.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${s.latitude},${s.longitude}` : null,
-          }))
-          .filter((s) => s.distanceKm === null || s.distanceKm <= 15);
-        combined = [...mappedCustom, ...combined];
+          }));
+          list = [...mappedCustom, ...list];
+        }
+      } catch (_) {}
+
+      // Re-calculate distance dynamically with live user coordinates
+      if (lat && lng) {
+        list.forEach((s) => {
+          if (s.latitude && s.longitude) {
+            s.distanceKm = calculateDistance(lat, lng, s.latitude, s.longitude);
+          }
+        });
+        list.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
       }
-    } catch (_) {}
 
-    // Sort by distance if available
-    combined.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+      // Filter by search query if provided
+      if (params.search && params.search.trim()) {
+        const q = params.search.toLowerCase().trim();
+        list = list.filter(
+          (s) =>
+            s.name?.toLowerCase().includes(q) ||
+            s.address?.toLowerCase().includes(q) ||
+            s.category?.toLowerCase().includes(q)
+        );
+      }
 
-    // Cache results so next time modal opens, stores appear with 0ms delay!
-    if (combined.length > 0) {
-      AsyncStorage.setItem('@stockpot_cached_nearby_stores', JSON.stringify(combined)).catch(() => {});
-    } else {
-      // If live search returned 0 results (e.g. offline/network glitch), load previously cached nearby stores
+      if (list.length > 0) {
+        AsyncStorage.setItem('@stockpot_cached_nearby_stores', JSON.stringify(list)).catch(() => {});
+      }
+
+      return list;
+    } catch (err) {
+      // Offline fallback: load from cached storage
       try {
         const cachedRaw = await AsyncStorage.getItem('@stockpot_cached_nearby_stores');
         if (cachedRaw) {
           const cachedList = JSON.parse(cachedRaw);
           if (Array.isArray(cachedList) && cachedList.length > 0) {
-            combined = cachedList;
+            return cachedList;
           }
         }
       } catch (_) {}
+      return [];
     }
-
-    // Category filter
-    if (params.category && params.category !== 'All') {
-      combined = combined.filter((s) => s.category?.toLowerCase().includes(params.category.toLowerCase()));
-    }
-
-    // Search query
-    if (params.search && params.search.trim()) {
-      const q = params.search.toLowerCase().trim();
-      combined = combined.filter(
-        (s) =>
-          s.name?.toLowerCase().includes(q) ||
-          s.address?.toLowerCase().includes(q) ||
-          s.category?.toLowerCase().includes(q)
-      );
-    }
-
-    return combined.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
   },
 
   getAllDiscounts: async () => {
